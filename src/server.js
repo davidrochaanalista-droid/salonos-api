@@ -26,7 +26,9 @@ const rotasAgenda = require('./routes/agenda');
 const rotasComandas = require('./routes/comandas');
 const rotasCaixa = require('./routes/caixa');
 const rotasRelatorios = require('./routes/relatorios');
+const rotasMetas = require('./routes/metas');
 const rotaWhatsapp = require('./routes/whatsapp'); // wrapper do 02-whatsapp-ia-servico.js — ver nota no final deste arquivo
+const rotaAvaliacoes = require('./routes/avaliacoes'); // pública -- cliente sem login avalia via link
 
 const app = express();
 app.set('trust proxy', 1); // Railway fica atrás de proxy -- necessário pro rate limit identificar IP real
@@ -57,6 +59,13 @@ app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().
 app.use('/webhook', rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false }));
 app.use(rotaWhatsapp);
 
+// ── Avaliação — cliente sem login, avalia via link enviado após o atendimento ──
+// (mesmo cuidado de escopo do webhook acima: o rate limit fica restrito ao
+// prefixo /avaliacoes, o router é montado na raiz porque já define o
+// caminho completo internamente.)
+app.use('/avaliacoes', rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false }));
+app.use(rotaAvaliacoes);
+
 // ── A partir daqui, toda rota exige token válido do Supabase Auth ──
 app.use(autenticar);
 
@@ -67,7 +76,8 @@ app.use('/', rotasProfissionais); // já inclui o prefixo /estabelecimentos/:id/
 app.use('/', rotasAgenda);     // já inclui o prefixo /estabelecimentos/:id/agendamentos internamente
 app.use('/', rotasComandas);   // já inclui o prefixo /estabelecimentos/:id/comandas internamente
 app.use('/', rotasCaixa);      // já inclui o prefixo /estabelecimentos/:id/caixa internamente
-app.use('/', rotasRelatorios); // /relatorios/margem-rede
+app.use('/', rotasRelatorios); // /relatorios/margem-rede e /estabelecimentos/:id/resumo-mensal
+app.use('/', rotasMetas);      // já inclui o prefixo /estabelecimentos/:id/metas internamente
 
 // ── Tratamento de erro genérico ──
 app.use((err, req, res, next) => {

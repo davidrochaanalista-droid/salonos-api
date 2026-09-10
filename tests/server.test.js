@@ -24,4 +24,14 @@ describe('Autenticação', () => {
     const res = await request(app).post('/webhook/whatsapp/qualquer-id').send({});
     expect(res.status).not.toBe(401);
   });
+
+  it('não exige autenticação em /avaliacoes (cliente sem login)', async () => {
+    const res = await request(app).post('/avaliacoes').send({ atendimento_id: 'qualquer-id', nota: 5 });
+    expect(res.status).not.toBe(401);
+  });
+
+  it('bloqueia /estabelecimentos/:id/metas sem Authorization header', async () => {
+    const res = await request(app).get('/estabelecimentos/qualquer-id/metas');
+    expect(res.status).toBe(401);
+  });
 });
