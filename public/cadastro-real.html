@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SalonOS — Cadastro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root{
+  --nude:#F2E8E1;--nude2:#EAD8CE;--nude3:#D4BFB4;--wh:#FFFFFF;
+  --gd:#C9A96E;--gdd:#A8864A;--gdg:rgba(201,169,110,.22);
+  --ink:#1A1510;--ink2:#3A3028;--ink3:#8A7A72;--ink4:#C4B4AC;
+  --rs:#C0504A;--rsl:#FBF0EF;--sg:#4A7A62;--sgl:#EDF4F0;
+  --bd:rgba(26,21,16,.09);--bd2:rgba(26,21,16,.18);
+  --sh:0 1px 4px rgba(26,21,16,.06),0 6px 28px rgba(26,21,16,.09);
+  --fd:'Cormorant Garamond',Georgia,serif;--fb:'DM Sans',system-ui,sans-serif;
+  --r:12px;--rs2:8px;--ez:cubic-bezier(.4,0,.2,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:var(--fb);background:var(--nude);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select{font-family:inherit;font-size:14px;outline:none;border:none;width:100%}
+
+.wrap{width:100%;max-width:480px}
+.brand{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:28px}
+.bmark{width:34px;height:34px;background:var(--ink);border-radius:8px;display:grid;place-items:center;color:var(--gd);font-size:16px;transform:rotate(-5deg)}
+.bname{font-family:var(--fd);font-size:24px}.bname em{font-style:italic;color:var(--gdd)}
+
+.card{background:var(--wh);border:1px solid var(--bd);border-radius:16px;padding:32px;box-shadow:var(--sh)}
+.step-title{font-family:var(--fd);font-size:24px;font-weight:400;margin-bottom:6px}
+.step-title em{font-style:italic;color:var(--gdd)}
+.step-sub{font-size:12.5px;color:var(--ink3);margin-bottom:24px;line-height:1.6}
+
+.fg{margin-bottom:14px}
+.bl{display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:6px}
+.fi{background:var(--nude);border:1px solid var(--bd2);border-radius:var(--rs2);padding:11px 14px;font-size:13px;transition:border-color .15s}
+.fi:focus{border-color:var(--gd)}
+select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238A7A72'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:12px;border-radius:var(--rs2);font-size:13px;font-weight:600;transition:all .15s}
+.btp{background:var(--ink);color:var(--wh)}.btp:hover{background:var(--ink2)}
+.btg{background:linear-gradient(135deg,var(--gd),var(--gdd));color:var(--wh)}.btg:hover{opacity:.92}
+.btgh{background:var(--nude2);color:var(--ink2);border:1px solid var(--bd)}.btgh:hover{background:var(--nude3)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.toggle{display:flex;gap:6px;margin-bottom:22px;background:var(--nude2);border-radius:var(--rs2);padding:3px}
+.toggle button{flex:1;padding:9px;border-radius:6px;font-size:12.5px;font-weight:500;color:var(--ink3)}
+.toggle button.active{background:var(--wh);color:var(--ink);box-shadow:var(--sh)}
+
+.msg{padding:11px 14px;border-radius:8px;font-size:12.5px;margin-bottom:16px;line-height:1.5}
+.msg.erro{background:var(--rsl);color:var(--rs)}
+.msg.ok{background:var(--sgl);color:var(--sg)}
+
+.ativ-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd)}
+.ativ-row:last-child{border-bottom:none}
+.ativ-nome{flex:1;font-size:12.5px;font-weight:500}
+.ativ-preco{width:90px}
+.ativ-preco input{padding:7px 9px;font-size:12px}
+
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:var(--wh);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.divider{height:1px;background:var(--bd);margin:20px 0}
+.center{text-align:center}
+.txs{font-size:11px;color:var(--ink3)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="brand"><div class="bmark">✂</div><div class="bname">Salon<em>OS</em></div></div>
+  <div class="card" id="app">Carregando...</div>
+</div>
+
+<script>
+'use strict';
+
+// ============================================================
+// CONFIGURAÇÃO — preencher com os valores reais do seu projeto
+// ============================================================
+const SUPABASE_URL = 'https://obluisngzkxwbzewxthg.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Q7uRhHIJmIEWnTmiDWwOfA_fPEWPpqb';
+const API_BASE_URL = 'https://SUA-API.up.railway.app'; // preencher depois do deploy no Railway (ver passo 4 do guia)
+// ============================================================
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const app = document.getElementById('app');
+
+let estado = { tela: 'auth', modoAuth: 'login', erro: null, carregando: false, segmentos: [], estabelecimento: null, atividades: [] };
+
+function render() {
+  if (estado.tela === 'auth') return renderAuth();
+  if (estado.tela === 'criar-estabelecimento') return renderCriarEstabelecimento();
+  if (estado.tela === 'catalogo') return renderCatalogo();
+  if (estado.tela === 'completo') return renderCompleto();
+}
+
+// ── TELA 1: LOGIN / CADASTRO ──
+function renderAuth() {
+  const isLogin = estado.modoAuth === 'login';
+  app.innerHTML = `
+    <div class="step-title">Bem-vindo${isLogin ? ' de volta' : ''} <em>ao SalonOS</em></div>
+    <div class="step-sub">${isLogin ? 'Entre para gerenciar seu estabelecimento.' : 'Crie sua conta para cadastrar seu estabelecimento.'}</div>
+    <div class="toggle">
+      <button class="${isLogin ? 'active' : ''}" onclick="mudarModoAuth('login')">Já tenho conta</button>
+      <button class="${!isLogin ? 'active' : ''}" onclick="mudarModoAuth('cadastro')">Criar conta</button>
+    </div>
+    ${estado.erro ? `<div class="msg erro">${estado.erro}</div>` : ''}
+    ${!isLogin ? `<div class="fg"><label class="bl">Seu nome</label><input class="fi" id="fNome" placeholder="Seu nome completo"></div>` : ''}
+    ${!isLogin ? `<div class="fg"><label class="bl">Seu telefone</label><input class="fi" id="fTelefone" placeholder="(11) 90000-0000"></div>` : ''}
+    <div class="fg"><label class="bl">E-mail</label><input class="fi" id="fEmail" type="email" placeholder="voce@email.com"></div>
+    <div class="fg"><label class="bl">Senha</label><input class="fi" id="fSenha" type="password" placeholder="Mínimo 6 caracteres"></div>
+    <button class="btn btp" id="btnAuth" onclick="submeterAuth()">${isLogin ? 'Entrar' : 'Criar conta'}</button>
+  `;
+}
+
+function mudarModoAuth(modo) {
+  estado.modoAuth = modo;
+  estado.erro = null;
+  render();
+}
+
+async function submeterAuth() {
+  const email = document.getElementById('fEmail').value.trim();
+  const senha = document.getElementById('fSenha').value;
+  const btn = document.getElementById('btnAuth');
+
+  if (!email || !senha) { estado.erro = 'Preencha e-mail e senha.'; return render(); }
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    if (estado.modoAuth === 'login') {
+      const { error } = await sb.auth.signInWithPassword({ email, password: senha });
+      if (error) throw error;
+    } else {
+      const nome = document.getElementById('fNome').value.trim();
+      const telefone = document.getElementById('fTelefone').value.trim();
+      if (!nome || !telefone) throw new Error('Preencha nome e telefone.');
+
+      // metadata vai para raw_user_meta_data — lido pelo trigger criar_proprietario_no_signup
+      // (ver 01-schema-fase1.sql, seção 8) para já criar o registro em `proprietarios`
+      const { error } = await sb.auth.signUp({
+        email, password: senha,
+        options: { data: { nome, telefone } },
+      });
+      if (error) throw error;
+    }
+
+    await verificarSessaoEContinuar();
+  } catch (e) {
+    estado.erro = traduzirErroAuth(e.message);
+    render();
+  }
+}
+
+function traduzirErroAuth(msg) {
+  if (msg.includes('Invalid login credentials')) return 'E-mail ou senha incorretos.';
+  if (msg.includes('already registered')) return 'Este e-mail já tem uma conta — tente entrar em vez de criar.';
+  if (msg.includes('Password should be')) return 'A senha precisa ter pelo menos 6 caracteres.';
+  return msg;
+}
+
+// ── Depois do login/cadastro: checa se já existe estabelecimento ──
+async function verificarSessaoEContinuar() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { estado.erro = 'Sessão não encontrada — tente entrar novamente.'; return render(); }
+
+  const estabelecimentos = await chamarAPI('GET', '/estabelecimentos');
+
+  if (estabelecimentos && estabelecimentos.length > 0) {
+    estado.estabelecimento = estabelecimentos[0];
+    await carregarAtividades();
+    estado.tela = 'completo';
+  } else {
+    estado.segmentos = await chamarAPI('GET', '/segmentos') || [];
+    estado.tela = 'criar-estabelecimento';
+  }
+  render();
+}
+
+// ── TELA 2: CRIAR ESTABELECIMENTO ──
+function renderCriarEstabelecimento() {
+  app.innerHTML = `
+    <div class="step-title">Seu <em>estabelecimento</em></div>
+    <div class="step-sub">Essas informações aparecem para as suas clientes e nos lembretes automáticos por WhatsApp.</div>
+    ${estado.erro ? `<div class="msg erro">${estado.erro}</div>` : ''}
+    <div class="fg"><label class="bl">Nome do estabelecimento</label><input class="fi" id="fNomeEst" placeholder="Ex: Studio Beleza Pro"></div>
+    <div class="fg"><label class="bl">Segmento</label>
+      <select class="fi" id="fSegmento">
+        ${estado.segmentos.map(s => `<option value="${s.id}">${s.icone} ${s.nome}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fg"><label class="bl">WhatsApp do estabelecimento</label><input class="fi" id="fWhatsapp" placeholder="(11) 90000-0000"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label class="bl">Cidade</label><input class="fi" id="fCidade" placeholder="São Paulo"></div>
+      <div class="fg"><label class="bl">Bairro</label><input class="fi" id="fBairro" placeholder="Jardins"></div>
+    </div>
+    <button class="btn btp" id="btnCriarEst" onclick="submeterEstabelecimento()">Cadastrar estabelecimento</button>
+  `;
+}
+
+async function submeterEstabelecimento() {
+  const nome = document.getElementById('fNomeEst').value.trim();
+  const segmento_id = document.getElementById('fSegmento').value;
+  const whatsapp = document.getElementById('fWhatsapp').value.trim();
+  const cidade = document.getElementById('fCidade').value.trim();
+  const bairro = document.getElementById('fBairro').value.trim();
+  const btn = document.getElementById('btnCriarEst');
+
+  if (!nome || !whatsapp) { estado.erro = 'Nome e WhatsApp são obrigatórios.'; return render(); }
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+
+  const novoEstabelecimento = await chamarAPI('POST', '/estabelecimentos', { nome, segmento_id, whatsapp, cidade, bairro });
+  if (!novoEstabelecimento) { btn.disabled = false; btn.textContent = 'Cadastrar estabelecimento'; return; }
+
+  estado.estabelecimento = novoEstabelecimento;
+  estado.erro = null;
+  estado.tela = 'catalogo';
+  render();
+}
+
+// ── TELA 3: ADOTAR CATÁLOGO DE ATIVIDADES ──
+function renderCatalogo() {
+  app.innerHTML = `
+    <div class="step-title">Seus <em>serviços</em></div>
+    <div class="step-sub">Preparamos uma lista sugerida para o seu segmento. Adote tudo de uma vez e ajuste os preços — ou remova o que não oferece.</div>
+    ${estado.erro ? `<div class="msg erro">${estado.erro}</div>` : ''}
+    <button class="btn btg" id="btnAdotar" onclick="adotarCatalogoCompleto()">Adotar catálogo sugerido</button>
+    <div class="divider"></div>
+    <button class="btn btgh" onclick="pularCatalogo()">Pular — vou cadastrar manualmente depois</button>
+  `;
+}
+
+async function adotarCatalogoCompleto() {
+  const btn = document.getElementById('btnAdotar');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+
+  const resultado = await chamarAPI('POST', `/estabelecimentos/${estado.estabelecimento.id}/atividades/adotar-catalogo-completo`);
+  if (!resultado) { btn.disabled = false; btn.textContent = 'Adotar catálogo sugerido'; return; }
+
+  estado.atividades = resultado;
+  estado.tela = 'completo';
+  render();
+}
+
+function pularCatalogo() {
+  estado.atividades = [];
+  estado.tela = 'completo';
+  render();
+}
+
+async function carregarAtividades() {
+  estado.atividades = await chamarAPI('GET', `/estabelecimentos/${estado.estabelecimento.id}/atividades`) || [];
+}
+
+// ── TELA 4: CADASTRO COMPLETO ──
+function renderCompleto() {
+  app.innerHTML = `
+    <div class="center" style="margin-bottom:20px">
+      <div style="font-size:44px;margin-bottom:8px">🎉</div>
+      <div class="step-title">Tudo <em>pronto</em></div>
+      <div class="step-sub">${estado.estabelecimento.nome} está cadastrado no SalonOS.</div>
+    </div>
+    ${estado.atividades.length ? `
+      <div class="bl" style="margin-bottom:10px">${estado.atividades.length} serviços cadastrados</div>
+      ${estado.atividades.slice(0, 6).map(a => `
+        <div class="ativ-row">
+          <div class="ativ-nome">${a.nome}</div>
+          <div class="ativ-preco"><input class="fi" type="number" value="${a.preco}" onchange="atualizarPreco('${a.id}', this.value)"></div>
+        </div>`).join('')}
+      ${estado.atividades.length > 6 ? `<div class="txs" style="margin-top:8px">+ ${estado.atividades.length - 6} outros — edite todos no painel completo.</div>` : ''}
+      <div class="divider"></div>
+    ` : ''}
+    <button class="btn btp" onclick="alert('Abra salon-v6.html para acessar o painel operacional completo.')">Ir para o painel</button>
+  `;
+}
+
+async function atualizarPreco(atividadeId, novoPreco) {
+  await chamarAPI('PATCH', `/atividades/${atividadeId}`, { preco: Number(novoPreco) });
+}
+
+// ── Helper de chamada à API, já injetando o token de autenticação ──
+async function chamarAPI(metodo, caminho, corpo) {
+  const { data: { session } } = await sb.auth.getSession();
+  try {
+    const resposta = await fetch(API_BASE_URL + caminho, {
+      method: metodo,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token || ''}`,
+      },
+      body: corpo ? JSON.stringify(corpo) : undefined,
+    });
+    const json = await resposta.json();
+    if (!resposta.ok) throw new Error(json.erro || 'Erro na requisição.');
+    return json;
+  } catch (e) {
+    estado.erro = e.message;
+    render();
+    return null;
+  }
+}
+
+// ── Inicialização: se já existe sessão ativa, pula direto para checar estabelecimento ──
+(async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    await verificarSessaoEContinuar();
+  } else {
+    render();
+  }
+})();
+</script>
+</body>
+</html>

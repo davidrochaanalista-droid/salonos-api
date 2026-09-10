@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="theme-color" content="#1A1A1A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SalonOS Proprietário">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SalonOS — Painel do Proprietário</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --nude:#F2E8E1;--nude2:#EAD8CE;--nude3:#D4BFB4;--wh:#FFFFFF;
+  --gd:#C9A96E;--gdl:#EAD9BC;--gdd:#A8864A;--gdg:rgba(201,169,110,.22);
+  --rose:#C97B8A;--rosedark:#A85A6A;--roselight:rgba(201,123,138,.12);
+  --ink:#1A1510;--ink2:#3A3028;--ink3:#8A7A72;--ink4:#C4B4AC;
+  --rs:#C0504A;--rsl:#FBF0EF;--sg:#4A7A62;--sgl:#EDF4F0;
+  --am:#9A6F00;--aml:#FFF8EC;--sk:#3A6EA8;--skl:#EEF4FB;--vi:#7A5A9A;
+  --cr:var(--nude);--cr2:var(--nude2);--cr3:var(--nude3);
+  --bd:rgba(26,21,16,.09);--bd2:rgba(26,21,16,.18);
+  --sh:0 1px 4px rgba(26,21,16,.06),0 6px 28px rgba(26,21,16,.09);
+  --sh2:0 4px 20px rgba(26,21,16,.12),0 28px 64px rgba(26,21,16,.16);
+  --fd:'Cormorant Garamond',Georgia,serif;--fb:'DM Sans',system-ui,sans-serif;
+  --r:12px;--rs2:8px;--rl:18px;--ez:cubic-bezier(.4,0,.2,1);--t:160ms;--tm:300ms
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px;-webkit-font-smoothing:antialiased}
+body{font-family:var(--fb);background:var(--nude);color:var(--ink);min-height:100vh}
+button{font-family:inherit;cursor:pointer;border:none;outline:none;background:none}
+input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:none}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--cr3);border-radius:3px}
+
+/* ── TOPBAR ── */
+.topbar{
+  position:fixed;top:0;left:0;right:0;height:58px;
+  background:rgba(250,248,245,.94);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--bd);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;z-index:500;
+}
+.brand{display:flex;align-items:center;gap:12px}
+.bmark{width:32px;height:32px;background:var(--ink);border-radius:7px;display:grid;place-items:center;color:var(--gd);font-size:15px;transform:rotate(-5deg);flex-shrink:0}
+.bname{font-family:var(--fd);font-size:20px;font-weight:400}
+.bname em{font-style:italic;color:var(--gdd)}
+.bsub{font-size:10px;color:var(--ink3);margin-top:1px}
+.tnav-top{display:flex;align-items:center;gap:3px}
+.tnt{padding:7px 13px;border-radius:var(--rs2);font-size:12.5px;font-weight:500;color:var(--ink3);cursor:pointer;transition:all var(--t);border:1px solid transparent;white-space:nowrap}
+.tnt:hover{background:var(--cr2);color:var(--ink)}
+.tnt.active{background:var(--wh);color:var(--ink);border-color:var(--bd);box-shadow:0 1px 4px rgba(26,26,26,.07)}
+.tnt.exit{color:var(--rs)}.tnt.exit:hover{background:var(--rsl)}
+.tright{display:flex;align-items:center;gap:10px}
+.owner-chip{display:flex;align-items:center;gap:8px;padding:5px 12px;background:var(--cr2);border:1px solid var(--bd);border-radius:20px;cursor:pointer;transition:all var(--t)}
+.owner-chip:hover{background:var(--cr3)}
+.owner-av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--gd),var(--gdd));display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--wh);flex-shrink:0}
+.owner-nm{font-size:12px;font-weight:600}
+.owner-plan{font-size:10px;color:var(--gdd);font-weight:600}
+
+/* ── HERO ── */
+.hero{
+  background:var(--ink);
+  padding:88px 28px 40px;
+  position:relative;overflow:hidden;
+}
+.hero::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 50px,rgba(201,169,110,.02) 50px,rgba(201,169,110,.02) 51px)}
+.hero::after{content:'';position:absolute;top:-200px;right:-100px;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(201,169,110,.1),transparent 65%);pointer-events:none}
+.hero-inner{max-width:1200px;margin:0 auto;display:flex;align-items:flex-end;justify-content:space-between;gap:32px;flex-wrap:wrap;position:relative;z-index:1}
+.hero-ey{font-size:10px;font-weight:600;color:rgba(255,255,255,.3);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:10px}
+.hero-h{font-family:var(--fd);font-size:44px;font-weight:300;color:var(--wh);line-height:1.05;letter-spacing:-.8px;margin-bottom:8px}
+.hero-h em{font-style:italic;color:var(--gd)}
+.hero-sub{font-size:14px;color:rgba(255,255,255,.45);line-height:1.6;max-width:500px}
+.hero-kpis{display:flex;gap:0;flex-wrap:wrap}
+.hkpi{padding:0 24px;border-left:1px solid rgba(255,255,255,.09);text-align:center}
+.hkpi:first-child{border-left:none}
+.hkpi-v{font-family:var(--fd);font-size:30px;font-weight:300;color:var(--wh);line-height:1;margin-bottom:4px}
+.hkpi-v.g{color:var(--gd)}.hkpi-v.s{color:var(--sg)}
+.hkpi-l{font-size:9px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.8px}
+.hkpi-d{font-size:10px;margin-top:3px;font-weight:500;color:var(--sg)}
+
+/* ── LAYOUT ── */
+.main{max-width:1200px;margin:0 auto;padding:28px}
+.page{display:none;animation:fup .22s var(--ez) both}
+.page.active{display:block}
+@keyframes fup{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}
+.g64{display:grid;grid-template-columns:1.6fr 1fr;gap:16px}
+@media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:720px){.g2,.g3,.g4,.g64{grid-template-columns:1fr}}
+
+/* ── SECTION HEADER ── */
+.sech{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap}
+.sct{font-family:var(--fd);font-size:26px;font-weight:400;letter-spacing:-.3px;line-height:1}
+.sct em{font-style:italic;color:var(--gdd)}
+.scsub{font-size:11px;color:var(--ink3);margin-top:4px}
+.scacts{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* ── SALON CARDS ── */
+.salon-card{
+  background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);
+  overflow:hidden;box-shadow:var(--sh);
+  transition:transform var(--t),box-shadow var(--tm),border-color var(--t);
+  cursor:pointer;position:relative;
+}
+.salon-card:hover{transform:translateY(-3px);box-shadow:var(--sh2);border-color:var(--bd2)}
+.salon-card.featured{border-color:var(--gd)}
+.salon-card-header{
+  padding:20px;
+  position:relative;
+  overflow:hidden;
+}
+.salon-card-header::before{
+  content:'';position:absolute;inset:0;
+  opacity:.06;
+}
+.salon-rank{
+  position:absolute;top:16px;right:16px;
+  width:28px;height:28px;border-radius:50%;
+  display:grid;place-items:center;
+  font-family:var(--fd);font-size:16px;font-weight:300;
+}
+.salon-status-bar{height:3px;width:100%}
+.salon-logo{
+  width:44px;height:44px;border-radius:10px;
+  display:grid;place-items:center;
+  font-size:20px;margin-bottom:12px;
+}
+.salon-name{font-family:var(--fd);font-size:20px;font-weight:400;margin-bottom:2px}
+.salon-name em{font-style:italic;color:var(--gdd)}
+.salon-city{font-size:11px;color:var(--ink3);margin-bottom:12px;display:flex;align-items:center;gap:4px}
+.salon-stat-row{display:flex;gap:0;border-top:1px solid var(--bd);margin:0 -20px -20px}
+.salon-stat{flex:1;padding:12px 14px;text-align:center;border-right:1px solid var(--bd)}
+.salon-stat:last-child{border-right:none}
+.salon-stat-v{font-family:var(--fd);font-size:18px;font-weight:300;line-height:1;margin-bottom:2px}
+.salon-stat-l{font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px}
+
+/* ── ADD SALON CARD ── */
+.add-card{
+  background:var(--cr);border:2px dashed var(--cr3);border-radius:var(--r);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:40px 20px;text-align:center;cursor:pointer;
+  transition:all var(--tm);min-height:240px;
+}
+.add-card:hover{border-color:var(--gd);background:rgba(201,169,110,.04)}
+.add-icon{width:48px;height:48px;border-radius:50%;border:2px solid var(--cr3);display:grid;place-items:center;font-size:24px;color:var(--ink4);margin:0 auto 12px;transition:all var(--t)}
+.add-card:hover .add-icon{border-color:var(--gd);color:var(--gdd);background:rgba(201,169,110,.08)}
+.add-title{font-family:var(--fd);font-size:18px;font-weight:400;margin-bottom:4px}
+.add-sub{font-size:12px;color:var(--ink3);line-height:1.5}
+
+/* ── KPI CARDS ── */
+.kc{background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);padding:18px;position:relative;overflow:hidden;transition:transform var(--t),box-shadow var(--tm)}
+.kc:hover{transform:translateY(-2px);box-shadow:var(--sh2)}
+.kcbar{position:absolute;top:0;left:0;right:0;height:2px}
+.kclbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:8px}
+.kcv{font-family:var(--fd);font-size:28px;font-weight:300;letter-spacing:-.5px;line-height:1;margin-bottom:5px}
+.kcd{font-size:11px;font-weight:500}
+.kcd.up{color:var(--sg)}.kcd.dn{color:var(--rs)}.kcd.n{color:var(--ink3)}
+.kcico{position:absolute;bottom:-4px;right:4px;font-size:42px;opacity:.055;pointer-events:none}
+
+/* ── RANKING TABLE ── */
+.rank-table{background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}
+.rt-head{display:grid;padding:10px 20px;border-bottom:1px solid var(--bd);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--ink3);background:var(--cr)}
+.rt-row{display:grid;padding:14px 20px;border-bottom:1px solid var(--bd);align-items:center;font-size:13px;transition:background var(--t);cursor:pointer}
+.rt-row:last-child{border-bottom:none}
+.rt-row:hover{background:var(--cr)}
+.rt-7{grid-template-columns:40px 2fr 1fr 1fr 1fr 1fr 100px}
+
+/* ── FORM STEPS ── */
+.steps-nav{display:flex;align-items:center;gap:0;margin-bottom:28px;background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}
+.step-item{flex:1;display:flex;align-items:center;gap:8px;padding:14px 18px;cursor:pointer;transition:all var(--t);border-right:1px solid var(--bd);position:relative}
+.step-item:last-child{border-right:none}
+.step-item.active{background:var(--ink);color:var(--wh)}
+.step-item.done{background:var(--sgl)}
+.step-item.active .step-num{background:var(--gd);color:var(--ink)}
+.step-item.done .step-num{background:var(--sg);color:var(--wh)}
+.step-num{width:24px;height:24px;border-radius:50%;background:var(--cr2);border:1px solid var(--bd2);display:grid;place-items:center;font-size:11px;font-weight:700;flex-shrink:0;transition:all var(--t)}
+.step-label{font-size:12px;font-weight:600}
+.step-sub{font-size:10px;color:var(--ink3);margin-top:1px}
+.step-item.active .step-sub{color:rgba(255,255,255,.55)}
+.step-item.done .step-sub{color:var(--sg)}
+.form-step{display:none}
+.form-step.active{display:block;animation:fup .2s var(--ez)}
+
+/* ── FORM ── */
+.form-card{background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);padding:28px;box-shadow:var(--sh);margin-bottom:16px}
+.form-section-title{font-family:var(--fd);font-size:20px;font-weight:400;margin-bottom:4px}
+.form-section-title em{font-style:italic;color:var(--gdd)}
+.form-section-sub{font-size:12px;color:var(--ink3);margin-bottom:20px;line-height:1.5}
+.fgrid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fgrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.fg{margin-bottom:0}
+.flbl{display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:6px}
+.fi{width:100%;background:var(--cr);border:1px solid var(--bd2);border-radius:var(--rs2);padding:10px 14px;color:var(--ink);font-size:13px;transition:border-color var(--t),box-shadow var(--t)}
+.fi:focus{border-color:var(--gd);box-shadow:0 0 0 3px rgba(201,169,110,.1)}
+.fi::placeholder{color:var(--ink4)}
+textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
+.fi-icon-wrap{position:relative}
+.fi-icon-wrap .fi{padding-left:36px}
+.fi-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--ink3);pointer-events:none}
+
+/* ── PLANO SELECTOR ── */
+.plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+.plan-opt{background:var(--cr);border:2px solid var(--border,var(--bd));border-radius:var(--r);padding:20px;cursor:pointer;transition:all var(--t);text-align:center;position:relative}
+.plan-opt:hover{border-color:var(--gdl);background:rgba(201,169,110,.04)}
+.plan-opt.selected{border-color:var(--gd);background:rgba(201,169,110,.05)}
+.plan-opt.selected::before{content:'✓';position:absolute;top:10px;right:12px;width:20px;height:20px;background:var(--gd);color:var(--ink);border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700}
+.plan-ico{font-size:28px;margin-bottom:10px}
+.plan-name{font-family:var(--fd);font-size:17px;font-weight:400;margin-bottom:4px}
+.plan-price{font-family:var(--fd);font-size:24px;font-weight:300;color:var(--gdd);margin:6px 0 2px}
+.plan-period{font-size:10px;color:var(--ink3);margin-bottom:12px}
+.plan-feat{font-size:11px;color:var(--ink3);line-height:1.7;text-align:left}
+.plan-feat span{display:block;padding-left:14px;position:relative}
+.plan-feat span::before{content:'✓';position:absolute;left:0;color:var(--sg);font-weight:700}
+
+/* ── PROFISSIONAIS ── */
+.prof-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--cr);border:1px solid var(--bd);border-radius:var(--rs2);margin-bottom:8px}
+.prof-av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;flex-shrink:0}
+.prof-name{font-size:13px;font-weight:500;flex:1}
+.prof-role{font-size:11px;color:var(--ink3);margin-top:1px}
+.prof-comm{font-size:12px;color:var(--gdd);font-weight:600;flex-shrink:0}
+
+/* ── SALON DETAIL ── */
+.salon-detail-header{
+  background:var(--ink);border-radius:var(--r);padding:28px;
+  position:relative;overflow:hidden;margin-bottom:20px;
+}
+.salon-detail-header::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 85% 50%,rgba(201,169,110,.1),transparent 60%);pointer-events:none}
+.sdh-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:rgba(255,255,255,.45);cursor:pointer;margin-bottom:14px;transition:color var(--t)}
+.sdh-back:hover{color:var(--gd)}
+.sdh-name{font-family:var(--fd);font-size:32px;font-weight:300;color:var(--wh);line-height:1;margin-bottom:4px}
+.sdh-name em{font-style:italic;color:var(--gd)}
+.sdh-meta{font-size:12px;color:rgba(255,255,255,.4);margin-bottom:20px}
+.sdh-kpis{display:flex;gap:0;border-top:1px solid rgba(255,255,255,.1);padding-top:20px;flex-wrap:wrap}
+.sdh-kpi{padding:0 24px;border-left:1px solid rgba(255,255,255,.09);text-align:center}
+.sdh-kpi:first-child{border-left:none}
+.sdh-kpi-v{font-family:var(--fd);font-size:26px;font-weight:300;color:var(--wh);line-height:1;margin-bottom:3px}
+.sdh-kpi-v.g{color:var(--gd)}.sdh-kpi-v.s{color:var(--sg)}
+.sdh-kpi-l{font-size:9px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.8px}
+
+/* ── CHART BARS ── */
+.bar-chart{display:flex;align-items:flex-end;gap:6px;height:110px;position:relative}
+.bar-chart::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(to bottom,transparent,transparent calc(33% - 1px),var(--bd) calc(33% - 1px),var(--bd) 33%,transparent 33%,transparent calc(66% - 1px),var(--bd) calc(66% - 1px),var(--bd) 66%);pointer-events:none}
+.bc-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+.bc-bar{width:100%;border-radius:3px 3px 0 0;transition:opacity var(--t);cursor:pointer;min-height:4px}
+.bc-bar:hover{opacity:.8}
+.bc-lbl{font-size:10px;color:var(--ink3)}
+
+/* ── SUMMARY ROW ── */
+.sr{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bd);font-size:13px}
+.sr:last-child{border-bottom:none;padding-bottom:0}.sr:first-child{padding-top:0}
+.srl{color:var(--ink3)}.srv{font-weight:600}
+.srv.gd{color:var(--gdd)}.srv.sg{color:var(--sg)}.srv.rs{color:var(--rs)}
+
+/* ── PROGRESS ── */
+.pbt{background:var(--cr2);border-radius:3px;overflow:hidden}
+.pbf{border-radius:3px;transition:width 1s var(--ez)}
+
+/* ── TAGS ── */
+.tag{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap}
+.tsg{background:var(--sgl);color:var(--sg)}.trs{background:var(--rsl);color:var(--rs)}
+.tam{background:var(--aml);color:var(--am)}.tgd{background:rgba(201,169,110,.15);color:var(--gdd)}
+.tsk{background:var(--skl);color:var(--sk)}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:var(--rs2);font-size:13px;font-weight:500;cursor:pointer;transition:all var(--t) var(--ez);white-space:nowrap;border:none}
+.btp{background:var(--ink);color:var(--wh)}.btp:hover{background:var(--ink2);transform:translateY(-1px);box-shadow:0 4px 16px rgba(26,26,26,.2)}
+.btg{background:var(--gd);color:var(--wh)}.btg:hover{background:var(--gdd);transform:translateY(-1px);box-shadow:0 4px 16px var(--gdg)}
+.btgh{background:var(--cr2);color:var(--ink2);border:1px solid var(--bd)}.btgh:hover{background:var(--cr3)}
+.bto{background:transparent;color:var(--ink2);border:1px solid var(--bd2)}.bto:hover{background:var(--cr2)}
+.sm{padding:6px 13px;font-size:12px}
+
+/* ── MODAL ── */
+.mbd{position:fixed;inset:0;background:rgba(26,26,26,.45);backdrop-filter:blur(8px);z-index:900;display:none;align-items:center;justify-content:center;padding:20px}
+.mbd.open{display:flex}
+.mbox{background:var(--wh);border:1px solid var(--bd);border-radius:var(--rl);width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 32px 100px rgba(26,26,26,.2);animation:mIn .22s var(--ez)}
+@keyframes mIn{from{opacity:0;transform:scale(.97) translateY(8px)}to{opacity:1;transform:scale(1)}}
+.mh{padding:22px 24px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:flex-start;justify-content:space-between}
+.mt2{font-family:var(--fd);font-size:22px;font-weight:400;font-style:italic;letter-spacing:-.2px}
+.mc{width:28px;height:28px;border-radius:var(--rs2);background:var(--cr2);border:1px solid var(--bd);display:grid;place-items:center;font-size:14px;color:var(--ink3);cursor:pointer;transition:all var(--t);flex-shrink:0}
+.mc:hover{background:var(--cr3);color:var(--ink)}
+.mb2{padding:22px 24px}.mf{padding:16px 24px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:8px}
+
+/* ── TOAST ── */
+.twrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--ink);color:var(--wh);border-radius:var(--r);padding:12px 16px;font-size:13px;display:flex;align-items:center;gap:9px;max-width:360px;box-shadow:0 8px 32px rgba(26,26,26,.25);pointer-events:all;animation:tIn .22s var(--ez) both;transition:opacity .3s,transform .3s}
+@keyframes tIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.toast.out{opacity:0;transform:translateY(6px)}
+
+/* ── UTILS ── */
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--gdl),transparent);margin:20px 0}
+.card{background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}
+.cardh{padding:14px 18px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.cardt{font-family:var(--fd);font-size:16px;font-weight:400;letter-spacing:-.2px}
+.cardt em{font-style:italic;color:var(--gdd)}
+.cardlnk{font-size:11px;color:var(--gdd);font-weight:500;cursor:pointer;transition:opacity var(--t)}
+.cardlnk:hover{opacity:.65}
+.cardb{padding:18px}
+.lr{display:flex;align-items:center;gap:11px;padding:11px 18px;border-bottom:1px solid var(--bd);transition:background var(--t);cursor:pointer}
+.lr:last-child{border-bottom:none}.lr:hover{background:var(--cr)}
+.lrn{font-size:13px;font-weight:500}.lrm{font-size:11px;color:var(--ink3);margin-top:1px}
+.lrr{margin-left:auto;text-align:right;flex-shrink:0}
+.lrv{font-size:13px;font-weight:600}.lrs{font-size:11px;color:var(--ink3);margin-top:1px}
+.av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;flex-shrink:0}
+.flex{display:flex}.ic{align-items:center}.jb{justify-content:space-between}
+.g6{gap:6px}.g8{gap:8px}.g10{gap:10px}.g12{gap:12px}
+.mt4{margin-top:4px}.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}.mt20{margin-top:20px}.mt24{margin-top:24px}
+.mb4{margin-bottom:4px}.mb8{margin-bottom:8px}.mb12{margin-bottom:12px}.mb16{margin-bottom:16px}.mb20{margin-bottom:20px}
+.txs{font-size:11px}.tsm{font-size:12px}.fw6{font-weight:600}
+.tm2{color:var(--ink3)}.td2{color:var(--ink4)}
+.gd2{color:var(--gdd)}.sg2{color:var(--sg)}.rs2{color:var(--rs)}.am2{color:var(--am)}
+.sit{font-family:var(--fd);font-style:italic}
+.wf{width:100%}.tc{text-align:center}.tr{text-align:right}
+
+/* Identidade Visual Premium */
+::-webkit-scrollbar-track{background:var(--nude2)}
+::-webkit-scrollbar-thumb{background:var(--nude3);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--gd)}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="brand">
+    <div class="bmark">✂</div>
+    <div>
+      <div class="bname">Salon<em>OS</em></div>
+      <div class="bsub">Painel do Proprietário</div>
+    </div>
+  </div>
+  <nav class="tnav-top" id="topNav">
+    <div class="tnt active" data-page="dashboard">◦ Visão Geral</div>
+    <div class="tnt" data-page="cadastro">＋ Cadastrar Salão</div>
+    <div class="tnt" data-page="comparativo">◉ Comparativo</div>
+    <div class="tnt" data-page="financeiro">◈ Financeiro</div>
+    <div class="tnt exit" id="exitBtn">→ Sair</div>
+  </nav>
+  <div class="tright">
+    <div class="owner-chip" onclick="Toast.show('Abrindo configurações do perfil...')">
+      <div class="owner-av">RB</div>
+      <div>
+        <div class="owner-nm">Roberta Bezerra</div>
+        <div class="owner-plan">Plano Multi-Unidades</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<div class="hero" id="heroSection">
+  <div class="hero-inner">
+    <div>
+      <div class="hero-ey">Bem-vinda de volta, Roberta</div>
+      <div class="hero-h">Seus salões, <em>ao vivo</em></div>
+      <div class="hero-sub">Acompanhe todas as suas unidades em um único lugar. Receita consolidada, equipes e desempenho em tempo real.</div>
+    </div>
+    <div class="hero-kpis" id="heroKpis"></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="page active" id="page-dashboard"></div>
+  <div class="page" id="page-cadastro"></div>
+  <div class="page" id="page-comparativo"></div>
+  <div class="page" id="page-financeiro"></div>
+  <div class="page" id="page-detalhe"></div>
+</div>
+
+<!-- MODAL -->
+<div class="mbd" id="mbd">
+  <div class="mbox" id="mbox">
+    <div class="mh"><div class="mt2" id="mtitle">—</div><div class="mc" id="mclose">✕</div></div>
+    <div id="mcontent"></div>
+  </div>
+</div>
+<div class="twrap" id="twrap"></div>
+
+<script>
+'use strict';
+
+/* ── DATA ── */
+const D = {
+  owner: { nm: 'Roberta Bezerra', plan: 'Multi-Unidades', since: 'Mar 2023' },
+  saloes: [
+    {
+      id: 1, nome: 'Studio Beleza Pro', emoji: '💆', cidade: 'São Paulo', bairro: 'Jardins',
+      status: 'ativo', plano: 'Escala', desde: 'Mar 2023', cor: '#C9A96E', bg: 'rgba(201,169,110,.12)',
+      rec_mes: 18640, rec_ano: 198400, mrr: 4730, agend_mes: 148, ticket_med: 118,
+      tax_retorno: 68, staff: 4, rating: 4.9, meta_mes: 22000, margem_pct: 61,
+      rec_semanas: [3980, 4620, 5280, 4760],
+      top_servicos: [['Coloração', 38, '#8B7A55'], ['Corte', 31, '#4A7A62'], ['Progressiva', 20, '#7A5A8A']],
+      staff_list: [
+        { nm:'Camila Souza', rl:'Colorista', in:'CS', c:'#8B7A55', bg:'rgba(139,122,85,.18)', rec:5720, comm:45 },
+        { nm:'Renata Lima', rl:'Cabeleireira', in:'RL', c:'#4A7A62', bg:'rgba(74,122,98,.18)', rec:3720, comm:40 },
+        { nm:'Bruna Martins', rl:'Manicure', in:'BM', c:'#7A5A8A', bg:'rgba(122,90,138,.18)', rec:2430, comm:50 },
+        { nm:'Patricia Costa', rl:'Esteticista', in:'PC', c:'#6A7A9A', bg:'rgba(106,122,154,.18)', rec:3960, comm:40 },
+      ],
+    },
+    {
+      id: 2, nome: 'Studio Moema', emoji: '✂', cidade: 'São Paulo', bairro: 'Moema',
+      status: 'ativo', plano: 'Crescimento', desde: 'Jan 2024', cor: '#4A7A62', bg: 'rgba(74,122,98,.12)',
+      rec_mes: 12380, rec_ano: 132000, mrr: 2940, agend_mes: 98, ticket_med: 106,
+      tax_retorno: 61, staff: 3, rating: 4.7, meta_mes: 15000, margem_pct: 54,
+      rec_semanas: [2800, 3200, 3400, 2980],
+      top_servicos: [['Corte', 28, '#4A7A62'], ['Mechas', 22, '#8B7A55'], ['Escova', 18, '#6A7A9A']],
+      staff_list: [
+        { nm:'Julia Santos', rl:'Colorista', in:'JS', c:'#4A7A62', bg:'rgba(74,122,98,.18)', rec:4200, comm:45 },
+        { nm:'Mariana Costa', rl:'Cabeleireira', in:'MC', c:'#7A5A8A', bg:'rgba(122,90,138,.18)', rec:3800, comm:40 },
+        { nm:'Larissa Dias', rl:'Manicure', in:'LD', c:'#9A6F00', bg:'rgba(154,111,0,.15)', rec:2100, comm:50 },
+      ],
+    },
+    {
+      id: 3, nome: 'Studio ABC', emoji: '💅', cidade: 'Santo André', bairro: 'Centro',
+      status: 'ativo', plano: 'Base', desde: 'Jun 2024', cor: '#7A5A8A', bg: 'rgba(122,90,154,.12)',
+      rec_mes: 8920, rec_ano: 78000, mrr: 1880, agend_mes: 72, ticket_med: 94,
+      tax_retorno: 55, staff: 2, rating: 4.6, meta_mes: 12000, margem_pct: 43,
+      rec_semanas: [1980, 2240, 2480, 2220],
+      top_servicos: [['Manicure', 32, '#7A5A8A'], ['Pedicure', 24, '#9A6F00'], ['Esmalterias', 16, '#3A6EA8']],
+      staff_list: [
+        { nm:'Fernanda Rocha', rl:'Manicure', in:'FR', c:'#7A5A8A', bg:'rgba(122,90,138,.18)', rec:4200, comm:50 },
+        { nm:'Tatiane Lima', rl:'Cabeleireira', in:'TL', c:'#3A6EA8', bg:'rgba(58,110,168,.18)', rec:3400, comm:40 },
+      ],
+    },
+  ],
+};
+
+/* ── COMPUTEDS ── */
+const totalRec = D.saloes.reduce((a,s) => a + s.rec_mes, 0);
+const totalMRR = D.saloes.reduce((a,s) => a + s.mrr, 0);
+const totalStaff = D.saloes.reduce((a,s) => a + s.staff, 0);
+const avgRating = (D.saloes.reduce((a,s) => a + s.rating, 0) / D.saloes.length).toFixed(1);
+const totalMeta = D.saloes.reduce((a,s) => a + s.meta_mes, 0);
+const metaPct = Math.round((totalRec / totalMeta) * 100);
+// Margem real ponderada por receita - agregado da rede. So existe porque a comanda de cada
+// unidade ja calcula margem por atendimento (insumo + comissao); nenhum concorrente de
+// gestao multi-unidade sobe margem real ate a visao do dono, so receita bruta.
+const margemRede = Math.round(D.saloes.reduce((a,s) => a + s.margem_pct * s.rec_mes, 0) / totalRec);
+const lucroRedeMes = Math.round(D.saloes.reduce((a,s) => a + s.rec_mes * (s.margem_pct/100), 0));
+
+/* ── UTILS ── */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const html = (el, mk) => { el.innerHTML = mk; return el };
+const R = v => 'R$ ' + v.toLocaleString('pt-BR');
+
+/* ── TOAST ── */
+const Toast = {
+  show(tx, ic = '✓') {
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.innerHTML = `<span style="font-size:16px">${ic}</span><span>${tx}</span>`;
+    $('#twrap').prepend(t);
+    setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 350) }, 3200);
+  }
+};
+
+/* ── MODAL ── */
+const Modal = {
+  open(ti, bd) { $('#mtitle').textContent = ti; html($('#mcontent'), bd); $('#mbd').classList.add('open') },
+  close() { $('#mbd').classList.remove('open') }
+};
+
+/* ── ROUTER ── */
+let currentSalao = null;
+const Router = {
+  go(page, extra) {
+    $$('.page').forEach(p => p.classList.remove('active'));
+    $$('.tnt[data-page]').forEach(n => n.classList.remove('active'));
+    const pg = document.getElementById('page-' + page);
+    if (!pg) return;
+    pg.classList.add('active');
+    $$('.tnt[data-page="' + page + '"]').forEach(n => n.classList.add('active'));
+    if (extra) currentSalao = extra;
+    P[page] && P[page]();
+  }
+};
+
+/* ── CHART BUILDER ── */
+function barChart(container, data) {
+  const max = Math.max(...data.map(d => d.v));
+  container.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'bar-chart';
+  data.forEach(d => {
+    const col = document.createElement('div');
+    col.className = 'bc-col';
+    const bar = document.createElement('div');
+    bar.className = 'bc-bar';
+    bar.style.cssText = `height:${Math.max(4, Math.round((d.v / max) * 100))}px;background:${d.color || 'var(--gd)'};`;
+    bar.title = `${d.label}: ${R(d.v)}`;
+    const lbl = document.createElement('div');
+    lbl.className = 'bc-lbl';
+    lbl.textContent = d.label;
+    col.appendChild(bar);
+    col.appendChild(lbl);
+    wrap.appendChild(col);
+  });
+  container.appendChild(wrap);
+}
+
+/* ── PAGES ── */
+const P = {
+
+  /* ══ DASHBOARD ══ */
+  dashboard() {
+    // Hero KPIs
+    html($('#heroKpis'), [
+      [`${R(totalRec)}`, 'Receita Total do Mês', '▲ +21% vs anterior', 'g'],
+      [`${R(totalMRR)}`, 'Planos Mensais (MRR)', `▲ ${D.saloes.reduce((a,s)=>a+s.mrr/99|0,0)} assinantes`, 's'],
+      [`${D.saloes.length}`, 'Unidades Ativas', 'Todas operando', ''],
+      [`${avgRating} ★`, 'Avaliação Média', '▲ Excelente', 's'],
+      [`${metaPct}%`, 'Meta do Mês', `${R(totalRec)} / ${R(totalMeta)}`, ''],
+    ].map(([v, l, d, c]) => `
+      <div class="hkpi">
+        <div class="hkpi-v ${c}">${v}</div>
+        <div class="hkpi-l">${l}</div>
+        <div class="hkpi-d">${d}</div>
+      </div>`).join(''));
+
+    html($('#page-dashboard'), `
+      <!-- KPIs -->
+      <div class="g4 mb12" style="grid-template-columns:repeat(5,1fr)">
+        <div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Receita Total do Mês</div><div class="kcv gd2">${R(totalRec)}</div><div class="kcd up">▲ +21% vs mês anterior</div><div class="kcico">💰</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Receita Recorrente (MRR)</div><div class="kcv sg2">${R(totalMRR)}</div><div class="kcd up">▲ Garantida todo mês</div><div class="kcico">🔁</div></div>
+        <div class="kc" style="border-color:var(--gd)"><div class="kcbar" style="background:var(--gdd)"></div><div class="kclbl">Margem Real da Rede</div><div class="kcv" style="color:var(--gdd)">${margemRede}%</div><div class="kcd up">${R(lucroRedeMes)} de lucro real/mês</div><div class="kcico">📐</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--vi,#7A5A9A)"></div><div class="kclbl">Equipe Total</div><div class="kcv">${totalStaff} profis.</div><div class="kcd n">${D.saloes.length} unidades</div><div class="kcico">👩</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Meta do Mês (Consolidada)</div><div class="kcv">${metaPct}%</div><div class="kcd ${metaPct >= 100 ? 'up' : 'n'}">${R(totalRec)} de ${R(totalMeta)}</div><div class="kcico">🎯</div></div>
+      </div>
+
+      <div style="background:var(--ink);border-radius:var(--r);padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;gap:14px">
+        <div style="font-size:20px;flex-shrink:0">📐</div>
+        <div style="font-size:12.5px;color:rgba(255,255,255,.7);line-height:1.6">
+          <strong style="color:var(--gd)">Margem, não só receita.</strong> Sistemas de gestão multi-unidade mostram faturamento consolidado. O SalonOS mostra <strong style="color:var(--wh)">lucro real</strong> — porque cada comanda já calcula insumo e comissão no atendimento. A ${D.saloes.slice().sort((a,b)=>a.margem_pct-b.margem_pct)[0].nome} fatura bem, mas está com a margem mais apertada da rede (${D.saloes.slice().sort((a,b)=>a.margem_pct-b.margem_pct)[0].margem_pct}%) — um número que só aparece aqui porque só o SalonOS sabe o custo de cada procedimento em cada unidade.
+        </div>
+      </div>
+
+      <!-- Salão cards -->
+      <div class="sech">
+        <div><div class="sct">Suas <em>Unidades</em></div><div class="scsub">Clique em uma unidade para ver todos os detalhes</div></div>
+        <div class="scacts">
+          <button class="btn bto sm" onclick="Router.go('comparativo')">◉ Comparar unidades</button>
+          <button class="btn btg" onclick="Router.go('cadastro')">＋ Cadastrar novo salão</button>
+        </div>
+      </div>
+
+      <div class="g3 mb24" id="salonGrid"></div>
+
+      <!-- Ranking + Gráfico -->
+      <div class="g64">
+        <div>
+          <div class="sct mb12" style="font-size:20px">Ranking de <em>Receita</em></div>
+          <div class="rank-table">
+            <div class="rt-head" style="display:grid;grid-template-columns:40px 2fr 1fr 1fr 1fr 1fr 1fr 100px;padding:10px 20px;border-bottom:1px solid var(--bd);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--ink3);background:var(--cr)"><div>#</div><div>Unidade</div><div>Receita</div><div>Margem</div><div>MRR</div><div>Meta</div><div>Atend.</div><div>Status</div></div>
+            ${D.saloes
+              .slice()
+              .sort((a, b) => b.rec_mes - a.rec_mes)
+              .map((s, i) => {
+                const pct = Math.round((s.rec_mes / s.meta_mes) * 100);
+                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+                const mCol = s.margem_pct>=60?'var(--sg)':s.margem_pct>=50?'var(--gdd)':'var(--rs)';
+                return `<div class="rt-row" style="display:grid;grid-template-columns:40px 2fr 1fr 1fr 1fr 1fr 1fr 100px;padding:14px 20px;border-bottom:1px solid var(--bd);align-items:center;font-size:13px;cursor:pointer" onclick="Router.go('detalhe', ${s.id})">
+                  <div style="font-size:18px">${medal}</div>
+                  <div><div class="fw6">${s.nome}</div><div class="txs tm2">${s.bairro}, ${s.cidade}</div></div>
+                  <div class="fw6 gd2">${R(s.rec_mes)}</div>
+                  <div class="fw6" style="color:${mCol}">${s.margem_pct}%</div>
+                  <div>${R(s.mrr)}</div>
+                  <div>
+                    <div class="flex ic g6 mb4"><span class="txs">${pct}%</span></div>
+                    <div class="pbt" style="height:4px;width:80px"><div class="pbf" style="width:${Math.min(pct,100)}%;background:${pct>=100?'var(--sg)':'var(--gd)'}"></div></div>
+                  </div>
+                  <div>${s.agend_mes}</div>
+                  <div><span class="tag tsg">Ativo</span></div>
+                </div>`;
+              }).join('')}
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="cardh"><div class="cardt">Receita <em>Consolidada / Semana</em></div></div>
+            <div class="cardb" id="consolidadoChart"></div>
+          </div>
+          <div class="card">
+            <div class="cardh"><div class="cardt">Distribuição <em>por Unidade</em></div></div>
+            <div class="cardb">
+              ${D.saloes.map(s => {
+                const pct = Math.round((s.rec_mes / totalRec) * 100);
+                return `<div class="mb12">
+                  <div class="flex jb mb4 tsm"><span>${s.nome}</span><span class="fw6">${R(s.rec_mes)} <span class="tm2">(${pct}%)</span></span></div>
+                  <div class="pbt" style="height:6px"><div class="pbf" style="width:${pct}%;background:${s.cor}"></div></div>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
+    /* Salon cards */
+    const grid = $('#salonGrid');
+    D.saloes.forEach((s, i) => {
+      const pct = Math.round((s.rec_mes / s.meta_mes) * 100);
+      const card = document.createElement('div');
+      card.className = `salon-card${i === 0 ? ' featured' : ''}`;
+      card.onclick = () => Router.go('detalhe', s.id);
+      card.innerHTML = `
+        <div style="height:3px;background:${s.cor}"></div>
+        <div class="salon-card-header" style="padding:20px">
+          <div class="salon-rank" style="background:${s.bg};color:${s.cor}">${i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</div>
+          <div class="salon-logo" style="background:${s.bg}">${s.emoji}</div>
+          <div class="salon-name">${i === 0 ? `<em>${s.nome}</em>` : s.nome}</div>
+          <div class="salon-city">📍 ${s.bairro}, ${s.cidade}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+            <span class="tag tsg">Ativo</span>
+            <span class="tag tgd">${s.plano}</span>
+          </div>
+          <div class="flex jb txs mb4"><span class="tm2">Meta do mês</span><span class="fw6" style="color:${pct>=100?'var(--sg)':'var(--gdd)'}">${pct}%</span></div>
+          <div class="pbt" style="height:5px"><div class="pbf" style="width:${Math.min(pct,100)}%;background:${pct>=100?'var(--sg)':s.cor}"></div></div>
+        </div>
+        <div class="salon-stat-row">
+          <div class="salon-stat"><div class="salon-stat-v" style="color:${s.cor}">${R(s.rec_mes)}</div><div class="salon-stat-l">Receita Mês</div></div>
+          <div class="salon-stat"><div class="salon-stat-v">${R(s.mrr)}</div><div class="salon-stat-l">MRR</div></div>
+          <div class="salon-stat"><div class="salon-stat-v">${s.rating}★</div><div class="salon-stat-l">Avaliação</div></div>
+        </div>`;
+      grid.appendChild(card);
+    });
+
+    /* Add new salon card */
+    const addCard = document.createElement('div');
+    addCard.className = 'add-card';
+    addCard.onclick = () => Router.go('cadastro');
+    addCard.innerHTML = `
+      <div class="add-icon">＋</div>
+      <div class="add-title">Novo Salão</div>
+      <div class="add-sub">Cadastre uma nova unidade e comece a acompanhar o desempenho imediatamente</div>`;
+    grid.appendChild(addCard);
+
+    /* Consolidated chart */
+    const weeks = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
+    const consolidated = weeks.map((w, i) => ({
+      label: w,
+      v: D.saloes.reduce((a, s) => a + s.rec_semanas[i], 0),
+      color: i === 2 ? 'var(--gd)' : 'var(--cr3)',
+    }));
+    const chartEl = $('#consolidadoChart');
+    if (chartEl) barChart(chartEl, consolidated);
+  },
+
+  /* ══ CADASTRO ══ */
+  cadastro() {
+    let step = 1;
+    html($('#page-cadastro'), `
+      <div class="sech">
+        <div><div class="sct">Cadastrar <em>Novo Salão</em></div><div class="scsub">Preencha as informações da nova unidade em 4 etapas simples</div></div>
+        <button class="btn btgh sm" onclick="Router.go('dashboard')">← Voltar</button>
+      </div>
+
+      <!-- Step nav -->
+      <div class="steps-nav" id="stepsNav">
+        <div class="step-item active" data-step="1">
+          <div class="step-num">1</div>
+          <div><div class="step-label">Dados do Salão</div><div class="step-sub">Nome, endereço e contato</div></div>
+        </div>
+        <div class="step-item" data-step="2">
+          <div class="step-num">2</div>
+          <div><div class="step-label">Equipe</div><div class="step-sub">Profissionais e comissões</div></div>
+        </div>
+        <div class="step-item" data-step="3">
+          <div class="step-num">3</div>
+          <div><div class="step-label">Serviços & Metas</div><div class="step-sub">Procedimentos e objetivos</div></div>
+        </div>
+        <div class="step-item" data-step="4">
+          <div class="step-num">4</div>
+          <div><div class="step-label">Plano</div><div class="step-sub">Escolha o plano ideal</div></div>
+        </div>
+      </div>
+
+      <!-- Step 1 — Dados -->
+      <div class="form-step active" id="fstep1">
+        <div class="form-card">
+          <div class="form-section-title">Dados <em>do Salão</em></div>
+          <div class="form-section-sub">Informações principais da nova unidade. Elas aparecem no app das clientes e nos lembretes automáticos.</div>
+          <div class="fgrid2 mb16">
+            <div class="fg"><label class="flbl">Nome do salão *</label><div class="fi-icon-wrap"><span class="fi-icon">✂</span><input class="fi" placeholder="Ex: Studio Beleza Pro — Itaim"></div></div>
+            <div class="fg"><label class="flbl">Tipo de estabelecimento *</label><select class="fi"><option>Salão de Beleza</option><option>Clínica de Estética</option><option>Esmalterias</option><option>Barbearia</option><option>Studio Completo</option></select></div>
+          </div>
+          <div class="fgrid3 mb16">
+            <div class="fg"><label class="flbl">Cidade *</label><input class="fi" placeholder="São Paulo"></div>
+            <div class="fg"><label class="flbl">Bairro *</label><input class="fi" placeholder="Itaim Bibi"></div>
+            <div class="fg"><label class="flbl">CEP</label><input class="fi" placeholder="00000-000"></div>
+          </div>
+          <div class="fg mb16"><label class="flbl">Endereço completo</label><input class="fi" placeholder="Rua das Flores, 123 — apto 12"></div>
+          <div class="fgrid2 mb16">
+            <div class="fg"><label class="flbl">WhatsApp do salão *</label><div class="fi-icon-wrap"><span class="fi-icon">💬</span><input class="fi" placeholder="(11) 9 0000-0000"></div></div>
+            <div class="fg"><label class="flbl">E-mail</label><div class="fi-icon-wrap"><span class="fi-icon">@</span><input class="fi" placeholder="contato@meusite.com"></div></div>
+          </div>
+          <div class="fgrid2">
+            <div class="fg"><label class="flbl">Instagram</label><div class="fi-icon-wrap"><span class="fi-icon">📸</span><input class="fi" placeholder="@studio.beleza"></div></div>
+            <div class="fg"><label class="flbl">CNPJ (para NF-e automática)</label><input class="fi" placeholder="00.000.000/0001-00"></div>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="form-section-title">Horário de <em>Funcionamento</em></div>
+          <div class="form-section-sub">Quando o salão estará disponível para agendamentos online.</div>
+          <div class="fgrid3 mb16">
+            <div class="fg"><label class="flbl">Abre às</label><input class="fi" type="time" value="09:00"></div>
+            <div class="fg"><label class="flbl">Fecha às</label><input class="fi" type="time" value="19:00"></div>
+            <div class="fg"><label class="flbl">Intervalo de horários</label><select class="fi"><option>30 minutos</option><option>45 minutos</option><option>60 minutos</option></select></div>
+          </div>
+          <div class="flex g12" style="flex-wrap:wrap">
+            ${['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'].map((d,i) => `
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:6px 12px;background:var(--cr2);border:1px solid var(--bd);border-radius:6px;transition:all var(--t)">
+                <input type="checkbox" ${i<5?'checked':''} style="accent-color:var(--gd)"> ${d}
+              </label>`).join('')}
+          </div>
+        </div>
+        <div class="flex jb mt4">
+          <div></div>
+          <button class="btn btg" onclick="nextStep(2)">Próxima etapa → Equipe</button>
+        </div>
+      </div>
+
+      <!-- Step 2 — Equipe -->
+      <div class="form-step" id="fstep2">
+        <div class="form-card">
+          <div class="form-section-title">Equipe <em>do Salão</em></div>
+          <div class="form-section-sub">Cadastre as profissionais e defina a comissão de cada uma. Você pode adicionar mais depois.</div>
+          <div id="profList">
+            ${[
+              { nm:'', rl:'Cabeleireira', comm:40, c:'#8B7A55', bg:'rgba(139,122,85,.18)', in:'P1' },
+            ].map((p, i) => `
+              <div class="prof-item">
+                <div class="prof-av" style="background:${p.bg};color:${p.c}">${p.in}</div>
+                <div style="flex:1;display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:center">
+                  <input class="fi" placeholder="Nome da profissional" value="${p.nm}">
+                  <select class="fi"><option>Cabeleireira</option><option>Colorista</option><option>Manicure</option><option>Esteticista</option></select>
+                  <div class="fi-icon-wrap"><span class="fi-icon">%</span><input class="fi" type="number" value="${p.comm}" placeholder="40" style="padding-left:28px"></div>
+                  <button class="btn btgh sm" onclick="this.closest('.prof-item').remove()" style="padding:8px;color:var(--rs)">✕</button>
+                </div>
+              </div>`).join('')}
+          </div>
+          <button class="btn bto sm mt12" onclick="addProf()" style="width:100%;justify-content:center">＋ Adicionar profissional</button>
+        </div>
+        <div class="form-card">
+          <div class="form-section-title">Regras de <em>Comissão</em></div>
+          <div class="form-section-sub">Defina como calcular as comissões. O sistema calcula automaticamente ao fechar o caixa.</div>
+          <div class="fgrid2">
+            <div class="fg"><label class="flbl">Método de cálculo</label><select class="fi"><option>% sobre receita bruta do serviço</option><option>% sobre receita líquida (descontado insumo)</option><option>Valor fixo por atendimento</option></select></div>
+            <div class="fg"><label class="flbl">Período de pagamento</label><select class="fi"><option>Mensal (todo dia 5)</option><option>Quinzenal</option><option>Semanal</option><option>Por atendimento</option></select></div>
+          </div>
+        </div>
+        <div class="flex jb mt4">
+          <button class="btn btgh" onclick="nextStep(1)">← Voltar</button>
+          <button class="btn btg" onclick="nextStep(3)">Próxima etapa → Serviços</button>
+        </div>
+      </div>
+
+      <!-- Step 3 — Serviços & Metas -->
+      <div class="form-step" id="fstep3">
+        <div class="form-card">
+          <div class="form-section-title">Serviços <em>Oferecidos</em></div>
+          <div class="form-section-sub">Selecione os serviços que este salão vai oferecer. Você pode personalizar os preços depois.</div>
+          <div class="g2" style="gap:10px">
+            ${[
+              ['💇', 'Coloração Completa', 180, 'Cabelo'],
+              ['✂', 'Corte Feminino', 80, 'Cabelo'],
+              ['💆', 'Progressiva', 280, 'Cabelo'],
+              ['✨', 'Mechas / Luzes', 220, 'Cabelo'],
+              ['💧', 'Hidratação Profunda', 90, 'Cabelo'],
+              ['💅', 'Manicure + Pedicure', 80, 'Unhas'],
+              ['🌟', 'Nail Art / Gel', 80, 'Unhas'],
+              ['🧖', 'Limpeza de Pele', 150, 'Estética'],
+              ['🧴', 'Depilação Completa', 120, 'Estética'],
+              ['💆', 'Escova Modeladora', 70, 'Cabelo'],
+            ].map(([ico, nm, price, cat]) => `
+              <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--cr);border:1px solid var(--bd);border-radius:var(--rs2);cursor:pointer;transition:all var(--t)">
+                <input type="checkbox" checked style="accent-color:var(--gd);flex-shrink:0">
+                <span style="font-size:18px">${ico}</span>
+                <div style="flex:1"><div class="tsm fw6">${nm}</div><div class="txs tm2">${cat}</div></div>
+                <div style="font-family:var(--fd);font-size:16px;font-weight:300;color:var(--gdd)">${R(price)}</div>
+              </label>`).join('')}
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="form-section-title">Metas <em>do Salão</em></div>
+          <div class="form-section-sub">Defina os objetivos mensais. O sistema acompanha o progresso em tempo real.</div>
+          <div class="fgrid3">
+            <div class="fg"><label class="flbl">Meta de receita mensal (R$)</label><input class="fi" type="number" placeholder="15000" value="15000"></div>
+            <div class="fg"><label class="flbl">Meta de atendimentos/mês</label><input class="fi" type="number" placeholder="120" value="120"></div>
+            <div class="fg"><label class="flbl">Meta de novos clientes/mês</label><input class="fi" type="number" placeholder="20" value="20"></div>
+          </div>
+        </div>
+        <div class="flex jb mt4">
+          <button class="btn btgh" onclick="nextStep(2)">← Voltar</button>
+          <button class="btn btg" onclick="nextStep(4)">Próxima etapa → Plano</button>
+        </div>
+      </div>
+
+      <!-- Step 4 — Plano -->
+      <div class="form-step" id="fstep4">
+        <div class="form-card">
+          <div class="form-section-title">Escolha o <em>Plano</em></div>
+          <div class="form-section-sub">Selecione o plano ideal para esta unidade. Você pode mudar a qualquer momento.</div>
+          <div class="plan-grid">
+            <div class="plan-opt" onclick="selectPlan(this)">
+              <div class="plan-ico">🌱</div>
+              <div class="plan-name">Base</div>
+              <div class="plan-price">R$ 97</div>
+              <div class="plan-period">/mês por unidade</div>
+              <div class="plan-feat">
+                <span>Agenda digital completa</span>
+                <span>Confirmação WhatsApp</span>
+                <span>Caixa do dia</span>
+                <span>Cadastro de clientes</span>
+                <span>Comissões automáticas</span>
+              </div>
+            </div>
+            <div class="plan-opt selected" onclick="selectPlan(this)">
+              <div class="plan-ico">🚀</div>
+              <div class="plan-name">Crescimento</div>
+              <div class="plan-price">R$ 197</div>
+              <div class="plan-period">/mês por unidade · mais popular</div>
+              <div class="plan-feat">
+                <span>Tudo do Base</span>
+                <span>Upsell automático</span>
+                <span>IA de reativação</span>
+                <span>Clube de assinaturas</span>
+                <span>Comanda digital</span>
+                <span>NF-e eletrônica</span>
+              </div>
+            </div>
+            <div class="plan-opt" onclick="selectPlan(this)">
+              <div class="plan-ico">💎</div>
+              <div class="plan-name">Escala</div>
+              <div class="plan-price">R$ 347</div>
+              <div class="plan-period">/mês por unidade</div>
+              <div class="plan-feat">
+                <span>Tudo do Crescimento</span>
+                <span>IA Preditiva de Receita</span>
+                <span>Portal da cliente (QR)</span>
+                <span>Custo real por serviço</span>
+                <span>Relatórios exportáveis</span>
+                <span>Suporte prioritário</span>
+              </div>
+            </div>
+          </div>
+          <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:var(--r);padding:16px;text-align:center">
+            <div class="tsm tm2" style="line-height:1.7">Como proprietária com múltiplas unidades, você tem <strong style="color:var(--gdd)">20% de desconto</strong> em todas as unidades adicionais. Fale com nossa equipe para um plano personalizado.</div>
+          </div>
+        </div>
+        <div class="flex jb mt4">
+          <button class="btn btgh" onclick="nextStep(3)">← Voltar</button>
+          <button class="btn btg" onclick="finalizarCadastro()">✓ Cadastrar salão agora</button>
+        </div>
+      </div>
+    `);
+  },
+
+  /* ══ COMPARATIVO ══ */
+  comparativo() {
+    const cats = ['Receita do Mês', 'MRR', 'Atendimentos', 'Ticket Médio', 'Taxa de Retorno', 'Avaliação'];
+    html($('#page-comparativo'), `
+      <div class="sech">
+        <div><div class="sct">Comparativo <em>entre Unidades</em></div><div class="scsub">Performance lado a lado de todas as suas unidades</div></div>
+      </div>
+
+      <!-- Comparative cards -->
+      <div class="g3 mb24">
+        ${D.saloes.map((s, i) => {
+          const rank = i + 1;
+          const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+          return `
+          <div class="card">
+            <div style="background:${s.cor};height:3px"></div>
+            <div class="cardb">
+              <div class="flex ic jb mb12">
+                <div class="flex ic g10">
+                  <div style="width:38px;height:38px;border-radius:9px;background:${s.bg};display:grid;place-items:center;font-size:18px">${s.emoji}</div>
+                  <div><div class="fw6">${s.nome}</div><div class="txs tm2">${s.bairro}, ${s.cidade}</div></div>
+                </div>
+                <span style="font-size:22px">${medal}</span>
+              </div>
+              <div class="sr"><span class="srl">Receita do mês</span><span class="srv" style="color:${s.cor}">${R(s.rec_mes)}</span></div>
+              <div class="sr"><span class="srl">Receita recorrente</span><span class="srv">${R(s.mrr)}</span></div>
+              <div class="sr"><span class="srl">Atendimentos</span><span class="srv">${s.agend_mes}</span></div>
+              <div class="sr"><span class="srl">Ticket médio</span><span class="srv">${R(s.ticket_med)}</span></div>
+              <div class="sr"><span class="srl">Taxa de retorno</span><span class="srv">${s.tax_retorno}%</span></div>
+              <div class="sr"><span class="srl">Avaliação</span><span class="srv">${s.rating} ★</span></div>
+              <div class="sr"><span class="srl">Equipe</span><span class="srv">${s.staff} profis.</span></div>
+              <div class="sr"><span class="srl">Meta do mês</span>
+                <div>
+                  <div class="fw6" style="color:${Math.round(s.rec_mes/s.meta_mes*100)>=100?'var(--sg)':'var(--gdd)'}; text-align:right">${Math.round(s.rec_mes/s.meta_mes*100)}%</div>
+                  <div class="pbt mt4" style="height:4px;width:80px;margin-left:auto"><div class="pbf" style="width:${Math.min(100,Math.round(s.rec_mes/s.meta_mes*100))}%;background:${s.cor}"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <!-- Gráfico comparativo de semanas -->
+      <div class="g2">
+        <div class="card">
+          <div class="cardh"><div class="cardt">Receita por Semana <em>— Cada Unidade</em></div></div>
+          <div class="cardb" id="compChart">
+            ${D.saloes.map(s => `
+              <div class="mb14">
+                <div class="flex ic g8 mb6">
+                  <div style="width:10px;height:10px;border-radius:2px;background:${s.cor}"></div>
+                  <span class="tsm fw6">${s.nome}</span>
+                </div>
+                <div style="display:flex;align-items:flex-end;gap:5px;height:54px">
+                  ${s.rec_semanas.map((v, i) => {
+                    const max = Math.max(...s.rec_semanas);
+                    const h = Math.round((v / max) * 50);
+                    return `<div style="flex:1;height:${h}px;border-radius:2px 2px 0 0;background:${i===2?s.cor:s.bg};transition:opacity var(--t);cursor:pointer;min-height:3px" title="Sem ${i+1}: ${R(v)}"></div>`;
+                  }).join('')}
+                </div>
+                <div style="display:flex;gap:5px;margin-top:4px">
+                  ${['S1','S2','S3','S4'].map(l => `<div style="flex:1;text-align:center;font-size:9px;color:var(--ink3)">${l}</div>`).join('')}
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div class="card">
+          <div class="cardh"><div class="cardt">Top Serviços <em>por Unidade</em></div></div>
+          <div class="cardb">
+            ${D.saloes.map(s => `
+              <div class="mb16">
+                <div class="tsm fw6 mb8" style="color:${s.cor}">${s.nome}</div>
+                ${s.top_servicos.map(([nm, n, c]) => `
+                  <div class="flex ic g8 mb6">
+                    <span class="txs tm2" style="width:100px">${nm}</span>
+                    <div class="pbt" style="flex:1;height:4px"><div class="pbf" style="width:${Math.round(n/s.top_servicos[0][1]*100)}%;background:${c}"></div></div>
+                    <span class="txs fw6" style="width:26px;text-align:right">${n}</span>
+                  </div>`).join('')}
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    `);
+  },
+
+  /* ══ FINANCEIRO ══ */
+  financeiro() {
+    const totalAno = D.saloes.reduce((a, s) => a + s.rec_ano, 0);
+    html($('#page-financeiro'), `
+      <div class="sech">
+        <div><div class="sct">Financeiro <em>Consolidado</em></div><div class="scsub">Visão financeira de todas as unidades reunidas</div></div>
+        <button class="btn btgh sm">⬇ Exportar relatório</button>
+      </div>
+
+      <div class="g4 mb20">
+        <div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Receita Anual Consolidada</div><div class="kcv gd2">${R(totalAno)}</div><div class="kcd up">▲ todas as unidades</div><div class="kcico">💰</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">MRR Total (Planos Mensais)</div><div class="kcv sg2">${R(totalMRR)}</div><div class="kcd up">▲ Receita garantida</div><div class="kcico">🔁</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Custo com Planos SalonOS</div><div class="kcv am2">R$ 641</div><div class="kcd n">3 unidades ativas</div><div class="kcico">📋</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--vi,#7A5A9A)"></div><div class="kclbl">Custo do Sistema / Receita</div><div class="kcv" style="color:var(--vi,#7A5A9A)">${(totalMRR ? Math.round((641/totalRec)*1000)/10 : 0)}%</div><div class="kcd n">do faturamento mensal</div><div class="kcico">📈</div></div>
+      </div>
+
+      <div class="g64">
+        <div>
+          <div class="card mb16">
+            <div class="cardh"><div class="cardt">Receita <em>por Unidade — Mês Atual</em></div></div>
+            ${D.saloes.map(s => `
+              <div class="lr" onclick="Router.go('detalhe', ${s.id})">
+                <div style="width:32px;height:32px;border-radius:8px;background:${s.bg};display:grid;place-items:center;font-size:15px;flex-shrink:0">${s.emoji}</div>
+                <div style="flex:1">
+                  <div class="lrn">${s.nome}</div>
+                  <div class="lrm">${s.bairro}, ${s.cidade} · ${s.agend_mes} atendimentos</div>
+                </div>
+                <div class="lrr">
+                  <div class="lrv" style="color:${s.cor}">${R(s.rec_mes)}</div>
+                  <div class="lrs">${Math.round((s.rec_mes/totalRec)*100)}% do total</div>
+                </div>
+              </div>`).join('')}
+            <div style="display:flex;justify-content:space-between;padding:12px 18px;background:var(--cr);border-top:2px solid var(--bd2);font-size:13px">
+              <span class="fw6">Total consolidado</span>
+              <span class="fw6 gd2">${R(totalRec)}</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="cardh"><div class="cardt">Custo dos Planos <em>SalonOS</em></div></div>
+            ${D.saloes.map(s => `
+              <div class="lr">
+                <div style="width:32px;height:32px;border-radius:8px;background:${s.bg};display:grid;place-items:center;font-size:15px;flex-shrink:0">${s.emoji}</div>
+                <div style="flex:1"><div class="lrn">${s.nome}</div><div class="lrm">Plano ${s.plano}</div></div>
+                <div class="lrr"><div class="lrv am2">${s.plano === 'Escala' ? 'R$ 347' : s.plano === 'Crescimento' ? 'R$ 197' : 'R$ 97'}</div><div class="lrs">por mês</div></div>
+              </div>`).join('')}
+            <div style="display:flex;justify-content:space-between;padding:12px 18px;background:var(--cr);border-top:2px solid var(--bd2);font-size:13px">
+              <span class="fw6">Total planos</span>
+              <span class="fw6 am2">R$ 641/mês</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="cardh"><div class="cardt">Metas <em>por Unidade</em></div></div>
+            <div class="cardb">
+              ${D.saloes.map(s => {
+                const pct = Math.min(100, Math.round((s.rec_mes / s.meta_mes) * 100));
+                const col = pct >= 100 ? 'var(--sg)' : pct >= 70 ? 'var(--gd)' : 'var(--rs)';
+                return `<div class="mb14">
+                  <div class="flex ic jb mb6">
+                    <span class="tsm fw6">${s.nome.replace('Studio ', '')}</span>
+                    <span class="tsm fw6" style="color:${col}">${pct}%</span>
+                  </div>
+                  <div class="pbt" style="height:6px"><div class="pbf" style="width:${pct}%;background:${col}"></div></div>
+                  <div class="flex jb mt4 txs tm2"><span>${R(s.rec_mes)}</span><span>${R(s.meta_mes)}</span></div>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>
+          <div class="card">
+            <div class="cardh"><div class="cardt">Resumo <em>Anual</em></div></div>
+            <div class="cardb">
+              <div class="sr"><span class="srl">Receita anual total</span><span class="srv gd">${R(totalAno)}</span></div>
+              <div class="sr"><span class="srl">Média mensal</span><span class="srv">${R(Math.round(totalAno / 12))}</span></div>
+              <div class="sr"><span class="srl">Melhor unidade</span><span class="srv">${D.saloes[0].nome}</span></div>
+              <div class="sr"><span class="srl">Custo anual planos</span><span class="srv am2">R$ 7.692</span></div>
+              <div class="sr"><span class="srl">Custo do sistema</span><span class="srv sg">${(totalAno ? Math.round((7692/totalAno)*1000)/10 : 0)}% da receita anual</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+  },
+
+  /* ══ DETALHE (drill-down do salão) ══ */
+  detalhe() {
+    const id = currentSalao;
+    const s = D.saloes.find(x => x.id === id);
+    if (!s) { Router.go('dashboard'); return }
+    const pct = Math.min(100, Math.round((s.rec_mes / s.meta_mes) * 100));
+    const col = pct >= 100 ? 'var(--sg)' : pct >= 70 ? 'var(--gd)' : 'var(--rs)';
+
+    html($('#page-detalhe'), `
+      <!-- Header de detalhe -->
+      <div class="salon-detail-header">
+        <div class="sdh-back" onclick="Router.go('dashboard')">← Voltar para todas as unidades</div>
+        <div class="sdh-name"><em>${s.nome}</em></div>
+        <div class="sdh-meta">📍 ${s.bairro}, ${s.cidade} · Plano ${s.plano} · Desde ${s.desde} · ${s.staff} profissionais</div>
+        <div class="sdh-kpis">
+          <div class="sdh-kpi"><div class="sdh-kpi-v g">${R(s.rec_mes)}</div><div class="sdh-kpi-l">Receita do Mês</div></div>
+          <div class="sdh-kpi"><div class="sdh-kpi-v">${R(s.mrr)}</div><div class="sdh-kpi-l">MRR</div></div>
+          <div class="sdh-kpi"><div class="sdh-kpi-v">${s.agend_mes}</div><div class="sdh-kpi-l">Atendimentos</div></div>
+          <div class="sdh-kpi"><div class="sdh-kpi-v">${R(s.ticket_med)}</div><div class="sdh-kpi-l">Ticket Médio</div></div>
+          <div class="sdh-kpi"><div class="sdh-kpi-v s">${s.tax_retorno}%</div><div class="sdh-kpi-l">Taxa de Retorno</div></div>
+          <div class="sdh-kpi"><div class="sdh-kpi-v">${s.rating} ★</div><div class="sdh-kpi-l">Avaliação</div></div>
+        </div>
+      </div>
+
+      <div class="flex jb mb20 ic" style="flex-wrap:wrap;gap:10px">
+        <div>
+          <div class="flex ic g8 mb6"><span class="tsm fw6">Meta do mês</span><span class="fw6" style="color:${col}">${pct}%</span><span class="txs tm2">(${R(s.rec_mes)} / ${R(s.meta_mes)})</span></div>
+          <div class="pbt" style="height:8px;width:300px"><div class="pbf" style="width:${pct}%;background:${col}"></div></div>
+        </div>
+        <div class="flex g8">
+          <button class="btn btgh sm" onclick="Toast.show('Abrindo SalonOS do ${s.nome}...','🚀')">Abrir SalonOS desta unidade →</button>
+          <button class="btn bto sm" onclick="openEditModal(${s.id})">✏️ Editar dados</button>
+        </div>
+      </div>
+
+      <div class="g64">
+        <div>
+          <!-- Receita semanal -->
+          <div class="card mb16">
+            <div class="cardh"><div class="cardt">Receita <em>por Semana</em></div></div>
+            <div class="cardb" id="detalheChart"></div>
+          </div>
+
+          <!-- Equipe -->
+          <div class="card mb16">
+            <div class="cardh">
+              <div class="cardt">Equipe <em>& Performance</em></div>
+              <button class="btn btgh sm" onclick="Toast.show('Abrindo gestão de equipe...')">Gerenciar</button>
+            </div>
+            ${s.staff_list.map(f => {
+              const pct2 = Math.min(100, Math.round((f.rec / (s.rec_mes / s.staff_list.length * 1.5)) * 100));
+              return `<div class="lr">
+                <div class="av" style="background:${f.bg};color:${f.c}">${f.in}</div>
+                <div style="flex:1">
+                  <div class="lrn">${f.nm}</div>
+                  <div class="lrm">${f.rl} · ${f.comm}% comissão</div>
+                  <div class="pbt mt4" style="height:3px;width:120px"><div class="pbf" style="width:${pct2}%;background:${f.c}"></div></div>
+                </div>
+                <div class="lrr">
+                  <div class="lrv gd2">${R(f.rec)}</div>
+                  <div class="lrs am2">comis. ${R(Math.round(f.rec * f.comm / 100))}</div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+
+          <!-- Top serviços -->
+          <div class="card">
+            <div class="cardh"><div class="cardt">Top Serviços <em>do Mês</em></div></div>
+            <div class="cardb">
+              ${s.top_servicos.map(([nm, n, c]) => `
+                <div class="sr">
+                  <span class="srl">${nm}</span>
+                  <div class="flex ic g8">
+                    <div class="pbt" style="width:80px;height:4px"><div class="pbf" style="width:${Math.round(n/s.top_servicos[0][1]*100)}%;background:${c}"></div></div>
+                    <span class="txs fw6">${n} atend.</span>
+                  </div>
+                </div>`).join('')}
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="cardh"><div class="cardt">Resumo <em>Executivo</em></div></div>
+            <div class="cardb">
+              <div class="sr"><span class="srl">Plano atual</span><span class="srv"><span class="tag tgd">${s.plano}</span></span></div>
+              <div class="sr"><span class="srl">Funcionando desde</span><span class="srv">${s.desde}</span></div>
+              <div class="sr"><span class="srl">Receita anual estimada</span><span class="srv gd">${R(s.rec_ano)}</span></div>
+              <div class="sr"><span class="srl">Atendimentos no mês</span><span class="srv">${s.agend_mes}</span></div>
+              <div class="sr"><span class="srl">Ticket médio</span><span class="srv">${R(s.ticket_med)}</span></div>
+              <div class="sr"><span class="srl">Clientes que voltam</span><span class="srv">${s.tax_retorno}%</span></div>
+              <div class="sr"><span class="srl">Avaliação geral</span><span class="srv">${s.rating} ★</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="cardh"><div class="cardt">Ações <em>Rápidas</em></div></div>
+            <div class="cardb" style="display:flex;flex-direction:column;gap:8px">
+              <button class="btn btp wf" style="justify-content:center" onclick="Toast.show('Abrindo SalonOS do ${s.nome}...','🚀')">🚀 Abrir painel do salão</button>
+              <button class="btn btg wf" style="justify-content:center" onclick="Toast.show('Relatório do ${s.nome} gerado! 📊')">📊 Gerar relatório PDF</button>
+              <button class="btn btgh wf" style="justify-content:center" onclick="Toast.show('Abrindo configurações...')">⚙ Configurações da unidade</button>
+              <button class="btn btgh wf" style="justify-content:center" onclick="Toast.show('Abrindo gestão de equipe...')">👩 Gerenciar equipe</button>
+              <div class="divider"></div>
+              <button class="btn wf" style="justify-content:center;color:var(--rs);background:var(--rsl);border:1px solid rgba(192,80,74,.15)" onclick="Toast.show('Desativando '+s.nome+'...')">Desativar esta unidade</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="cardh"><div class="cardt">Automatizações <em>Ativas</em></div></div>
+            <div class="cardb">
+              ${[
+                ['✅', 'Confirmação WhatsApp', 'ativa'],
+                ['🔁', 'IA de Reativação', 'ativa'],
+                ['⬆', 'Upsell automático', 'ativa'],
+                ['⭐', 'Avaliação pós-atendimento', 'ativa'],
+                ['🎂', 'Oferta de aniversário', 'ativa'],
+              ].map(([ic, nm, st]) => `
+                <div class="sr">
+                  <div class="flex ic g8"><span>${ic}</span><span>${nm}</span></div>
+                  <span class="tag tsg">${st}</span>
+                </div>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    `);
+
+    /* Build detalhe chart */
+    const dc = $('#detalheChart');
+    if (dc) {
+      barChart(dc, s.rec_semanas.map((v, i) => ({
+        label: `Sem ${i + 1}`,
+        v,
+        color: i === 2 ? s.cor : `${s.bg}`,
+      })));
+    }
+  },
+};
+
+/* ── HELPERS ── */
+function nextStep(n) {
+  const steps = $$('.form-step');
+  const items = $$('.step-item');
+  steps.forEach((s, i) => {
+    s.classList.toggle('active', i === n - 1);
+  });
+  items.forEach((it, i) => {
+    it.classList.remove('active', 'done');
+    if (i < n - 1) it.classList.add('done');
+    if (i === n - 1) it.classList.add('active');
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function selectPlan(el) {
+  $$('.plan-opt').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+let profCount = 2;
+function addProf() {
+  const colors = ['#4A7A62', '#7A5A8A', '#6A7A9A', '#9A6F00', '#C0504A'];
+  const bgs = ['rgba(74,122,98,.18)', 'rgba(122,90,138,.18)', 'rgba(106,122,154,.18)', 'rgba(154,111,0,.15)', 'rgba(192,80,74,.18)'];
+  const ci = (profCount - 1) % colors.length;
+  const item = document.createElement('div');
+  item.className = 'prof-item';
+  item.innerHTML = `
+    <div class="prof-av" style="background:${bgs[ci]};color:${colors[ci]}">P${profCount}</div>
+    <div style="flex:1;display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:center">
+      <input class="fi" placeholder="Nome da profissional">
+      <select class="fi"><option>Cabeleireira</option><option>Colorista</option><option>Manicure</option><option>Esteticista</option></select>
+      <div class="fi-icon-wrap"><span class="fi-icon">%</span><input class="fi" type="number" value="40" style="padding-left:28px"></div>
+      <button class="btn btgh sm" onclick="this.closest('.prof-item').remove()" style="padding:8px;color:var(--rs)">✕</button>
+    </div>`;
+  $('#profList').appendChild(item);
+  profCount++;
+}
+
+function finalizarCadastro() {
+  Modal.open('Salão Cadastrado com Sucesso!', `
+    <div class="mb2" style="text-align:center;padding:10px 0">
+      <div style="font-size:52px;margin-bottom:14px">🎉</div>
+      <div style="font-family:var(--fd);font-size:22px;font-style:italic;margin-bottom:8px">Novo salão ativado!</div>
+      <div style="font-size:13px;color:var(--ink3);line-height:1.6;margin-bottom:20px">Seu novo salão foi cadastrado e já está operando no SalonOS. Acesse o painel dele para configurar os primeiros agendamentos.</div>
+      <div style="background:var(--sgl);border:1px solid rgba(74,122,98,.2);border-radius:var(--r);padding:16px;margin-bottom:16px;text-align:left">
+        <div class="tsm fw6 sg2 mb4">✓ O que foi ativado automaticamente:</div>
+        <div class="txs tm2" style="line-height:1.8">✓ Agenda digital online<br>✓ Confirmação automática por WhatsApp<br>✓ Upsell automático no agendamento<br>✓ IA de reativação de clientes<br>✓ Portal da cliente com QR Code</div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btgh sm" onclick="Modal.close();Router.go('dashboard')">Ver todos os salões</button>
+      <button class="btn btg" onclick="Modal.close();Toast.show('Abrindo SalonOS da nova unidade...','🚀')">🚀 Abrir painel do novo salão</button>
+    </div>`);
+}
+
+function openEditModal(id) {
+  const s = D.saloes.find(x => x.id === id);
+  Modal.open(`Editar — ${s.nome}`, `
+    <div class="mb2">
+      <div class="fg mb12"><label class="flbl">Nome do salão</label><input class="fi" value="${s.nome}"></div>
+      <div class="fgrid2 mb12">
+        <div class="fg"><label class="flbl">Cidade</label><input class="fi" value="${s.cidade}"></div>
+        <div class="fg"><label class="flbl">Bairro</label><input class="fi" value="${s.bairro}"></div>
+      </div>
+      <div class="fgrid2">
+        <div class="fg"><label class="flbl">Meta mensal (R$)</label><input class="fi" type="number" value="${s.meta_mes}"></div>
+        <div class="fg"><label class="flbl">Plano</label><select class="fi"><option ${s.plano==='Base'?'selected':''}>Base</option><option ${s.plano==='Crescimento'?'selected':''}>Crescimento</option><option ${s.plano==='Escala'?'selected':''}>Escala</option></select></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btgh sm" onclick="Modal.close()">Cancelar</button>
+      <button class="btn btg" onclick="Modal.close();Toast.show('Dados de ${s.nome} atualizados! ✓')">Salvar alterações</button>
+    </div>`);
+}
+
+function desativarModal() {
+  return `<div class="mb2">
+    <div style="background:var(--rsl);border:1px solid rgba(192,80,74,.2);border-radius:var(--r);padding:14px;margin-bottom:14px;font-size:13px;color:var(--rs)">
+      ⚠️ <strong>Atenção:</strong> Desativar esta unidade irá suspender todos os agendamentos e automações. Os dados ficam preservados por 90 dias.
+    </div>
+    <div class="fg"><label class="flbl">Para confirmar, escreva: DESATIVAR</label><input class="fi" placeholder="DESATIVAR"></div>
+  </div>
+  <div class="mf">
+    <button class="btn btgh sm" onclick="Modal.close()">Cancelar</button>
+    <button class="btn" style="background:var(--rsl);color:var(--rs);border:1px solid rgba(192,80,74,.2)" onclick="Modal.close();Toast.show('Unidade desativada. Dados preservados por 90 dias.')">Desativar</button>
+  </div>`;
+}
+
+function switchUnit(id) {
+  const u = D.units.find(x => x.id === id);
+  if (!u) return;
+  D.units.forEach(x => x.active = x.id === id);
+  Toast.show('Trocado para ' + u.name, '🏢');
+  P.dashboard();
+}
+
+/* ── INIT ── */
+function init() {
+  $$('.tnt[data-page]').forEach(b => b.addEventListener('click', () => Router.go(b.dataset.page)));
+  $('#exitBtn').addEventListener('click', () => Toast.show('Sessão encerrada. Até logo! 👋', '👋'));
+  $('#mclose').addEventListener('click', Modal.close);
+  $('#mbd').addEventListener('click', e => { if (e.target === $('#mbd')) Modal.close() });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') Modal.close() });
+
+  // Live ticker
+  setInterval(() => {
+    const hk = $$('.hkpi-v.g');
+    hk.forEach(el => {
+      if (!el) return;
+      const cur = parseInt(el.textContent.replace(/\D/g, ''));
+      const nv = cur + Math.floor(Math.random() * 80 + 20);
+      el.style.transition = 'color .4s';
+      el.style.color = 'var(--wh)';
+      setTimeout(() => { el.style.color = 'var(--gd)'; el.textContent = R(nv) }, 400);
+    });
+  }, 12000);
+
+  P.dashboard();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

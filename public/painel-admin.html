@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SalonOS Ops — Painel Administrativo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Base: dark console, not the warm nude of the customer panels — this is the operator's cockpit */
+  --bg:#0F0D0B; --bg2:#161310; --bg3:#1D1915; --panel:#18150F;
+  --ln:rgba(255,255,255,.07); --ln2:rgba(255,255,255,.13);
+  --tx:#F3EFE8; --tx2:#B8AFA2; --tx3:#7C7266; --tx4:#4A443B;
+  /* Gold retained for brand continuity (SalonOS mark), used sparingly here */
+  --gd:#C9A96E; --gdd:#A8864A;
+  /* Operator accent — cool slate-blue, distinct from the customer-facing gold/rose, signals "system" not "salão" */
+  --op:#7EA1C4; --opd:#5C7E9F; --opl:rgba(126,161,196,.12);
+  --sg:#6FAE86; --sgl:rgba(111,174,134,.1);
+  --rs:#D2776E; --rsl:rgba(210,119,110,.1);
+  --am:#D4A94E; --aml:rgba(212,169,78,.1);
+  --fd:'Cormorant Garamond',Georgia,serif; --fb:'DM Sans',system-ui,sans-serif; --fm:'IBM Plex Mono',monospace;
+  --r:10px; --r2:7px; --ez:cubic-bezier(.4,0,.2,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:var(--fb);background:var(--bg);color:var(--tx);min-height:100vh;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+input,select{font-family:inherit;font-size:13px;outline:none;border:none;color:var(--tx)}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+
+/* LOGIN */
+.lw{position:fixed;inset:0;background:radial-gradient(ellipse at 30% 20%,#1A1611,var(--bg) 60%);display:flex;align-items:center;justify-content:center;z-index:999}
+.lb{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--ln2);border-radius:14px;padding:38px 34px}
+.llogo{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.lmark{width:30px;height:30px;background:var(--op);border-radius:7px;display:grid;place-items:center;font-family:var(--fm);font-size:12px;font-weight:700;color:var(--bg)}
+.lbrand{font-family:var(--fd);font-size:21px}.lbrand em{font-style:italic;color:var(--op)}
+.ltag{font-family:var(--fm);font-size:10px;color:var(--tx3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:26px}
+.lf{margin-bottom:13px}
+.lf label{display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--tx3);margin-bottom:6px}
+.lf input{width:100%;background:var(--bg3);border:1px solid var(--ln2);border-radius:7px;padding:10px 12px;font-size:13px}
+.lf input:focus{border-color:var(--op)}
+.lbtn{width:100%;background:var(--op);color:var(--bg);border-radius:7px;padding:12px;font-size:13px;font-weight:700;margin-top:8px;transition:background .15s}
+.lbtn:hover{background:#93B3D0}
+.lnote{font-size:10.5px;color:var(--tx3);margin-top:16px;line-height:1.6;padding-top:16px;border-top:1px solid var(--ln)}
+
+/* TOPBAR */
+.topbar{position:fixed;top:0;left:0;right:0;height:54px;background:rgba(15,13,11,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--ln);display:flex;align-items:center;justify-content:space-between;padding:0 22px;z-index:400}
+.brand{display:flex;align-items:center;gap:9px}
+.bmark{width:28px;height:28px;background:var(--op);border-radius:6px;display:grid;place-items:center;font-family:var(--fm);font-size:10px;font-weight:700;color:var(--bg)}
+.bname{font-family:var(--fd);font-size:17px}.bname em{font-style:italic;color:var(--op)}
+.bsub{font-family:var(--fm);font-size:9px;color:var(--tx3);letter-spacing:1px;text-transform:uppercase;margin-left:8px;padding:2px 7px;background:var(--bg3);border-radius:4px}
+.nav{display:flex;gap:2px}
+.nb{padding:7px 13px;border-radius:6px;font-size:12.5px;font-weight:500;color:var(--tx3);cursor:pointer;transition:.15s}
+.nb:hover{color:var(--tx);background:var(--bg3)}
+.nb.active{color:var(--tx);background:var(--bg3);box-shadow:inset 0 0 0 1px var(--ln2)}
+.tright{display:flex;align-items:center;gap:10px}
+.pulse{display:flex;align-items:center;gap:6px;font-family:var(--fm);font-size:10px;color:var(--sg)}
+.pulsedot{width:6px;height:6px;border-radius:50%;background:var(--sg);animation:pl 2s infinite}
+@keyframes pl{0%,100%{opacity:1}50%{opacity:.3}}
+.opav{width:26px;height:26px;border-radius:50%;background:var(--bg3);border:1px solid var(--ln2);display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--op)}
+
+/* MAIN */
+.main{padding:78px 26px 40px;max-width:1320px;margin:0 auto}
+.page{display:none}.page.active{display:block;animation:fu .18s var(--ez)}
+@keyframes fu{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.sech{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px;gap:10px;flex-wrap:wrap}
+.sct{font-family:var(--fd);font-size:24px;font-weight:400}.sct em{font-style:italic;color:var(--op)}
+.scsub{font-size:11.5px;color:var(--tx3);margin-top:3px}
+.scacts{display:flex;gap:8px}
+
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g64{display:grid;grid-template-columns:1.7fr 1fr;gap:14px}
+@media(max-width:1000px){.g4,.g3{grid-template-columns:repeat(2,1fr)}.g2,.g64{grid-template-columns:1fr}}
+
+.card{background:var(--panel);border:1px solid var(--ln);border-radius:var(--r);overflow:hidden}
+.cardh{padding:13px 16px;border-bottom:1px solid var(--ln);display:flex;align-items:center;justify-content:space-between}
+.cardt{font-family:var(--fd);font-size:15px}.cardt em{font-style:italic;color:var(--op)}
+.cardb{padding:15px 16px}
+
+.kc{background:var(--panel);border:1px solid var(--ln);border-radius:var(--r);padding:16px;position:relative}
+.kcbar{position:absolute;top:0;left:0;right:0;height:2px}
+.kclbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);margin-bottom:8px}
+.kcv{font-family:var(--fd);font-size:27px;font-weight:300;line-height:1;margin-bottom:5px}
+.kcd{font-family:var(--fm);font-size:10.5px}
+.kcd.up{color:var(--sg)}.kcd.dn{color:var(--rs)}.kcd.n{color:var(--tx3)}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:7px;font-size:12px;font-weight:500;transition:.15s}
+.btp{background:var(--op);color:var(--bg)}.btp:hover{background:#93B3D0}
+.btgh{background:var(--bg3);color:var(--tx2);border:1px solid var(--ln2)}.btgh:hover{background:#252017}
+.sm{padding:6px 11px;font-size:11.5px}
+
+.tag{display:inline-flex;padding:3px 8px;border-radius:20px;font-size:9.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}
+.tsg{background:var(--sgl);color:var(--sg)}.trs{background:var(--rsl);color:var(--rs)}.tam{background:var(--aml);color:var(--am)}.top{background:var(--opl);color:var(--op)}
+
+.tw{background:var(--panel);border:1px solid var(--ln);border-radius:var(--r);overflow:hidden}
+.th{display:grid;padding:9px 16px;border-bottom:1px solid var(--ln);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--tx3);background:var(--bg2)}
+.tr{display:grid;padding:12px 16px;border-bottom:1px solid var(--ln);align-items:center;font-size:12.5px;cursor:pointer;transition:background .12s}
+.tr:last-child{border-bottom:none}.tr:hover{background:var(--bg2)}
+.mono{font-family:var(--fm)}
+.fw6{font-weight:600}.tm2{color:var(--tx2)}.tm3{color:var(--tx3)}.op2{color:var(--op)}.sg2{color:var(--sg)}.rs2{color:var(--rs)}.am2{color:var(--am)}
+
+.hbar{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.hbarf{height:100%;border-radius:3px}
+.av{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:11px;font-weight:700;flex-shrink:0}
+
+/* AUDIT LOG — signature element: ledger-style, monospace, evidences the LGPD trust narrative literally */
+.audit-row{display:grid;grid-template-columns:130px 90px 1fr 130px;gap:10px;padding:10px 16px;border-bottom:1px solid var(--ln);font-family:var(--fm);font-size:11px;align-items:center}
+.audit-row:last-child{border-bottom:none}
+.audit-ts{color:var(--tx3)}
+.audit-op{padding:2px 7px;border-radius:4px;font-size:9.5px;font-weight:600;text-align:center}
+.audit-op.read{background:var(--opl);color:var(--op)}
+.audit-op.write{background:var(--aml);color:var(--am)}
+.audit-op.export{background:var(--rsl);color:var(--rs)}
+.audit-detail{color:var(--tx2)}
+.audit-actor{color:var(--tx3);text-align:right}
+
+.divider{height:1px;background:var(--ln);margin:14px 0}
+.mbd{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);z-index:900;display:none;align-items:center;justify-content:center;padding:20px}
+.mbd.open{display:flex}
+.mbox{background:var(--panel);border:1px solid var(--ln2);border-radius:12px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto}
+.mh{padding:16px 20px;border-bottom:1px solid var(--ln);display:flex;justify-content:space-between;align-items:center}
+.mt{font-family:var(--fd);font-size:18px;font-style:italic}
+.mc{width:24px;height:24px;border-radius:6px;background:var(--bg3);display:grid;place-items:center;font-size:12px;color:var(--tx3);cursor:pointer}
+.mb{padding:18px 20px}
+</style>
+</head>
+<body>
+
+<div class="lw" id="lw">
+  <div class="lb">
+    <div class="llogo"><div class="lmark">OS</div><div class="lbrand">Salon<em>OS</em></div></div>
+    <div class="ltag">Painel Administrativo · Acesso Restrito</div>
+    <div class="lf"><label>E-mail</label><input type="email" placeholder="voce@salonos.app"></div>
+    <div class="lf"><label>Senha</label><input type="password" placeholder="Digite sua senha"></div>
+    <button class="lbtn" onclick="doLogin()">Entrar no painel</button>
+    <div class="lnote">Este painel é interno — mostra todas as contas, faturamento e dados de acesso da plataforma. Nunca deve ser exposto a clientes do SalonOS.</div>
+  </div>
+</div>
+
+<header class="topbar" id="topbar" style="display:none">
+  <div class="brand">
+    <div class="bmark">OS</div>
+    <div class="bname">Salon<em>OS</em></div>
+    <div class="bsub">ops</div>
+  </div>
+  <nav class="nav" id="nav">
+    <div class="nb active" data-page="visao">Visão Geral</div>
+    <div class="nb" data-page="contas">Contas</div>
+    <div class="nb" data-page="financeiro">Financeiro</div>
+    <div class="nb" data-page="suporte">Suporte</div>
+    <div class="nb" data-page="auditoria">Auditoria &amp; LGPD</div>
+  </nav>
+  <div class="tright">
+    <div class="pulse"><div class="pulsedot"></div>SISTEMA OK</div>
+    <div class="opav">DR</div>
+  </div>
+</header>
+
+<div class="main" id="mainWrap" style="display:none">
+  <section class="page active" id="page-visao"></section>
+  <section class="page" id="page-contas"></section>
+  <section class="page" id="page-financeiro"></section>
+  <section class="page" id="page-suporte"></section>
+  <section class="page" id="page-auditoria"></section>
+</div>
+
+<div class="mbd" id="mbd"><div class="mbox"><div class="mh"><div class="mt" id="mtitle">—</div><div class="mc" onclick="Modal.close()">✕</div></div><div class="mb" id="mcontent"></div></div></div>
+
+<script>
+'use strict';
+const D = {
+  contas: [
+    {id:'RD-0001',nome:'Roberta Bezerra',rede:'Studio Beleza Pro (rede)',unidades:3,plano:'Escala',mrr:1041,desde:'Mar 2023',status:'ativo',saude:92,ultimoUso:'há 4 min'},
+    {id:'RD-0014',nome:'Camila Souza',rede:'Studio Norte',unidades:1,plano:'Crescimento',mrr:197,desde:'Jan 2025',status:'ativo',saude:88,ultimoUso:'há 1h'},
+    {id:'RD-0022',nome:'Fernanda Dias',rede:'Espaço Bella',unidades:1,plano:'Base',mrr:97,desde:'Jun 2025',status:'ativo',saude:74,ultimoUso:'há 6h'},
+    {id:'RD-0031',nome:'Juliana Prado',rede:'Studio JP Hair',unidades:2,plano:'Crescimento',mrr:394,desde:'Ago 2025',status:'risco',saude:41,ultimoUso:'há 9 dias'},
+    {id:'RD-0037',nome:'Marcos Vinicius',rede:'Barbearia Vintage',unidades:1,plano:'Base',mrr:97,desde:'Set 2025',status:'ativo',saude:81,ultimoUso:'há 2h'},
+    {id:'RD-0044',nome:'Patrícia Nunes',rede:'Clínica Renove',unidades:1,plano:'Escala',mrr:347,desde:'Nov 2025',status:'ativo',saude:95,ultimoUso:'há 12 min'},
+    {id:'RD-0052',nome:'Diego Almeida',rede:'Studio 52 Barber',unidades:1,plano:'Base',mrr:97,desde:'Jan 2026',status:'inadimplente',saude:28,ultimoUso:'há 21 dias'},
+    {id:'RD-0058',nome:'Tainá Rocha',rede:'Bella Estética',unidades:1,plano:'Crescimento',mrr:197,desde:'Mar 2026',status:'trial',saude:66,ultimoUso:'há 3h'},
+  ],
+  mrrMeses: [{m:'Mar',v:3200},{m:'Abr',v:3850},{m:'Mai',v:4640},{m:'Jun',v:5390},{m:'Jul',v:6180},{m:'Ago',v:6947}],
+  auditoria: [
+    {ts:'2026-08-19 12:41:02',op:'read',ator:'sistema:comanda',detalhe:'Leitura de ficha técnica — cliente Ana Beatriz Silva, salão RD-0001 (Studio Beleza Pro)'},
+    {ts:'2026-08-19 12:38:47',op:'export',ator:'RD-0014',detalhe:'Exportação de relatório PDF — 42 clientes, Studio Norte'},
+    {ts:'2026-08-19 12:20:11',op:'write',ator:'RD-0044',detalhe:'Atualização de alergia registrada — cliente Bruna Ferreira'},
+    {ts:'2026-08-19 11:55:03',op:'read',ator:'admin:david',detalhe:'Consulta de suporte — acesso à conta RD-0031 a pedido do cliente (ticket #884)'},
+    {ts:'2026-08-19 11:40:29',op:'read',ator:'sistema:whatsapp',detalhe:'Leitura de telefone para envio de lembrete automático — 8 clientes, RD-0022'},
+    {ts:'2026-08-19 10:12:56',op:'write',ator:'RD-0001',detalhe:'Novo cadastro de cliente — Studio Moema'},
+  ],
+  tickets: [
+    {id:'#884',conta:'RD-0031',assunto:'Comanda não calculou margem corretamente',prioridade:'alta',status:'aberto',tempo:'2h atrás'},
+    {id:'#881',conta:'RD-0052',assunto:'Cobrança duplicada no cartão',prioridade:'alta',status:'aberto',tempo:'6h atrás'},
+    {id:'#879',conta:'RD-0014',assunto:'Dúvida sobre migração de plano',prioridade:'baixa',status:'respondido',tempo:'1 dia atrás'},
+    {id:'#875',conta:'RD-0058',assunto:'Como configurar WhatsApp',prioridade:'media',status:'resolvido',tempo:'2 dias atrás'},
+  ],
+};
+
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const html=(el,mk)=>{el.innerHTML=mk;return el};
+const R=v=>'R$ '+Number(v).toLocaleString('pt-BR');
+const Modal={open(t,b){$('#mtitle').textContent=t;html($('#mcontent'),b);$('#mbd').classList.add('open')},close(){$('#mbd').classList.remove('open')}};
+
+function doLogin(){
+  $('#lw').style.display='none';
+  $('#topbar').style.display='flex';
+  $('#mainWrap').style.display='block';
+  Router.go('visao');
+}
+
+const Router={go(pg){
+  $$('.page').forEach(p=>p.classList.remove('active'));
+  $$('.nb[data-page]').forEach(n=>n.classList.remove('active'));
+  $('#page-'+pg).classList.add('active');
+  $('.nb[data-page="'+pg+'"]').classList.add('active');
+  P[pg]&&P[pg]();
+}};
+
+const P = {
+  visao(){
+    const mrrTotal = D.contas.reduce((a,c)=>a+c.mrr,0);
+    const ativos = D.contas.filter(c=>c.status==='ativo').length;
+    const risco = D.contas.filter(c=>c.status==='risco'||c.status==='inadimplente').length;
+    const arr = mrrTotal*12;
+    const planoCount = {Base:0,Crescimento:0,Escala:0};
+    D.contas.forEach(c=>planoCount[c.plano]++);
+    const maxMrr = Math.max(...D.mrrMeses.map(m=>m.v));
+    html($('#page-visao'), `
+      <div class="sech"><div><div class="sct">Visão <em>Geral</em></div><div class="scsub">Saúde do negócio SalonOS em tempo real</div></div></div>
+      <div class="g4 mb16" style="margin-bottom:16px">
+        <div class="kc"><div class="kcbar" style="background:var(--op)"></div><div class="kclbl">MRR Total</div><div class="kcv" style="color:var(--op)">${R(mrrTotal)}</div><div class="kcd up">▲ +12% vs mês anterior</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">ARR Projetado</div><div class="kcv">${R(arr)}</div><div class="kcd n">12× MRR atual</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Contas Ativas</div><div class="kcv sg2">${ativos}</div><div class="kcd n">${D.contas.length} no total</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--rs)"></div><div class="kclbl">Contas em Risco</div><div class="kcv rs2">${risco}</div><div class="kcd dn">Risco ou inadimplente</div></div>
+      </div>
+
+      <div class="g64" style="margin-bottom:14px">
+        <div class="card">
+          <div class="cardh"><div class="cardt">MRR <em>últimos 6 meses</em></div></div>
+          <div class="cardb">
+            <div style="display:flex;align-items:flex-end;gap:8px;height:110px">
+              ${D.mrrMeses.map((m,i)=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
+                <div style="width:100%;height:${Math.round(m.v/maxMrr*90)}px;background:${i===D.mrrMeses.length-1?'var(--op)':'var(--bg3)'};border-radius:3px 3px 0 0"></div>
+                <div class="mono" style="font-size:10px;color:var(--tx3)">${m.m}</div>
+              </div>`).join('')}
+            </div>
+            <div class="divider"></div>
+            <div style="display:flex;justify-content:space-between;font-size:11.5px"><span class="tm3">Crescimento no período</span><span class="fw6 sg2">+117%</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="cardh"><div class="cardt">Distribuição de <em>Planos</em></div></div>
+          <div class="cardb">
+            ${Object.entries(planoCount).map(([p,n])=>{
+              const pct = Math.round(n/D.contas.length*100);
+              const col = p==='Escala'?'var(--op)':p==='Crescimento'?'var(--gd)':'var(--tx3)';
+              return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span>${p}</span><span class="fw6">${n} contas</span></div><div class="hbar"><div class="hbarf" style="width:${pct}%;background:${col}"></div></div></div>`;
+            }).join('')}
+            <div class="divider"></div>
+            <div style="font-size:11px;color:var(--tx3);line-height:1.6">Ticket médio: <strong class="tm2">${R(Math.round(mrrTotal/D.contas.length))}</strong>/conta</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="cardh"><div class="cardt">Contas que <em>precisam de atenção</em></div><button class="btn btgh sm" onclick="Router.go('contas')">Ver todas</button></div>
+        ${D.contas.filter(c=>c.status==='risco'||c.status==='inadimplente').map(c=>`
+          <div class="tr" style="grid-template-columns:auto 1fr auto auto" onclick="verConta('${c.id}')">
+            <div class="av" style="background:${c.status==='inadimplente'?'var(--rsl)':'var(--aml)'};color:${c.status==='inadimplente'?'var(--rs)':'var(--am)'}">${c.nome.split(' ').map(n=>n[0]).slice(0,2).join('')}</div>
+            <div><div class="fw6">${c.rede}</div><div class="tm3 mono" style="font-size:10.5px">${c.id} · saúde ${c.saude}/100 · ${c.ultimoUso}</div></div>
+            <div class="mono tm2">${R(c.mrr)}/mês</div>
+            <div><span class="tag ${c.status==='inadimplente'?'trs':'tam'}">${c.status}</span></div>
+          </div>`).join('')}
+      </div>
+    `);
+  },
+
+  contas(){
+    html($('#page-contas'), `
+      <div class="sech"><div><div class="sct">Contas <em>da Plataforma</em></div><div class="scsub">${D.contas.length} contas — redes e salões individuais</div></div>
+      <div class="scacts"><input class="fi" placeholder="Buscar conta..." style="background:var(--bg3);border:1px solid var(--ln2);border-radius:7px;padding:8px 12px;font-size:12px;width:200px"></div></div>
+      <div class="tw">
+        <div class="th" style="grid-template-columns:90px 2fr 1fr 1fr 90px 100px 90px">
+          <div>ID</div><div>Conta</div><div>Plano</div><div>MRR</div><div>Saúde</div><div>Último uso</div><div>Status</div>
+        </div>
+        ${D.contas.map(c=>{
+          const hcol = c.saude>=75?'var(--sg)':c.saude>=50?'var(--am)':'var(--rs)';
+          const stMap = {ativo:['tsg','ativo'],risco:['tam','risco'],inadimplente:['trs','inadimplente'],trial:['top','trial']};
+          const [tcls,tlbl] = stMap[c.status];
+          return `<div class="tr" style="grid-template-columns:90px 2fr 1fr 1fr 90px 100px 90px" onclick="verConta('${c.id}')">
+            <div class="mono tm3">${c.id}</div>
+            <div><div class="fw6">${c.rede}</div><div class="tm3" style="font-size:10.5px">${c.nome} · ${c.unidades} unid. · desde ${c.desde}</div></div>
+            <div>${c.plano}</div>
+            <div class="mono fw6">${R(c.mrr)}</div>
+            <div><div class="hbar" style="width:50px"><div class="hbarf" style="width:${c.saude}%;background:${hcol}"></div></div></div>
+            <div class="tm3" style="font-size:11px">${c.ultimoUso}</div>
+            <div><span class="tag ${tcls}">${tlbl}</span></div>
+          </div>`;
+        }).join('')}
+      </div>
+    `);
+  },
+
+  financeiro(){
+    const mrrTotal = D.contas.reduce((a,c)=>a+c.mrr,0);
+    const inadimplente = D.contas.filter(c=>c.status==='inadimplente');
+    const valorInadimplente = inadimplente.reduce((a,c)=>a+c.mrr,0);
+    html($('#page-financeiro'), `
+      <div class="sech"><div><div class="sct">Financeiro <em>da Plataforma</em></div><div class="scsub">Faturamento, inadimplência e movimentação de MRR</div></div></div>
+      <div class="g4" style="margin-bottom:16px">
+        <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">MRR Novo (mês)</div><div class="kcv sg2">${R(591)}</div><div class="kcd up">2 contas novas</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--op)"></div><div class="kclbl">Expansão (upgrades)</div><div class="kcv" style="color:var(--op)">${R(197)}</div><div class="kcd up">1 conta subiu de plano</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--rs)"></div><div class="kclbl">Churn (mês)</div><div class="kcv rs2">${R(0)}</div><div class="kcd n">Nenhum cancelamento</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Em Atraso</div><div class="kcv am2">${R(valorInadimplente)}</div><div class="kcd dn">${inadimplente.length} conta(s)</div></div>
+      </div>
+      <div class="card">
+        <div class="cardh"><div class="cardt">Cobranças em <em>Atraso</em></div></div>
+        ${inadimplente.length ? inadimplente.map(c=>`
+          <div class="tr" style="grid-template-columns:1fr auto auto auto" onclick="verConta('${c.id}')">
+            <div><div class="fw6">${c.rede}</div><div class="tm3 mono" style="font-size:10.5px">${c.id}</div></div>
+            <div class="mono rs2 fw6">${R(c.mrr)}</div>
+            <div class="tm3">Vencido há 8 dias</div>
+            <div><button class="btn btgh sm" onclick="event.stopPropagation();Toast('Cobrança reenviada para '+'${c.rede}')">Reenviar cobrança</button></div>
+          </div>`).join('') : '<div class="cardb tm3">Nenhuma cobrança em atraso.</div>'}
+      </div>
+    `);
+  },
+
+  suporte(){
+    const abertos = D.tickets.filter(t=>t.status==='aberto').length;
+    html($('#page-suporte'), `
+      <div class="sech"><div><div class="sct">Central de <em>Suporte</em></div><div class="scsub">${abertos} tickets abertos agora</div></div></div>
+      <div class="g3" style="margin-bottom:16px">
+        <div class="kc"><div class="kcbar" style="background:var(--rs)"></div><div class="kclbl">Abertos</div><div class="kcv rs2">${abertos}</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--op)"></div><div class="kclbl">Tempo médio de resposta</div><div class="kcv" style="color:var(--op)">2h 40min</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Satisfação (últimos 30d)</div><div class="kcv sg2">4.7</div></div>
+      </div>
+      <div class="tw">
+        <div class="th" style="grid-template-columns:70px 1fr 100px 90px 100px 90px">
+          <div>Ticket</div><div>Assunto</div><div>Conta</div><div>Prioridade</div><div>Status</div><div>Aberto</div>
+        </div>
+        ${D.tickets.map(t=>{
+          const pCol = {alta:'trs',media:'tam',baixa:'top'}[t.prioridade];
+          const sCol = {aberto:'trs',respondido:'tam',resolvido:'tsg'}[t.status];
+          return `<div class="tr" style="grid-template-columns:70px 1fr 100px 90px 100px 90px">
+            <div class="mono tm3">${t.id}</div>
+            <div>${t.assunto}</div>
+            <div class="mono tm3">${t.conta}</div>
+            <div><span class="tag ${pCol}">${t.prioridade}</span></div>
+            <div><span class="tag ${sCol}">${t.status}</span></div>
+            <div class="tm3" style="font-size:11px">${t.tempo}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    `);
+  },
+
+  auditoria(){
+    html($('#page-auditoria'), `
+      <div class="sech"><div><div class="sct">Auditoria <em>&amp; LGPD</em></div><div class="scsub">Todo acesso a dado sensível de cliente fica registrado — este é o compromisso que vira diferencial de venda</div></div>
+      <div class="scacts"><button class="btn btgh sm">Exportar log completo</button></div></div>
+
+      <div style="background:var(--opl);border:1px solid rgba(126,161,196,.25);border-radius:var(--r);padding:13px 16px;margin-bottom:14px;font-size:12px;color:var(--tx2);line-height:1.6">
+        <strong style="color:var(--op)">Por que isso existe:</strong> nenhum concorrente do mercado de gestão de salão comunica ativamente como protege dado de cliente (fórmula, alergia, histórico). Este log — leitura, escrita e exportação, com ator e timestamp — é a prova concreta por trás da promessa de segurança feita ao cliente final.
+      </div>
+
+      <div class="tw">
+        <div class="audit-row" style="border-bottom:1px solid var(--ln2);background:var(--bg2);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3)">
+          <div>Timestamp</div><div>Operação</div><div>Detalhe</div><div style="text-align:right">Ator</div>
+        </div>
+        ${D.auditoria.map(a=>`
+          <div class="audit-row">
+            <div class="audit-ts">${a.ts}</div>
+            <div><span class="audit-op ${a.op}">${a.op}</span></div>
+            <div class="audit-detail">${a.detalhe}</div>
+            <div class="audit-actor">${a.ator}</div>
+          </div>`).join('')}
+      </div>
+    `);
+  }
+};
+
+function verConta(id){
+  const c = D.contas.find(x=>x.id===id);
+  Modal.open(c.rede, `
+    <div style="display:flex;gap:24px;margin-bottom:16px">
+      <div><div class="tm3" style="font-size:10px;text-transform:uppercase">Plano</div><div class="fw6">${c.plano}</div></div>
+      <div><div class="tm3" style="font-size:10px;text-transform:uppercase">MRR</div><div class="fw6 mono">${R(c.mrr)}</div></div>
+      <div><div class="tm3" style="font-size:10px;text-transform:uppercase">Saúde</div><div class="fw6">${c.saude}/100</div></div>
+    </div>
+    <div class="tm2" style="font-size:12.5px;line-height:1.7">Responsável: ${c.nome}<br>Unidades: ${c.unidades}<br>Cliente desde: ${c.desde}<br>Último uso: ${c.ultimoUso}</div>
+    <div class="divider"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btp sm" onclick="Toast('Abrindo conversa de suporte...')">Contatar</button>
+      <button class="btn btgh sm" onclick="Toast('Abrindo histórico de fatura...')">Ver faturas</button>
+    </div>
+  `);
+}
+
+function Toast(msg){ alert(msg); }
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  $$('.nb[data-page]').forEach(b=>b.addEventListener('click',()=>Router.go(b.dataset.page)));
+  $('#mbd').addEventListener('click', e=>{ if(e.target.id==='mbd') Modal.close(); });
+});
+</script>
+</body>
+</html>

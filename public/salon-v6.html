@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1A1A1A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SalonOS">
+<link rel="manifest" href="data:application/manifest+json,{&quot;name&quot;:&quot;SalonOS&quot;,&quot;short_name&quot;:&quot;SalonOS&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%23FAF8F5&quot;,&quot;theme_color&quot;:&quot;%231A1A1A&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%231A1A1A'/%3E%3Ctext x='96' y='130' text-anchor='middle' font-size='100' fill='%23C9A96E'%3E✂%3C/text%3E%3C/svg%3E&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]}">
+<style>
+.pwa-banner{position:fixed;bottom:0;left:0;right:0;background:var(--ink);color:var(--wh);padding:12px 20px;display:flex;align-items:center;gap:12px;z-index:800;transform:translateY(100%);transition:transform .4s var(--ez);box-shadow:0 -4px 20px rgba(26,26,26,.3)}
+.pwa-banner.show{transform:translateY(0)}
+.pwa-app-icon{width:38px;height:38px;border-radius:9px;background:linear-gradient(135deg,var(--gd),var(--gdd));display:grid;place-items:center;font-size:18px;flex-shrink:0}
+.pwa-text{flex:1}.pwa-title{font-size:13px;font-weight:700;margin-bottom:2px}
+.pwa-sub{font-size:11px;color:rgba(255,255,255,.55)}
+.pwa-btn{background:var(--gd);color:var(--ink);border:none;border-radius:7px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--fb)}
+.pwa-btn:hover{background:var(--gdd)}
+.pwa-close{background:none;border:none;color:rgba(255,255,255,.4);font-size:18px;cursor:pointer;padding:4px;flex-shrink:0}
+
+/* ── Identidade Visual Premium ── */
+.brand-name{font-family:var(--fd);font-size:20px;letter-spacing:-.3px}
+.brand-name em{font-style:italic;color:var(--gdd)}
+.rose-accent{color:var(--rose)}
+.rose-bg{background:var(--roselight);border:1px solid rgba(201,123,138,.2)}
+.gold-border{border:1px solid rgba(201,169,110,.25)!important}
+.premium-card{background:linear-gradient(145deg,var(--wh),rgba(242,232,225,.5));border:1px solid rgba(201,169,110,.2);box-shadow:var(--sh)}
+.hero-title-gradient{background:linear-gradient(135deg,var(--wh),var(--gdl));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+/* Scrollbar nude */
+::-webkit-scrollbar-track{background:var(--nude2)}
+::-webkit-scrollbar-thumb{background:var(--nude3);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--gd)}
+</style>
+<title>SalonOS v6 — Studio Beleza Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* ── Paleta de identidade ── */
+  --nude:#F2E8E1;       /* Rosa nude base */
+  --nude2:#EAD8CE;      /* Rosa nude escuro */
+  --nude3:#D4BFB4;      /* Rosa nude mais escuro */
+  --wh:#FFFFFF;
+  --gd:#C9A96E;         /* Dourado suave */
+  --gdl:#EAD9BC;        /* Dourado claro */
+  --gdd:#A8864A;        /* Dourado escuro */
+  --gdg:rgba(201,169,110,.22);
+  --rose:#C97B8A;       /* Rosa accent */
+  --rosedark:#A85A6A;
+  --roselight:rgba(201,123,138,.12);
+  --ink:#1A1510;        /* Preto elegante */
+  --ink2:#3A3028;
+  --ink3:#8A7A72;
+  --ink4:#C4B4AC;
+  --rs:#C0504A;--rsl:#FBF0EF;
+  --sg:#4A7A62;--sgl:#EDF4F0;
+  --am:#9A6F00;--aml:#FFF8EC;
+  --sk:#3A6EA8;--skl:#EEF4FB;
+  --vi:#7A5A9A;
+  /* Backgrounds usando nude */
+  --cr:var(--nude);
+  --cr2:var(--nude2);
+  --cr3:var(--nude3);
+  --bd:rgba(26,21,16,.09);
+  --bd2:rgba(26,21,16,.18);
+  --sh:0 1px 4px rgba(26,21,16,.06),0 6px 28px rgba(26,21,16,.09);
+  --sh2:0 4px 20px rgba(26,21,16,.12),0 28px 64px rgba(26,21,16,.16);
+  --fd:'Cormorant Garamond',Georgia,serif;
+  --fb:'DM Sans',system-ui,sans-serif;
+  --r:12px;--rs2:8px;--rl:18px;
+  --ez:cubic-bezier(.4,0,.2,1);--t:160ms;--tm:300ms
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px;-webkit-font-smoothing:antialiased}
+body{font-family:var(--fb);background:var(--nude);color:var(--ink);min-height:100vh;overflow-x:hidden}
+button{font-family:inherit;cursor:pointer;border:none;outline:none;background:none}
+input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:none}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:var(--cr3);border-radius:3px}
+/* LOGIN */
+.lw{position:fixed;inset:0;background:linear-gradient(145deg,#1A1510 0%,#2C1F1A 50%,#1A1510 100%);display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s,transform .5s}
+.lw.hide{opacity:0;pointer-events:none;transform:scale(1.02)}
+.lw::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 50px,rgba(201,169,110,.025) 50px,rgba(201,169,110,.025) 51px)}
+.lw::after{content:'';position:absolute;top:-200px;right:-100px;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(201,169,110,.1),transparent 65%);pointer-events:none}
+.lb{background:rgba(242,232,225,.06);border:1px solid rgba(201,169,110,.2);border-radius:20px;padding:44px 40px;width:100%;max-width:400px;position:relative;z-index:1;backdrop-filter:blur(20px)}
+.llogo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
+.lmark{width:34px;height:34px;background:var(--gd);border-radius:8px;display:grid;place-items:center;font-size:16px;color:var(--ink);flex-shrink:0}
+.lbrand{font-family:var(--fd);font-size:24px;color:var(--wh);letter-spacing:-.5px}.lbrand em{font-style:italic;color:var(--gd)}
+.lh{font-family:var(--fd);font-size:28px;font-weight:300;color:var(--wh);margin-bottom:6px}.lh em{font-style:italic;color:var(--gd)}
+.lsub{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:24px;line-height:1.5}
+.lf{margin-bottom:13px}.lf label{display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.4);margin-bottom:6px}
+.lf input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 14px;color:var(--wh);font-size:13px;transition:border-color var(--t);font-family:var(--fb)}
+.lf input:focus{border-color:var(--gd);outline:none}.lf input::placeholder{color:rgba(255,255,255,.25)}
+.lbtn{width:100%;background:var(--gd);color:var(--ink);border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;transition:all var(--t);border:none;font-family:var(--fb);margin-top:6px}
+.lbtn:hover{background:var(--gdd);transform:translateY(-1px);box-shadow:0 6px 24px rgba(201,169,110,.3)}
+.lprofs{display:flex;gap:8px;margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.08)}
+.lp{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px;text-align:center;cursor:pointer;transition:all var(--t)}
+.lp:hover{background:rgba(255,255,255,.1);border-color:rgba(201,169,110,.3)}
+.lp-i{font-size:20px;margin-bottom:4px}.lp-n{font-size:11px;color:rgba(255,255,255,.6);font-weight:500}.lp-r{font-size:10px;color:rgba(255,255,255,.35)}
+/* TOPBAR */
+.topbar{position:fixed;top:0;left:0;right:0;height:56px;background:rgba(242,232,225,.95);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border-bottom:1px solid rgba(201,169,110,.2);display:flex;align-items:center;justify-content:space-between;padding:0 22px;z-index:500;gap:10px}
+.brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.bmark{width:32px;height:32px;background:linear-gradient(135deg,#1A1510,#3A2820);border-radius:7px;display:grid;place-items:center;color:var(--gd);font-size:15px;transform:rotate(-5deg);flex-shrink:0;box-shadow:0 2px 8px rgba(201,169,110,.3)}
+.bname{font-family:var(--fd);font-size:19px;font-weight:400}.bname em{font-style:italic;color:var(--gdd)}.bsub{font-size:10px;color:var(--ink3);margin-top:1px}
+.usw{display:flex;align-items:center;gap:6px;padding:5px 11px;background:var(--cr2);border:1px solid var(--bd);border-radius:var(--rs2);cursor:pointer;font-size:12px;font-weight:500;flex-shrink:0;transition:all var(--t)}.usw:hover{background:var(--cr3)}
+.udot{width:7px;height:7px;border-radius:50%;background:var(--sg);flex-shrink:0}
+.tnav{display:flex;align-items:center;gap:2px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none}.tnav::-webkit-scrollbar{display:none}
+.nb{display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:var(--rs2);font-size:12px;font-weight:500;color:var(--ink3);cursor:pointer;transition:all var(--t);border:1px solid transparent;white-space:nowrap;flex-shrink:0}
+.nb:hover{background:var(--cr2);color:var(--ink)}.nb.active{background:var(--wh);color:var(--ink);border-color:rgba(201,169,110,.3);box-shadow:0 1px 4px rgba(201,169,110,.15),0 0 0 1px rgba(201,169,110,.1)}
+.nb.nw{position:relative}.nb.nw::after{content:'NEW';position:absolute;top:-5px;right:-3px;background:var(--rs);color:var(--wh);font-size:7px;font-weight:800;padding:1px 4px;border-radius:3px;letter-spacing:.5px}
+.ndiv{width:1px;height:18px;background:var(--bd2);margin:0 3px;flex-shrink:0}
+.nb.exit{color:var(--rs)}.nb.exit:hover{background:var(--rsl)}
+.tright{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.lpill{display:flex;align-items:center;gap:5px;padding:4px 9px;background:var(--sgl);border:1px solid rgba(74,122,98,.15);border-radius:20px;font-size:10px;font-weight:600;color:var(--sg);letter-spacing:.4px}
+.ldot{width:5px;height:5px;border-radius:50%;background:var(--sg);animation:blink 2s ease infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.dchip{font-size:11px;color:var(--ink3);padding:4px 10px;background:var(--cr2);border:1px solid var(--bd);border-radius:var(--rs2)}
+/* HERO */
+.hero{background:linear-gradient(135deg,#1A1510 0%,#2A1C18 40%,#1E1612 100%);padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:20px;overflow:hidden;position:relative;flex-wrap:wrap}
+.hero::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(201,169,110,.025) 40px,rgba(201,169,110,.025) 41px)}
+.hero::after{content:'';position:absolute;top:-120px;right:-80px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(201,169,110,.09),transparent 65%);pointer-events:none}
+.hey{font-size:9px;font-weight:500;color:rgba(255,255,255,.3);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}
+.htitle{font-family:var(--fd);font-size:26px;font-weight:300;color:var(--wh);line-height:1.05;letter-spacing:-.5px}.htitle em{font-style:italic;color:var(--gd)}
+.hkpis{display:flex;flex-wrap:wrap;gap:0}
+.hk{padding:0 16px;border-left:1px solid rgba(255,255,255,.09);text-align:center}.hk:first-child{border-left:none}
+.hkv{font-family:var(--fd);font-size:22px;font-weight:300;color:var(--wh);line-height:1;margin-bottom:2px}.hkv.g{color:var(--gd)}.hkv.s{color:var(--sg)}
+.hkl{font-size:9px;color:rgba(255,255,255,.34);letter-spacing:.7px;text-transform:uppercase}.hkd{font-size:9px;margin-top:2px;font-weight:500}
+/* MAIN */
+.main{padding-top:56px;min-height:100vh}
+.page{display:none;padding:18px 22px;animation:fup .2s var(--ez) both}.page.active{display:block}
+@keyframes fup{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.g64{display:grid;grid-template-columns:1.6fr 1fr;gap:14px}.gsplit{display:grid;grid-template-columns:1fr 278px;gap:16px;align-items:start}
+@media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}.gsplit{grid-template-columns:1fr}.g3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:720px){.g2,.g3,.g4,.g64{grid-template-columns:1fr}}
+.sech{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:14px;gap:10px}.sct{font-family:var(--fd);font-size:22px;font-weight:400;letter-spacing:-.3px;line-height:1}.sct em{font-style:italic;color:var(--gdd)}.scsub{font-size:11px;color:var(--ink3);margin-top:3px}.scacts{display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap}
+.card{background:var(--wh);border:1px solid rgba(201,169,110,.15);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}.cardh{padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:10px}.cardt{font-family:var(--fd);font-size:15px;font-weight:400;letter-spacing:-.2px}.cardt em{font-style:italic;color:var(--gdd)}.cardlnk{font-size:11px;color:var(--gdd);font-weight:500;cursor:pointer;transition:opacity var(--t)}.cardlnk:hover{opacity:.65}.cardb{padding:14px 16px}
+.kc{background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);padding:15px;position:relative;overflow:hidden;transition:transform var(--t),box-shadow var(--tm)}.kc:hover{transform:translateY(-2px);box-shadow:var(--sh2)}.kcbar{position:absolute;top:0;left:0;right:0;height:2px}.kclbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:7px}.kcv{font-family:var(--fd);font-size:24px;font-weight:300;letter-spacing:-.5px;line-height:1;margin-bottom:4px}.kcd{font-size:11px;font-weight:500}.kcd.up{color:var(--sg)}.kcd.dn{color:var(--rs)}.kcd.n{color:var(--ink3)}.kcico{position:absolute;bottom:-4px;right:4px;font-size:38px;opacity:.055;pointer-events:none}
+.lr{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bd);transition:background var(--t);cursor:pointer}.lr:last-child{border-bottom:none}.lr:hover{background:var(--cr)}.lrn{font-size:13px;font-weight:500}.lrm{font-size:11px;color:var(--ink3);margin-top:1px}.lrr{margin-left:auto;text-align:right;flex-shrink:0}.lrv{font-size:13px;font-weight:600}.lrs{font-size:11px;color:var(--ink3);margin-top:1px}
+.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;flex-shrink:0}.avsq{border-radius:8px!important}
+.tag{display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap}.tsg{background:var(--sgl);color:var(--sg)}.trs{background:var(--rsl);color:var(--rs)}.tam{background:var(--aml);color:var(--am)}.tgd{background:rgba(201,169,110,.15);color:var(--gdd)}.tsk{background:var(--skl);color:var(--sk)}.tik{background:rgba(26,26,26,.07);color:var(--ink2)}.tvi{background:rgba(122,90,154,.12);color:var(--vi)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:var(--rs2);font-size:12px;font-weight:500;cursor:pointer;transition:all var(--t) var(--ez);white-space:nowrap;border:none}.btp{background:linear-gradient(135deg,#1A1510,#2C1F18);color:var(--wh)}.btp:hover{background:linear-gradient(135deg,#2C1F18,#3A2820);transform:translateY(-1px);box-shadow:0 4px 16px rgba(26,21,16,.25)}.btg{background:linear-gradient(135deg,var(--gd),var(--gdd));color:var(--wh)}.btg:hover{background:linear-gradient(135deg,var(--gdd),#8A6838);transform:translateY(-1px);box-shadow:0 4px 16px rgba(201,169,110,.35)}.btgh{background:var(--cr2);color:var(--ink2);border:1px solid var(--bd)}.btgh:hover{background:var(--cr3)}.bto{background:transparent;color:var(--ink2);border:1px solid var(--bd2)}.bto:hover{background:var(--cr2)}.btre{background:var(--rsl);color:var(--rs);border:1px solid rgba(192,80,74,.15)}.btre:hover{background:rgba(192,80,74,.2)}.btv{background:rgba(122,90,154,.12);color:var(--vi);border:1px solid rgba(122,90,154,.2)}.btv:hover{background:rgba(122,90,154,.2)}.sm{padding:5px 10px;font-size:11.5px}.xs{padding:3px 8px;font-size:11px}
+.tog{position:relative;width:36px;height:19px;flex-shrink:0}.tog input{opacity:0;width:0;height:0;position:absolute}.togt{position:absolute;inset:0;background:var(--cr3);border:1px solid var(--bd2);border-radius:20px;cursor:pointer;transition:all var(--t)}.togk{position:absolute;width:13px;height:13px;top:2px;left:2px;border-radius:50%;background:var(--ink3);transition:transform var(--t),background var(--t);pointer-events:none}.tog input:checked~.togt{background:var(--sgl);border-color:var(--sg)}.tog input:checked~.togk{transform:translateX(17px);background:var(--sg)}
+.fg{margin-bottom:12px}.fg:last-child{margin-bottom:0}.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}.flbl{display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:5px}.fi{width:100%;background:var(--cr);border:1px solid var(--bd2);border-radius:var(--rs2);padding:8px 11px;color:var(--ink);font-size:13px;transition:border-color var(--t),box-shadow var(--t)}.fi:focus{border-color:var(--gd);box-shadow:0 0 0 3px rgba(201,169,110,.1)}.fi::placeholder{color:var(--ink4)}textarea.fi{resize:vertical;min-height:68px;line-height:1.5}
+.mbd{position:fixed;inset:0;background:rgba(26,26,26,.42);backdrop-filter:blur(8px);z-index:900;display:none;align-items:center;justify-content:center;padding:20px}.mbd.open{display:flex}.mbox{background:var(--wh);border:1px solid var(--bd);border-radius:var(--rl);width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 28px 80px rgba(26,26,26,.2);animation:mIn .2s var(--ez)}.mbox.wide{max-width:700px}
+@keyframes mIn{from{opacity:0;transform:scale(.97) translateY(8px)}to{opacity:1;transform:scale(1)}}
+.mh{padding:17px 20px 13px;border-bottom:1px solid var(--bd);display:flex;align-items:flex-start;justify-content:space-between}.mt2{font-family:var(--fd);font-size:19px;font-weight:400;font-style:italic;letter-spacing:-.2px}.mclose{width:26px;height:26px;border-radius:var(--rs2);background:var(--cr2);border:1px solid var(--bd);display:grid;place-items:center;font-size:13px;color:var(--ink3);cursor:pointer;transition:all var(--t);flex-shrink:0}.mclose:hover{background:var(--cr3);color:var(--ink)}.mb2{padding:18px 20px}.mf{padding:12px 20px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:7px}
+.twrap{position:fixed;bottom:22px;right:22px;z-index:9999;display:flex;flex-direction:column;gap:7px;pointer-events:none}.toast{background:var(--ink);color:var(--wh);border-radius:var(--r);padding:11px 15px;font-size:13px;display:flex;align-items:center;gap:8px;max-width:340px;box-shadow:0 8px 28px rgba(26,26,26,.22);pointer-events:all;animation:tIn .2s var(--ez) both;transition:opacity .3s,transform .3s}
+@keyframes tIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.toast.out{opacity:0;transform:translateY(6px)}
+.acol-wrap{display:flex;gap:0;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);background:var(--wh)}.atcol{width:50px;flex-shrink:0;border-right:1px solid var(--bd);background:var(--cr)}.atch{height:42px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--ink4);text-transform:uppercase;letter-spacing:.5px}.atc{height:58px;border-bottom:1px solid var(--bd);display:flex;align-items:flex-start;justify-content:center;padding-top:5px;font-size:10px;color:var(--ink3);font-weight:600}.atc:last-child{border-bottom:none}.apcol{flex:1;border-right:1px solid var(--bd);min-width:0}.apcol:last-child{border-right:none}.apch{height:42px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:6px;padding:0 9px;background:var(--cr2)}.apav{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:700;flex-shrink:0}.apname{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.apcnt{font-size:9px;color:var(--ink3)}.apcell{height:58px;border-bottom:1px solid var(--bd);position:relative;cursor:pointer;transition:background var(--t)}.apcell:hover{background:rgba(201,169,110,.04)}.apcell:last-child{border-bottom:none}.appt{position:absolute;inset:2px;border-radius:5px;padding:3px 6px;cursor:pointer;overflow:hidden;transition:filter var(--t);z-index:2}.appt:hover{filter:brightness(1.08)}.apn{font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.aps{font-size:9px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}.app{font-size:9px;font-weight:700;margin-top:2px;opacity:.9}
+.aibanner{background:linear-gradient(135deg,rgba(201,169,110,.12),rgba(201,169,110,.05));border:1px solid rgba(201,169,110,.2);border-radius:var(--r);padding:11px 15px;margin-bottom:12px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all var(--t)}.aibanner:hover{background:linear-gradient(135deg,rgba(201,169,110,.18),rgba(201,169,110,.1))}.aitag{display:inline-flex;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;background:rgba(201,169,110,.2);color:var(--gdd);margin-bottom:3px}
+.fcast{background:var(--ink);border-radius:var(--r);padding:18px;color:var(--wh);position:relative;overflow:hidden}.fcast::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 80% 20%,rgba(201,169,110,.1),transparent 60%);pointer-events:none}.fv{font-family:var(--fd);font-size:32px;font-weight:300;color:var(--gd);line-height:1;margin-bottom:3px}.fci{display:flex;align-items:center;gap:7px;font-size:11px;color:rgba(255,255,255,.7);padding:5px 0;border-bottom:1px solid rgba(255,255,255,.07)}.fci:last-child{border-bottom:none}.fcn{flex:1;font-style:italic;font-family:var(--fd);font-size:13px}.fcd{color:rgba(255,255,255,.4);font-size:10px}.fcval{font-weight:600;color:var(--gd)}.fcprob{font-size:9px;padding:2px 6px;border-radius:12px}.fchi{background:rgba(74,122,98,.3);color:var(--sg)}.fcme{background:rgba(154,111,0,.3);color:var(--am)}
+.cmdh{display:flex;align-items:center;gap:10px;padding:11px 15px;background:var(--cr2);border-radius:var(--r);border:1px solid var(--bd);margin-bottom:13px}.cmdav{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;font-size:13px;font-weight:700;flex-shrink:0}.cmdtimer{margin-left:auto;text-align:center;background:var(--ink);border-radius:7px;padding:5px 10px}.cmdtv{font-family:var(--fd);font-size:18px;font-weight:300;color:var(--gd);line-height:1}.cmdtl{font-size:9px;color:rgba(255,255,255,.4);letter-spacing:.5px;text-transform:uppercase}
+.irow{display:flex;align-items:center;gap:9px;padding:8px 13px;border:1px solid var(--bd);border-radius:var(--rs2);background:var(--wh);margin-bottom:6px;transition:all var(--t)}.irow.used{border-color:rgba(74,122,98,.3);background:var(--sgl)}.ichk{width:17px;height:17px;border:2px solid var(--bd2);border-radius:4px;display:grid;place-items:center;cursor:pointer;flex-shrink:0;transition:all var(--t)}.ichk.on{background:var(--sg);border-color:var(--sg);color:var(--wh)}.iname{font-size:12.5px;font-weight:500;flex:1}.icost{font-size:10px;color:var(--ink3)}.iqty{display:flex;align-items:center;gap:5px}.qbtn{width:20px;height:20px;border-radius:50%;border:1px solid var(--bd2);display:grid;place-items:center;font-size:13px;cursor:pointer;transition:all var(--t)}.qbtn:hover{background:var(--cr2)}.qval{font-size:13px;font-weight:600;width:18px;text-align:center}
+.ctotal{background:var(--cr2);border:1px solid var(--bd);border-radius:var(--r);padding:14px}.ctrow{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:1px solid var(--bd)}.ctrow:last-child{border-bottom:none}.ctl{color:var(--ink3)}.ctv{font-weight:600}.cttot{font-family:var(--fd);font-size:20px;font-weight:300;color:var(--gdd)}.mbar{height:7px;background:var(--cr3);border-radius:4px;overflow:hidden;margin-top:5px}.mbarf{height:100%;border-radius:4px;transition:width 1s var(--ez)}
+.auto-card{background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);padding:16px;display:flex;align-items:flex-start;gap:13px;transition:border-color var(--t);margin-bottom:8px}.auto-card:hover{border-color:var(--bd2)}.auto-icon{width:42px;height:42px;border-radius:10px;display:grid;place-items:center;font-size:18px;flex-shrink:0}.auto-body{flex:1;min-width:0}.auto-name{font-size:14px;font-weight:700;margin-bottom:3px}.auto-desc{font-size:12px;color:var(--ink3);line-height:1.5}.auto-metrics{display:flex;flex-wrap:wrap;gap:14px;margin-top:9px}.auto-metric{font-size:11px;color:var(--ink3)}.auto-metric strong{color:var(--ink);font-weight:600}
+.evcard{background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);padding:13px 15px;margin-bottom:8px;box-shadow:var(--sh)}.evh{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.evname{font-family:var(--fd);font-size:14px;font-style:italic}.evstars{color:var(--gd);font-size:13px;letter-spacing:1px}.evtxt{font-size:12.5px;line-height:1.6;color:var(--ink2)}
+.cfsec{background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);margin-bottom:13px}.cfh{padding:11px 16px;border-bottom:1px solid var(--bd);font-family:var(--fd);font-size:14px;font-weight:400;background:var(--cr)}.cfrow{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--bd)}.cfrow:last-child{border-bottom:none}.cflbl{font-size:13px;font-weight:500}.cfdesc{font-size:11px;color:var(--ink3);margin-top:1px}
+.plan-card{background:var(--wh);border:1px solid var(--bd);border-radius:var(--rl);padding:26px;position:relative;transition:transform var(--t),box-shadow var(--tm)}.plan-card:hover{transform:translateY(-3px);box-shadow:var(--sh2)}.plan-card.featured{border-color:var(--gd);background:rgba(201,169,110,.03)}.plan-popular{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--gd);color:var(--ink);font-size:9px;font-weight:800;padding:3px 10px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}.plan-name{font-family:var(--fd);font-size:20px;font-weight:400;margin-bottom:4px}.plan-desc{font-size:12px;color:var(--ink3);margin-bottom:16px}.plan-price-v{font-family:var(--fd);font-size:36px;font-weight:300;line-height:1}.plan-price-p{font-size:11px;color:var(--ink3);margin-bottom:18px}.plan-feats{list-style:none;margin-bottom:22px;display:flex;flex-direction:column;gap:8px}.plan-feat{font-size:13px;display:flex;align-items:flex-start;gap:7px}.plan-feat::before{content:'checkmark';color:var(--sg);font-weight:700;flex-shrink:0}.plan-feat.no{color:var(--ink3)}.plan-feat.no::before{color:var(--ink4)}
+.sr{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bd);font-size:13px}.sr:last-child{border-bottom:none;padding-bottom:0}.sr:first-child{padding-top:0}.srl{color:var(--ink3)}.srv{font-weight:600}.srv.gd{color:var(--gdd)}.srv.sg{color:var(--sg)}.srv.rs{color:var(--rs)}.srv.am{color:var(--am)}
+.pbt{background:var(--cr2);border-radius:3px;overflow:hidden}.pbf{border-radius:3px;transition:width 1s var(--ez)}.pbrow{display:flex;align-items:center;gap:8px}
+.tw{background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}.thead{display:grid;padding:9px 16px;border-bottom:1px solid var(--bd);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--ink3);background:var(--cr)}.trow{display:grid;padding:11px 16px;border-bottom:1px solid var(--bd);align-items:center;font-size:13px;transition:background var(--t);cursor:pointer}.trow:last-child{border-bottom:none}.trow:hover{background:var(--cr)}.trow.ttotal{background:var(--cr2);border-top:2px solid var(--bd2);cursor:default;font-weight:700}.tc5s{grid-template-columns:2fr 1fr 1fr 1fr 100px}.tc6s{grid-template-columns:2fr 1fr 1fr 1fr 1fr 100px}.tc5c{grid-template-columns:2.5fr 1fr 1fr 1fr 90px}.tc5e{grid-template-columns:2fr 1fr 1fr 1fr 90px}
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--gdl),transparent);margin:16px 0}
+.flex{display:flex}.ic{align-items:center}.jb{justify-content:space-between}
+.g6{gap:6px}.g8{gap:8px}.g10{gap:10px}.g12{gap:12px}
+.mt4{margin-top:4px}.mt8{margin-top:8px}.mt10{margin-top:10px}.mt12{margin-top:12px}.mt14{margin-top:14px}.mt16{margin-top:16px}
+.mb8{margin-bottom:8px}.mb10{margin-bottom:10px}.mb12{margin-bottom:12px}.mb14{margin-bottom:14px}.mb16{margin-bottom:16px}
+.txs{font-size:11px}.tsm{font-size:12px}.fw6{font-weight:600}.tm2{color:var(--ink3)}.td2{color:var(--ink4)}.gd2{color:var(--gdd)}.sg2{color:var(--sg)}.rs2{color:var(--rs)}.am2{color:var(--am)}.vi2{color:var(--vi)}.sit{font-family:var(--fd);font-style:italic}.wf{width:100%}.tc{text-align:center}.tr{text-align:right}
+</style>
+</head>
+<body>
+<div class="pwa-banner" id="pwaBanner">
+  <div class="pwa-app-icon">✂</div>
+  <div class="pwa-text">
+    <div class="pwa-title">Instalar SalonOS no celular</div>
+    <div class="pwa-sub">Acesse como app — sem precisar de App Store</div>
+  </div>
+  <button class="pwa-btn" onclick="installPWA()">Instalar grátis</button>
+  <button class="pwa-close" onclick="document.getElementById('pwaBanner').classList.remove('show')">✕</button>
+</div>
+
+<!-- LOGIN -->
+<div class="lw" id="lw">
+  <div class="lb">
+    <div class="llogo"><div class="lmark">&#9986;</div><div class="lbrand">Salon<em>OS</em></div></div>
+    <div class="lh">Bem-vinda <em>de volta</em></div>
+    <div class="lsub">Acesse o painel do seu salao para acompanhar tudo em tempo real.</div>
+    <div class="lf"><label>E-mail</label><input type="email" placeholder="contato@seusalao.com" value="camila@studiobeleza.com"></div>
+    <div class="lf"><label>Senha</label><input type="password" placeholder="Digite sua senha"></div>
+    <button class="lbtn" onclick="doLogin()">Entrar no SalonOS</button>
+    <div class="lprofs">
+      <div class="lp" onclick="quickLogin('Roberta')"><div class="lp-i">&#128081;</div><div class="lp-n">Roberta</div><div class="lp-r">Dona</div></div>
+      <div class="lp" onclick="quickLogin('Camila')"><div class="lp-i">&#128188;</div><div class="lp-n">Camila</div><div class="lp-r">Gerente</div></div>
+      <div class="lp" onclick="quickLogin('Renata')"><div class="lp-i">&#128134;</div><div class="lp-n">Renata</div><div class="lp-r">Profissional</div></div>
+    </div>
+  </div>
+</div>
+<!-- TOPBAR -->
+<header class="topbar" id="topbar" style="display:none">
+  <div class="brand"><div class="bmark">&#9986;</div><div><div class="bname">Salon<em>OS</em></div><div class="bsub" id="unitLabel">Studio Beleza Pro</div></div></div>
+  <div class="usw" onclick="openM('unidades')"><div class="udot"></div><span id="unitName">Studio Principal</span><span style="color:var(--ink3)">&#9660;</span></div>
+  <nav class="tnav" id="nav">
+    <div class="nb active" data-page="agenda">Agenda</div>
+    <div class="nb" data-page="clientes">Clientes</div>
+    <div class="nb nw" data-page="comanda">Comanda</div>
+    <div class="nb" data-page="caixa">Caixa</div>
+    <div class="nb" data-page="estoque">Estoque</div>
+    <div class="nb" data-page="avaliacoes">Avaliacoes</div>
+    <div class="nb nw" data-page="automacoes">Automacoes</div>
+    <div class="nb nw" data-page="whatsapp">WhatsApp</div>
+    <div class="nb" data-page="relatorios">Relatorios</div>
+    <div class="nb" data-page="equipe">Equipe</div>
+    <div class="nb nw" data-page="previsao">IA Preditiva</div>
+    <div class="nb nw" data-page="marketplace">🛍 Marketplace</div>
+    <div class="nb nw" data-page="planos">Plano</div>
+    <div class="nb" data-page="config">Config</div>
+    <div class="ndiv"></div>
+    <div class="nb exit" id="exitBtn">Sair</div>
+  </nav>
+  <div class="tright"><div class="lpill"><div class="ldot"></div>Ao vivo</div><div class="dchip" id="dchip">-</div></div>
+</header>
+<!-- HERO -->
+<div class="hero" id="heroBar" style="display:none">
+  <div><div class="hey">BEM-VINDA DE VOLTA</div><div class="htitle">Seu salao hoje, <em>ao vivo</em></div></div>
+  <div class="hkpis">
+    <div class="hk"><div class="hkv g" id="hk1">R$ 2.840</div><div class="hkl">RECEITA HOJE</div><div class="hkd" style="color:var(--sg)">meta 71%</div></div>
+    <div class="hk"><div class="hkv">8/12</div><div class="hkl">AGENDAMENTOS</div><div class="hkd" style="color:var(--sg)">6 confirmados</div></div>
+    <div class="hk"><div class="hkv">R$ 18.640</div><div class="hkl">RECEITA MES</div><div class="hkd" style="color:var(--sg)">+23%</div></div>
+    <div class="hk"><div class="hkv">R$ 4.730</div><div class="hkl">PLANOS MENSAIS</div><div class="hkd" style="color:var(--sg)">43 clientes</div></div>
+    <div class="hk"><div class="hkv s">R$ 8.340</div><div class="hkl">PREVISAO 30D</div><div class="hkd" style="color:var(--gd)">IA nativa</div></div>
+  </div>
+</div>
+<!-- MAIN -->
+<div class="main" id="mainWrap" style="display:none">
+  <section class="page active" id="page-agenda"></section>
+  <section class="page" id="page-clientes"></section>
+  <section class="page" id="page-comanda"></section>
+  <section class="page" id="page-caixa"></section>
+  <section class="page" id="page-estoque"></section>
+  <section class="page" id="page-avaliacoes"></section>
+  <section class="page" id="page-automacoes"></section>
+  <section class="page" id="page-whatsapp"></section>
+  <section class="page" id="page-relatorios"></section>
+  <section class="page" id="page-equipe"></section>
+  <section class="page" id="page-previsao"></section>
+  <section class="page" id="page-marketplace"></section>
+  <section class="page" id="page-planos"></section>
+  <section class="page" id="page-config"></section>
+</div>
+<div class="mbd" id="mbd"><div class="mbox" id="mbox"><div class="mh"><div class="mt2" id="mtitle">-</div><div class="mclose" id="mclose">X</div></div><div id="mcontent"></div></div></div>
+<div class="twrap" id="twrap"></div>
+<script>
+'use strict';
+const D={
+  units:[{id:1,nm:'Studio Principal',city:'Jardins, SP',active:true},{id:2,nm:'Studio Moema',city:'Moema, SP',active:false},{id:3,nm:'Studio ABC',city:'Santo Andre',active:false}],
+  staff:[
+    {id:1,nm:'Camila Souza',rl:'Colorista',in:'CS',c:'#8B7A55',bg:'rgba(139,122,85,.18)',st:'ativo',cm:45,at:38,re:5720,cv:2574,rt:4.9,mt:7000,tl:'(11)98800-1122'},
+    {id:2,nm:'Renata Lima',rl:'Cabeleireira',in:'RL',c:'#4A7A62',bg:'rgba(74,122,98,.18)',st:'ativo',cm:40,at:31,re:3720,cv:1488,rt:4.7,mt:5000,tl:'(11)97711-3344'},
+    {id:3,nm:'Bruna Martins',rl:'Manicure',in:'BM',c:'#7A5A8A',bg:'rgba(122,90,138,.18)',st:'ativo',cm:50,at:54,re:2430,cv:1215,rt:4.8,mt:3000,tl:'(11)96622-5566'},
+    {id:4,nm:'Patricia Costa',rl:'Esteticista',in:'PC',c:'#6A7A9A',bg:'rgba(106,122,154,.18)',st:'ativo',cm:40,at:22,re:3960,cv:1584,rt:4.6,mt:5000,tl:'(11)95533-7788'},
+  ],
+  appts:[
+    {t:'09:00',pro:0,cl:'Ana Beatriz Silva',sv:'Coloracao Completa',vl:180,st:'ok',ac:'#C9A96E'},
+    {t:'09:30',pro:1,cl:'Marina Costa',sv:'Corte + Escova',vl:110,st:'ok',ac:'#4A7A62'},
+    {t:'10:00',pro:1,cl:'Juliana Ferreira',sv:'Progressiva',vl:280,st:'pend',ac:'#9A6F00'},
+    {t:'10:00',pro:0,cl:'Paula Cardoso',sv:'Mechas',vl:220,st:'ok',ac:'#C9A96E'},
+    {t:'11:00',pro:2,cl:'Sara Nunes',sv:'Manicure+Pedicure',vl:80,st:'ok',ac:'#7A5A8A'},
+    {t:'13:00',pro:0,cl:'Cris Barbosa',sv:'Coloracao',vl:160,st:'pend',ac:'#C9A96E'},
+    {t:'14:00',pro:3,cl:'Roberta Lima',sv:'Limpeza de Pele',vl:150,st:'ok',ac:'#6A7A9A'},
+    {t:'15:00',pro:1,cl:'Debora Alves',sv:'Escova Modeladora',vl:70,st:'done',ac:'#4A7A62'},
+    {t:'16:00',pro:2,cl:'',sv:'',vl:0,st:'empty',ac:''},
+  ],
+  cancels:[{cl:'Fernanda Dias',sv:'Coloracao',tm:'08:14',rs:'Pediu reagendamento'},{cl:'Leticia Moraes',sv:'Escova',tm:'07:52',rs:'Nao confirmou'}],
+  churn:[{nm:'Gisele Ramos',sv:'Coloracao',ds:62,in:'GR',c:'#8B7A55',bg:'rgba(139,122,85,.18)'},{nm:'Camila Torres',sv:'Progressiva',ds:55,in:'CT',c:'#4A7A62',bg:'rgba(74,122,98,.18)'},{nm:'Viviane Pereira',sv:'Mechas',ds:48,in:'VP',c:'#7A5A8A',bg:'rgba(122,90,138,.18)'}],
+  clients:[
+    {nm:'Ana Beatriz Silva',in:'AS',c:'#8B7A55',bg:'rgba(139,122,85,.18)',ph:'(11)99100-1111',ls:'Coloracao',ld:'25/04',cy:45,ds:3,ltv:2340,vt:18,st:'ok',bd:'15 de Marco',fr:'Louro 8.1 + oxidante 30vol - 45min',al:'Nenhuma',hist:['25/04 - Coloracao R$180','28/03 - Hidratacao R$90','12/03 - Coloracao R$180','14/02 - Escova R$70'],obs:'Prefere nao usar amonia. Cabelo fino.'},
+    {nm:'Marina Costa',in:'MC',c:'#C0504A',bg:'rgba(192,80,74,.18)',ph:'(11)99200-2222',ls:'Coloracao',ld:'26/02',cy:45,ds:60,ltv:1080,vt:9,st:'churn',bd:'22 de Julho',fr:'Castanho 5.0 + oxidante 20vol',al:'Amonia forte',hist:['26/02 - Coloracao R$180','12/01 - Coloracao R$180'],obs:'Sensivel ao couro cabeludo.'},
+    {nm:'Paula Cardoso',in:'PC',c:'#4A7A62',bg:'rgba(74,122,98,.18)',ph:'(11)99300-3333',ls:'Clube Beleza',ld:'01/04',cy:30,ds:12,ltv:3760,vt:32,st:'vip',bd:'8 de Dezembro',fr:'Mechas naturais - luzes finas',al:'Nenhuma',hist:['01/04 - Mechas R$220','01/03 - Mechas R$220','01/02 - Mechas R$220'],obs:'VIP. Plano mensal. Sempre as quintas.'},
+    {nm:'Cris Barbosa',in:'CB',c:'#7A5A8A',bg:'rgba(122,90,138,.18)',ph:'(11)99400-4444',ls:'Coloracao',ld:'08/03',cy:45,ds:48,ltv:540,vt:5,st:'risk',bd:'30 de Janeiro',fr:'Vermelho 7.66 + oxidante 30vol',al:'Nenhuma',hist:['08/03 - Coloracao R$160','22/01 - Coloracao R$160'],obs:'Gosta da cor vibrante.'},
+    {nm:'Sara Nunes',in:'SN',c:'#9A6F00',bg:'rgba(154,111,0,.15)',ph:'(11)99500-5555',ls:'Mechas',ld:'15/04',cy:60,ds:10,ltv:720,vt:6,st:'ok',bd:'11 de Junho',fr:'Luzes naturais - mechas finas',al:'Nenhuma',hist:['15/04 - Mechas R$220','15/02 - Mechas R$220'],obs:'Prefere resultado natural.'},
+    {nm:'Bruna Ferreira',in:'BF',c:'#3A6EA8',bg:'rgba(58,110,168,.18)',ph:'(11)99600-6666',ls:'Mechas',ld:'20/04',cy:45,ds:5,ltv:180,vt:1,st:'novo',bd:'3 de Setembro',fr:'A definir - 1a visita',al:'Nenhuma',hist:['20/04 - Mechas R$180 - 1a visita'],obs:'Indicacao da Paula Cardoso.'},
+  ],
+  procs:[
+    {id:1,nm:'Coloracao Completa',cat:'Cabelo',dur:120,price:180,cost:32,comm:45},
+    {id:2,nm:'Mechas / Luzes',cat:'Cabelo',dur:150,price:220,cost:48,comm:45},
+    {id:3,nm:'Corte Feminino',cat:'Cabelo',dur:60,price:80,cost:8,comm:40},
+    {id:4,nm:'Progressiva',cat:'Cabelo',dur:180,price:280,cost:65,comm:40},
+    {id:5,nm:'Hidratacao Profunda',cat:'Cabelo',dur:60,price:90,cost:18,comm:45},
+    {id:6,nm:'Escova Modeladora',cat:'Cabelo',dur:60,price:70,cost:5,comm:40},
+    {id:7,nm:'Manicure Completa',cat:'Unhas',dur:45,price:40,cost:6,comm:50},
+    {id:8,nm:'Nail Art',cat:'Unhas',dur:90,price:80,cost:14,comm:50},
+    {id:9,nm:'Limpeza de Pele',cat:'Estetica',dur:90,price:150,cost:22,comm:40},
+    {id:10,nm:'Depilacao Completa',cat:'Estetica',dur:60,price:120,cost:15,comm:40},
+  ],
+  estoque:[
+    {nm:'Tinta Wella Koleston',ct:'Coloracao',un:'Tubo',qt:24,mn:10,cu:28,sp:0,tp:'insumo',lote:'WK2506',val:'2027-03-15'},
+    {nm:'Oxidante 30vol 900ml',ct:'Coloracao',un:'Frasco',qt:8,mn:5,cu:18,sp:0,tp:'insumo',lote:'OX0426',val:'2026-11-02'},
+    {nm:'Mascara Hidratacao 1kg',ct:'Tratamento',un:'Pote',qt:4,mn:3,cu:45,sp:0,tp:'insumo',lote:'MH1125',val:'2026-09-30'},
+    {nm:'Botox Capilar 1kg',ct:'Progressiva',un:'Pote',qt:2,mn:2,cu:120,sp:0,tp:'insumo',lote:'BX0326',val:'2026-08-28'},
+    {nm:'Shampoo Profissional',ct:'Revenda',un:'Unidade',qt:12,mn:5,cu:22,sp:58,tp:'venda',lote:'SP0925',val:'2027-06-01'},
+    {nm:'Mascara Reconstrucao',ct:'Revenda',un:'Unidade',qt:7,mn:4,cu:35,sp:85,tp:'venda',lote:'MR1225',val:'2027-04-10'},
+    {nm:'Leave-in Protetor',ct:'Revenda',un:'Unidade',qt:15,mn:6,cu:18,sp:42,tp:'venda',lote:'LP0126',val:'2027-01-20'},
+    {nm:'Base Fortalecedora',ct:'Manicure',un:'Frasco',qt:3,mn:5,cu:8,sp:0,tp:'insumo',lote:'BF0626',val:'2026-09-05'},
+  ],
+  caixa:{
+    ent:[{hr:'09:47',ds:'Ana Beatriz - Coloracao',fm:'Pix',vl:180},{hr:'10:15',ds:'Marina Costa - Corte',fm:'Debito',vl:110},{hr:'11:02',ds:'Venda Shampoo',fm:'Pix',vl:58},{hr:'13:30',ds:'Paula Cardoso - Mechas',fm:'Dinheiro',vl:220},{hr:'14:55',ds:'Sara Nunes - Manicure',fm:'Credito',vl:80}],
+    sai:[{hr:'08:30',ds:'Insumos - Beleza Dist.',vl:180},{hr:'12:00',ds:'Almoco da equipe',vl:85}],
+    meta:4000,
+  },
+  avals:[
+    {nm:'Ana Beatriz Silva',st:5,tx:'Amei o resultado! Camila e incrivel.',sv:'Coloracao',pr:'Camila',dt:'25/04',rp:false},
+    {nm:'Paula Cardoso',st:5,tx:'Studio maravilhoso, atendimento impecavel!',sv:'Mechas',pr:'Camila',dt:'24/04',rp:true},
+    {nm:'Sara Nunes',st:4,tx:'Gostei muito. So esperou um pouco.',sv:'Manicure',pr:'Bruna',dt:'23/04',rp:false},
+    {nm:'Roberta Lima',st:5,tx:'Minha pele ficou radiante! Patricia e atenciosa.',sv:'Limpeza de Pele',pr:'Patricia',dt:'22/04',rp:true},
+    {nm:'Cris Barbosa',st:3,tx:'Servico bom, mas salao estava barulhento.',sv:'Coloracao',pr:'Renata',dt:'20/04',rp:false},
+  ],
+  automacoes:[
+    {ico:'smartphone',nm:'Confirmacao 24h antes',desc:'WhatsApp automatico pedindo confirmacao. Reduz cancelamentos em 60%.',ativa:true,cat:'Retencao',disparos:148,taxa:78,receita:1840},
+    {ico:'cycle',nm:'IA de Retorno por Ciclo',desc:'Manda mensagem no momento exato de retorno de cada servico.',ativa:true,cat:'IA Preditiva',disparos:62,taxa:43,receita:4200},
+    {ico:'up',nm:'Upsell no Agendamento',desc:'Oferece servico complementar quando a cliente marca online.',ativa:true,cat:'Receita',disparos:94,taxa:34,receita:1260},
+    {ico:'target',nm:'Reativar Clientes Sumidas',desc:'Oferta personalizada para quem nao vem ha 45+ dias.',ativa:true,cat:'Retencao',disparos:31,taxa:29,receita:1380},
+    {ico:'cake',nm:'Oferta de Aniversario',desc:'Mensagem especial no aniversario com oferta exclusiva.',ativa:true,cat:'Fidelizacao',disparos:12,taxa:58,receita:720},
+    {ico:'star',nm:'Avaliacao Pos-Atendimento',desc:'Pede avaliacao 30 minutos apos o servico finalizado.',ativa:true,cat:'Reputacao',disparos:148,taxa:42,receita:0},
+    {ico:'clock',nm:'Lista de Espera Automatica',desc:'Quando cancelado, oferece o horario para lista de espera.',ativa:false,cat:'Otimizacao',disparos:8,taxa:75,receita:480},
+    {ico:'bag',nm:'Pos-Compra de Produto',desc:'Dica de uso enviada 2 dias apos compra de produto.',ativa:false,cat:'Fidelizacao',disparos:0,taxa:0,receita:0},
+  ],
+  preds:[
+    {nm:'Ana Beatriz Silva',sv:'Coloracao',dias:42,prob:'alta',vl:180},
+    {nm:'Paula Cardoso',sv:'Mechas',dias:18,prob:'alta',vl:220},
+    {nm:'Sara Nunes',sv:'Manicure',dias:50,prob:'media',vl:80},
+    {nm:'Debora Alves',sv:'Escova',dias:28,prob:'alta',vl:70},
+    {nm:'Flavia Santos',sv:'Progressiva',dias:85,prob:'media',vl:280},
+    {nm:'Gisele Ramos',sv:'Coloracao',dias:62,prob:'baixa',vl:160},
+    {nm:'Leticia Cruz',sv:'Hidratacao',dias:55,prob:'media',vl:90},
+    {nm:'Camila Torres',sv:'Progressiva',dias:55,prob:'baixa',vl:280},
+  ],
+};
+
+const $=s=>document.querySelector(s);
+const $$=s=>[...document.querySelectorAll(s)];
+const html=(el,mk)=>{el.innerHTML=mk;return el};
+const R=v=>'R$ '+v.toLocaleString('pt-BR');
+
+const Toast={show(tx,ic){
+  const t=document.createElement('div');t.className='toast';
+  t.innerHTML='<span style="font-size:15px">'+(ic||'ok')+'</span><span>'+tx+'</span>';
+  $('#twrap').prepend(t);
+  setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),350)},3200);
+}};
+
+const Modal={
+  open(ti,bd,wide){$('#mtitle').textContent=ti;html($('#mcontent'),bd);$('#mbox').classList.toggle('wide',!!wide);$('#mbd').classList.add('open');},
+  close(){$('#mbd').classList.remove('open');}
+};
+
+function doLogin(){
+  $('#lw').classList.add('hide');
+  setTimeout(()=>{
+    $('#lw').style.display='none';
+    $('#topbar').style.display='flex';
+    $('#heroBar').style.display='flex';
+    $('#mainWrap').style.display='block';
+    init();
+  },500);
+}
+function quickLogin(nm){Toast.show('Entrando como '+nm+'...');setTimeout(doLogin,600);}
+
+function openM(id){
+  const te=D.caixa.ent.reduce((a,e)=>a+e.vl,0),ts=D.caixa.sai.reduce((a,s)=>a+s.vl,0);
+  const po=D.procs.map(p=>`<option>${p.nm} - ${R(p.price)}</option>`).join('');
+  const so=D.staff.map(f=>`<option>${f.nm} (${f.rl})</option>`).join('');
+  const vo=D.estoque.filter(p=>p.tp==='venda').map(p=>`<option>${p.nm} - ${R(p.sp)}</option>`).join('');
+  const M={
+    agend:{t:'Novo Agendamento',b:`<div class="mb2">
+      <div class="fg"><label class="flbl">Cliente</label><input class="fi" placeholder="Nome ou telefone"></div>
+      <div class="frow"><div class="fg"><label class="flbl">Data</label><input class="fi" type="date" value="2025-04-25"></div><div class="fg"><label class="flbl">Horario</label><input class="fi" type="time" value="09:00"></div></div>
+      <div class="fg"><label class="flbl">Servico</label><select class="fi">${po}</select></div>
+      <div class="frow"><div class="fg"><label class="flbl">Profissional</label><select class="fi">${so}</select></div><div class="fg"><label class="flbl">Upsell automatico</label><select class="fi"><option>Oferecer hidratacao (+R$30)</option><option>Oferecer escova (+R$45)</option><option>Nao oferecer</option></select></div></div>
+      <div class="fg"><label class="flbl">Obs/Alergias</label><textarea class="fi" placeholder="Alergias, preferencias..."></textarea></div>
+    </div>
+    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Agendamento criado!')">Confirmar e enviar WhatsApp</button></div>`},
+
+    espera:{t:'Lista de Espera',b:`<div class="mb2">
+      <p style="font-size:12px;color:var(--ink3);margin-bottom:12px;line-height:1.6">Ao cancelar um horario, o sistema oferece automaticamente para esta lista.</p>
+      ${['Debora Alves - Coloracao - qualquer horario','Flavia Souza - Escova - tarde','Isa Cunha - Manicure - manha'].map((entry,i)=>`
+        <div class="lr"><div class="av" style="background:var(--cr2);color:var(--ink3)">${i+1}</div>
+        <div><div class="lrn">${entry.split('-')[0].trim()}</div><div class="lrm">${entry.split('-').slice(1).join('-').trim()}</div></div>
+        <button class="btn btg xs" style="margin-left:auto" onclick="Toast.show('Horario oferecido!')">Oferecer</button></div>`).join('')}
+    </div>
+    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button><button class="btn btp" onclick="Modal.close();Toast.show('Todos notificados!')">Notificar todos</button></div>`},
+
+    reativ:{t:'Chamar Clientes de Volta',b:`<div class="mb2">
+      <p style="font-size:13px;color:var(--ink3);margin-bottom:12px;line-height:1.6">Mensagem para <strong style="color:var(--ink)">${D.churn.length} clientes</strong> que nao aparecem ha mais de 45 dias.</p>
+      <div class="fg"><label class="flbl">Oferta</label><select class="fi"><option>10% de desconto</option><option>15% de desconto</option><option>R$ 20 fixo</option><option>Hidratacao gratis</option></select></div>
+      <div class="fg"><label class="flbl">Validade</label><select class="fi"><option>7 dias (recomendado)</option><option>3 dias</option><option>15 dias</option></select></div>
+    </div>
+    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Mensagens enviadas!')">Enviar agora</button></div>`},
+
+    despesa:{t:'Registrar Despesa',b:`<div class="mb2">
+      <div class="fg"><label class="flbl">Descricao</label><input class="fi" placeholder="Ex: Compra de insumos..."></div>
+      <div class="frow"><div class="fg"><label class="flbl">Valor (R$)</label><input class="fi" type="number" placeholder="0,00"></div><div class="fg"><label class="flbl">Categoria</label><select class="fi"><option>Insumos</option><option>Limpeza</option><option>Alimentacao</option><option>Manutencao</option><option>Outros</option></select></div></div>
+    </div>
+    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btre" onclick="Modal.close();Toast.show('Despesa registrada.')">Registrar saida</button></div>`},
+
+    fechamento:{t:'Fechar Caixa do Dia',b:`<div class="mb2">
+      <div style="background:var(--cr);border-radius:var(--r);padding:14px;border:1px solid var(--bd);margin-bottom:12px">
+        <div class="sr"><span class="srl">Total entradas</span><span class="srv sg">${R(te)}</span></div>
+        <div class="sr"><span class="srl">Total saidas</span><span class="srv rs">${R(ts)}</span></div>
+        <div class="sr" style="border-top:2px solid var(--bd2);margin-top:4px;padding-top:9px"><span class="srl fw6">Saldo liquido</span><span class="srv gd" style="font-size:15px">${R(te-ts)}</span></div>
+      </div>
+      <div class="fg"><label class="flbl">Emitir NF-e automaticamente?</label>
+        <div class="flex ic g8 mt4"><label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label><span class="tsm tm2">Sim, emitir NF-e no fechamento</span></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Caixa fechado! NF-e emitida.')">Confirmar fechamento</button></div>`},
+
+    pagamento:{t:'Terminal de Pagamento',b:`<div class="mb2">
+      <div style="background:var(--ink);border-radius:13px;padding:20px;color:var(--wh)">
+        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:16px;margin-bottom:14px;text-align:center">
+          <div style="font-family:var(--fd);font-size:36px;font-weight:300;color:var(--gd)">R$ 650</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px">Comanda — Ana Beatriz Silva</div>
+        </div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4);letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px">Maquininha</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px">
+          ${[['🟢','Stone'],['🔵','Cielo'],['🟡','PagSeguro']].map(([ic,nm])=>`<div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:7px;padding:8px;text-align:center;cursor:pointer;font-size:11px;color:var(--wh)" onclick="this.parentElement.querySelectorAll('div').forEach(d=>{d.style.borderColor='rgba(255,255,255,.12)'});this.style.borderColor='var(--gd)'"><div style="font-size:16px;margin-bottom:3px">${ic}</div>${nm}</div>`).join('')}
+        </div>
+        <div style="font-size:10px;color:rgba(255,255,255,.4);letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px">Forma de pagamento</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px">
+          ${[['💳 Débito','À vista'],['💳 Crédito','1–12x'],['📱 Pix','Instantâneo'],['💵 Dinheiro','À vista']].map(([lb,sub],i)=>`<div style="background:rgba(255,255,255,.08);border:${i===0?'2px solid var(--gd)':'1px solid rgba(255,255,255,.12)'};border-radius:7px;padding:9px;cursor:pointer;font-size:12px;color:var(--wh)" onclick="this.parentElement.querySelectorAll('div').forEach(d=>{d.style.borderColor='rgba(255,255,255,.12)';d.style.borderWidth='1px'});this.style.borderColor='var(--gd)';this.style.borderWidth='2px'"><div style="font-weight:600">${lb}</div><div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">${sub}</div></div>`).join('')}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;background:rgba(74,122,98,.15);border:1px solid rgba(74,122,98,.3);border-radius:8px;padding:8px 11px">
+          <span style="color:var(--sg)">✓</span>
+          <span style="font-size:11px;color:rgba(255,255,255,.7)">NF-e gerada · Comissão calculada · Estoque atualizado</span>
+        </div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btg" onclick="Modal.close();Toast.show('Aguardando maquininha...','💳');setTimeout(()=>Toast.show('Pagamento aprovado!','✅'),2000)">Enviar para maquininha</button></div>`},
+
+    nfe:{t:'Emissão de NF-e Eletrônica',b:`<div class="mb2">
+      <div style="display:flex;gap:0;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:16px">
+        ${[['✓','Dados','done'],['✓','Validação','done'],['3','SEFAZ','curr'],['4','Autorizada','']].map(([n,l,s])=>`<div style="flex:1;padding:10px 12px;text-align:center;background:${s==='done'?'var(--sgl)':s==='curr'?'rgba(201,169,110,.1)':'var(--cr2)'};border-right:1px solid var(--bd)"><div style="font-family:var(--fd);font-size:16px;font-weight:300;color:${s==='done'?'var(--sg)':s==='curr'?'var(--gdd)':'var(--ink3)'}">${n}</div><div style="font-size:10px;color:var(--ink3);margin-top:2px">${l}</div></div>`).join('')}
+      </div>
+      <div class="fg"><label class="flbl">CPF / CNPJ do tomador</label><input class="fi" placeholder="000.000.000-00"></div>
+      <div class="fg"><label class="flbl">Serviço prestado</label><select class="fi">${po}</select></div>
+      <div class="frow"><div class="fg"><label class="flbl">Valor bruto (R$)</label><input class="fi" type="number" value="180"></div><div class="fg"><label class="flbl">Alíquota ISS</label><select class="fi"><option>2% — SP</option><option>3% — SP</option><option>5% — máximo</option></select></div></div>
+      <div class="fg"><label class="flbl">Descrição do serviço</label><textarea class="fi" style="min-height:52px">Serviços de beleza e estética — coloração capilar</textarea></div>
+      <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:8px;padding:11px 13px;font-size:12px;color:var(--ink3);line-height:1.6">✓ Transmitida à SEFAZ-SP em tempo real · DANFE enviado automaticamente</div>
+    </div>
+    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Transmitindo para SEFAZ...','🧾');setTimeout(()=>Toast.show('NF-e autorizada!','✅'),1800)">🧾 Transmitir para SEFAZ</button></div>`},
+
+    estqin:{t:'Entrada de Produto',b:`<div class="mb2">
+      <div class="fg"><label class="flbl">Produto</label><input class="fi" placeholder="Nome do produto"></div>
+      <div class="frow"><div class="fg"><label class="flbl">Categoria</label><select class="fi"><option>Coloração</option><option>Tratamento</option><option>Progressiva</option><option>Manicure</option><option>Revenda</option></select></div><div class="fg"><label class="flbl">Tipo</label><select class="fi"><option>Insumo</option><option>Produto para venda</option></select></div></div>
+      <div class="frow"><div class="fg"><label class="flbl">Quantidade</label><input class="fi" type="number" placeholder="0"></div><div class="fg"><label class="flbl">Estoque minimo</label><input class="fi" type="number" placeholder="0"></div></div>
+      <div class="frow"><div class="fg"><label class="flbl">Custo (R$)</label><input class="fi" type="number" placeholder="0,00"></div><div class="fg"><label class="flbl">Preco de venda (R$)</label><input class="fi" type="number" placeholder="0,00"></div></div>
+    </div>
+    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Produto adicionado!')">Registrar entrada</button></div>`},
+
+    vendap:{t:'Vender Produto no Balcão',b:`<div class="mb2">
+      <div class="fg"><label class="flbl">Cliente</label><input class="fi" placeholder="Nome ou telefone"></div>
+      <div class="fg"><label class="flbl">Produto</label><select class="fi">${vo}</select></div>
+      <div class="frow"><div class="fg"><label class="flbl">Quantidade</label><input class="fi" type="number" value="1"></div><div class="fg"><label class="flbl">Pagamento</label><select class="fi"><option>Pix</option><option>Dinheiro</option><option>Débito</option><option>Crédito</option></select></div></div>
+    </div>
+    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Venda registrada!')">Registrar venda</button></div>`},
+
+    unidades:{t:'Gestão Multi-Unidades / Franquias',b:`<div class="mb2">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+        ${D.units.map(u=>`<div style="background:${u.active?'rgba(201,169,110,.05)':'var(--cr2)'};border:${u.active?'2px solid var(--gd)':'1px solid var(--bd)'};border-radius:var(--r);padding:13px;cursor:pointer;text-align:center" onclick="switchUnit(${u.id});Modal.close()">
+          <div style="font-family:var(--fd);font-size:14px;margin-bottom:2px${u.active?';font-style:italic;color:var(--gdd)':''}">${u.nm}</div>
+          <div style="font-size:10px;color:var(--ink3);margin-bottom:8px">${u.city}</div>
+          ${u.active?'<span class="tag tgd">Ativo</span>':'<span class="tag tik">Trocar</span>'}
+        </div>`).join('')}
+      </div>
+      <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:var(--r);padding:14px;margin-bottom:12px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:10px">Consolidado — Todas as Unidades</div>
+        <div class="sr" style="padding:5px 0"><span class="srl">Receita total</span><span class="srv gd2">R$ 39.940</span></div>
+        <div class="sr" style="padding:5px 0"><span class="srl">MRR total</span><span class="srv sg2">R$ 9.550</span></div>
+        <div class="sr" style="padding:5px 0;border:none"><span class="srl">Profissionais</span><span class="srv">9 ativas</span></div>
+      </div>
+      <div class="lr" onclick="Toast.show(\'Abrindo cadastro de nova unidade...\');Modal.close()">
+        <div class="av avsq" style="background:var(--cr2);color:var(--ink3)">+</div>
+        <div><div class="lrn">Cadastrar nova unidade / franquia</div><div class="lrm">Expandir para nova cidade ou filial</div></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button><button class="btn btp" onclick="window.open('painel-proprietario.html','_blank')">Painel do Proprietário</button></div>`},
+
+    novaFunc:{t:'Cadastrar Funcionaria',b:`<div class="mb2">
+      <div class="frow"><div class="fg"><label class="flbl">Nome completo</label><input class="fi" placeholder="Nome"></div><div class="fg"><label class="flbl">Cargo</label><select class="fi"><option>Cabeleireira</option><option>Colorista</option><option>Manicure</option><option>Esteticista</option></select></div></div>
+      <div class="frow"><div class="fg"><label class="flbl">WhatsApp</label><input class="fi" type="tel" placeholder="(11) 9 0000-0000"></div><div class="fg"><label class="flbl">% Comissao</label><input class="fi" type="number" value="40"></div></div>
+      <div class="frow"><div class="fg"><label class="flbl">Meta mensal (R$)</label><input class="fi" type="number" placeholder="5000"></div><div class="fg"><label class="flbl">Data de admissao</label><input class="fi" type="date"></div></div>
+    </div>
+    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Funcionaria cadastrada!')">Cadastrar</button></div>`},
+
+    googleReserve:{t:'Google Reserve & Instagram',b:`<div class="mb2">
+      <div style="background:var(--sgl);border:1px solid rgba(74,122,98,.2);border-radius:var(--r);padding:14px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="width:30px;height:30px;border-radius:6px;background:#4285F4;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff">G</div>
+          <div><div style="font-size:13px;font-weight:700">Google Reserve</div><div style="font-size:11px;color:var(--ink3)">Clientes agendam direto do Google Maps</div></div>
+          <span class="tag tsg" style="margin-left:auto">Conectado</span>
+        </div>
+        <div class="sr" style="padding:5px 0"><span class="srl">Agendamentos hoje</span><span class="srv sg2">3 novos</span></div>
+        <div class="sr" style="padding:5px 0"><span class="srl">Receita via Google</span><span class="srv gd2">R$ 4.920</span></div>
+        <div class="sr" style="padding:5px 0;border:none"><span class="srl">Avaliação no Google</span><span class="srv">4.9 ★ (127)</span></div>
+      </div>
+      <div style="background:rgba(225,48,108,.05);border:1px solid rgba(225,48,108,.2);border-radius:var(--r);padding:14px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="width:30px;height:30px;border-radius:6px;background:linear-gradient(135deg,#f09433,#dc2743,#bc1888);display:grid;place-items:center;font-size:14px;color:#fff">📸</div>
+          <div><div style="font-size:13px;font-weight:700">Instagram — Botão Reservar</div><div style="font-size:11px;color:var(--ink3)">@studiobelezapro · Link na bio</div></div>
+          <span class="tag" style="margin-left:auto;background:rgba(225,48,108,.1);color:#cc2366">Ativo</span>
+        </div>
+        <div class="sr" style="padding:5px 0"><span class="srl">Agendamentos hoje</span><span class="srv" style="color:#cc2366">2 novos</span></div>
+        <div class="sr" style="padding:5px 0;border:none"><span class="srl">Agendamentos este mês</span><span class="srv">28</span></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button><button class="btn btp" onclick="Modal.close();Toast.show('Configurações salvas!')">Salvar</button></div>`},
+
+    qrportal:{t:'Portal da Cliente — PWA',b:`<div class="mb2">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div style="text-align:center">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:10px">QR Code do Salão</div>
+          <div id="qrBox" style="width:130px;height:130px;border:2px solid var(--ink);border-radius:9px;margin:0 auto 10px;background:var(--cr);position:relative;overflow:hidden">
+            <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:1.5px;padding:9px;width:100%;height:100%" id="qrPat"></div>
+          </div>
+          <div style="font-size:10px;color:var(--ink3)">salonos.app/studio-beleza-pro</div>
+          <button class="btn btgh sm" style="margin-top:8px;width:100%;justify-content:center" onclick="Toast.show(\'Link copiado!\')">Copiar link</button>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:10px">Preview no celular</div>
+          <div style="background:var(--ink);border-radius:16px;padding:14px;border:2px solid var(--bd2)">
+            <div style="background:var(--wh);border-radius:10px;overflow:hidden;font-size:10px">
+              <div style="background:var(--gd);padding:8px 10px;color:var(--ink);font-weight:700;font-family:var(--fd);font-size:12px">Studio Beleza Pro ✂</div>
+              <div style="padding:8px 10px;border-bottom:1px solid var(--bd)"><div style="font-weight:700;font-size:11px">Ana Beatriz Silva</div><div style="color:var(--ink3);margin-top:2px">Próxima visita: em 42 dias</div></div>
+              <div style="padding:8px 10px;border-bottom:1px solid var(--bd)"><div style="color:var(--ink3);font-size:9px;text-transform:uppercase;margin-bottom:4px">Última fórmula</div><div>Louro 8.1 + oxidante 30vol</div></div>
+              <div style="padding:8px 10px;background:var(--gd);text-align:center;font-weight:700;font-size:10px;color:var(--ink)">Agendar novo horário</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:var(--r);padding:13px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:8px">O que a cliente acessa</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${['Histórico completo','Fórmula de coloração','Reagendar sozinha','Confirmar presença','Baixar como app (PWA)'].map(f=>`<span style="font-size:11px;padding:4px 10px;background:var(--wh);border:1px solid var(--bd);border-radius:20px;color:var(--ink3)">✓ ${f}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button><button class="btn btp" onclick="Modal.close();Toast.show('QR compartilhado!','📲')">📲 Compartilhar</button></div>`,
+    cb:()=>{setTimeout(()=>{const pat=document.getElementById('qrPat');if(!pat)return;const s='STUDIOBELEZA';for(let i=0;i<100;i++){const el=document.createElement('div');el.style.cssText='border-radius:1px;background:'+((s.charCodeAt(i%s.length)+i*7)%3!==0?'var(--ink)':'transparent');pat.appendChild(el);}},100)}},
+  };
+  if(M[id]){Modal.open(M[id].t,M[id].b);M[id].cb&&M[id].cb();}
+}
+
+function clientDetail(c){
+  const sm={
+    ok:'<span class="tag tsg">Ativo</span>',
+    churn:'<span class="tag trs">Em risco</span>',
+    risk:'<span class="tag tam">Atencao</span>',
+    novo:'<span class="tag tsk">Novo</span>',
+    vip:'<span class="tag tgd">VIP</span>'
+  };
+  Modal.open(c.nm,`<div class="mb2">
+    <div class="flex ic g12 mb14" style="padding-bottom:14px;border-bottom:1px solid var(--bd)">
+      <div class="av avsq" style="width:46px;height:46px;border-radius:10px;font-size:16px;background:${c.bg};color:${c.c}">${c.in}</div>
+      <div style="flex:1"><div style="font-family:var(--fd);font-size:19px;font-style:italic">${c.nm}</div><div class="tm2 tsm mt4">${c.ph}</div></div>
+      ${sm[c.st]||''}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:8px;padding:12px">
+        <div class="txs tm2 mb4 fw6">FORMULA</div>
+        <div style="font-size:12.5px;line-height:1.6">${c.fr}</div>
+        <button class="btn btgh xs mt8" onclick="Toast.show(\'Editando formula...\')">Editar formula</button>
+      </div>
+      <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:8px;padding:12px">
+        <div class="txs tm2 mb4 fw6">INFO PESSOAL</div>
+        <div class="sr" style="padding:4px 0"><span class="srl">Aniversario</span><span class="srv" style="font-size:12px">${c.bd}</span></div>
+        <div class="sr" style="padding:4px 0"><span class="srl">Ciclo retorno</span><span class="srv" style="font-size:12px">${c.cy} dias</span></div>
+        <div class="sr" style="padding:4px 0;border:none"><span class="srl">LTV total</span><span class="srv gd2" style="font-size:12px">${R(c.ltv)}</span></div>
+      </div>
+    </div>
+    ${c.al!=='Nenhuma'?`<div style="background:var(--rsl);border:1px solid rgba(192,80,74,.2);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--rs)">Alergia: <strong>${c.al}</strong></div>`:''}
+    <div class="txs tm2 fw6 mb8">OBSERVACOES</div>
+    <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--ink2);line-height:1.6;margin-bottom:14px">${c.obs}</div>
+    <div class="txs tm2 fw6 mb8">HISTORICO (${c.vt} visitas)</div>
+    <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:8px;overflow:hidden">
+      ${c.hist.map(h=>`<div style="padding:8px 12px;border-bottom:1px solid var(--bd);font-size:12px">${h}</div>`).join('')}
+    </div>
+  </div>
+  <div class="mf">
+    <button class="btn btgh sm" onclick="Modal.close()">Fechar</button>
+    <button class="btn btv sm" onclick="Toast.show(\'Mensagem enviada!\')">WhatsApp</button>
+    <button class="btn btg sm" onclick="Modal.close();openM(\'agend\')">+ Agendar</button>
+  </div>`,true);
+}
+
+function switchUnit(id){
+  const u=D.units.find(x=>x.id===id);if(!u)return;
+  D.units.forEach(x=>x.active=x.id===id);
+  $('#unitLabel').textContent=u.nm;$('#unitName').textContent=u.nm;
+  Toast.show('Trocado para '+u.nm);
+}
+
+let cmdSec=2743,cmdInt=null;
+function startTimer(){
+  if(cmdInt)return;
+  cmdInt=setInterval(()=>{cmdSec++;const el=$('#ctv');if(!el)return;const h=Math.floor(cmdSec/3600).toString().padStart(2,'0'),m=Math.floor((cmdSec%3600)/60).toString().padStart(2,'0'),s=(cmdSec%60).toString().padStart(2,'0');el.textContent=h+':'+m+':'+s;},1000);
+}
+
+const Router={
+  go(pg){
+    $$('.page').forEach(p=>p.classList.remove('active'));
+    $$('.nb[data-page]').forEach(n=>n.classList.remove('active'));
+    const el=document.getElementById('page-'+pg);if(!el)return;
+    el.classList.add('active');
+    $$('.nb[data-page="'+pg+'"]').forEach(n=>n.classList.add('active'));
+    P[pg]&&P[pg]();
+  }
+};
+
+const P={
+agenda(){
+  const times=['09:00','09:30','10:00','10:30','11:00','13:00','14:00','15:00','16:00','17:00'];
+  const days=[{l:'Seg',n:'21'},{l:'Ter',n:'22'},{l:'Qua',n:'23'},{l:'Qui',n:'24'},{l:'Sex',n:'25',td:true},{l:'Sab',n:'26'},{l:'Dom',n:'27'}];
+  const pg=$('#page-agenda');
+  html(pg,'<div class="aibanner mb12" onclick="Router.go(\'previsao\')"><div style="font-size:18px">brain</div><div style="flex:1"><div class="aitag">IA Preditiva</div><br><span style="font-size:13px"><strong style="color:var(--gdd)">3 clientes devem retornar esta semana</strong> - Ana Beatriz (42d), Paula Cardoso (18d), Debora Alves (28d).</span></div><div style="font-size:11px;color:var(--gdd);font-weight:600;flex-shrink:0">Ver previsao</div></div>'
+  +'<div class="gsplit"><div>'
+  +'<div class="sech"><div><div class="sct">Agenda <em>de Hoje</em></div><div class="scsub">Sex 25 Abril - 8 atendimentos - por profissional</div></div><div class="scacts"><div style="display:flex;gap:2px;background:var(--cr2);border:1px solid var(--bd);border-radius:var(--rs2);padding:2px"><button id="btnCol" class="btn btp xs" style="padding:4px 9px;font-size:11px" onclick="agendaView(\'col\')">⊞ Colunas</button><button id="btnLst" class="btn btgh xs" style="padding:4px 9px;font-size:11px;border:none" onclick="agendaView(\'list\')">☰ Lista</button></div><button class="btn btgh sm" onclick="openM(\'espera\')">Espera (3)</button><button class="btn btg sm" onclick="Toast.show(\'Lembretes enviados!\')">Enviar lembretes</button><button class="btn btp sm" onclick="openM(\'agend\')">+ Agendar</button></div></div>'
+  +'<div id="dateNav" style="display:flex;align-items:center;gap:3px;background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);padding:4px;box-shadow:var(--sh);margin-bottom:12px;overflow-x:auto"></div>'
+  +'<div class="card mb12" style="overflow:hidden"><div style="display:grid;grid-template-columns:repeat(5,1fr);background:var(--bd)">'
+  +[['8/12','Ocupados',''],['R$ 118','Ticket medio','var(--gdd)'],['6 de 8','Confirmadas','var(--sg)'],['+ R$240','Extras','var(--gdd)'],['72%','Meta do dia','']].map(([v,l,c],i)=>'<div style="background:var(--cr);padding:10px 13px;text-align:center;'+(i?'border-left:1px solid var(--bd)':'')+'"><div style="font-family:var(--fd);font-size:17px;font-weight:300;'+(c?'color:'+c:'')+'">'+(v)+'</div><div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.6px;margin-top:2px">'+l+'</div></div>').join('')
+  +'</div></div>'
+  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
+  +'<div style="background:var(--sgl);border:1px solid rgba(74,122,98,.2);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;gap:10px">'
+  +'<div style="width:32px;height:32px;border-radius:7px;background:#4285F4;display:grid;place-items:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0">G</div>'
+  +'<div style="flex:1"><div style="font-size:12px;font-weight:700">Google Reserve</div><div style="font-size:10px;color:var(--ink3);margin-top:1px">4.9 ★ · Studio Beleza Pro · +3 agendamentos hoje</div></div>'
+  +'<div style="text-align:right"><div style="padding:3px 8px;background:var(--sgl);border:1px solid rgba(74,122,98,.3);border-radius:20px;font-size:9px;font-weight:700;color:var(--sg)">Conectado</div><button class="btn btgh xs" style="margin-top:4px;font-size:10px" onclick="openM(\'googleReserve\')">Configurar</button></div>'
+  +'</div>'
+  +'<div style="background:rgba(225,48,108,.06);border:1px solid rgba(225,48,108,.2);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;gap:10px">'
+  +'<div style="width:32px;height:32px;border-radius:7px;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:grid;place-items:center;font-size:14px;color:#fff;flex-shrink:0">📸</div>'
+  +'<div style="flex:1"><div style="font-size:12px;font-weight:700">Instagram — Botão Reservar</div><div style="font-size:10px;color:var(--ink3);margin-top:1px">@studiobelezapro · +2 agendamentos hoje</div></div>'
+  +'<div style="text-align:right"><div style="padding:3px 8px;background:rgba(225,48,108,.1);border:1px solid rgba(225,48,108,.3);border-radius:20px;font-size:9px;font-weight:700;color:#cc2366">Ativo</div><button class="btn btgh xs" style="margin-top:4px;font-size:10px" onclick="Toast.show(\'Abrindo config do Instagram...\')">Configurar</button></div>'
+  +'</div>'
+  +'</div>'
+  +'<div style="overflow-x:auto;border-radius:var(--r)"><div class="acol-wrap" id="agendaGrid" style="min-width:'+(50+D.staff.length*155)+'px"></div></div></div>'
+  +'<div style="display:flex;flex-direction:column;gap:12px">'
+  +'<div class="card"><div class="cardh"><div class="cardt"><em>Cancelamentos</em></div><span class="cardlnk" onclick="openM(\'espera\')">Ver espera</span></div><div id="clist"></div></div>'
+  +'<div class="card"><div class="cardh"><div class="cardt">Clientes <em>Sumidas</em></div><span class="cardlnk" onclick="openM(\'reativ\')">Chamar</span></div><div id="chlist"></div></div>'
+  +'<div class="card"><div class="cardh"><div class="cardt">Equipe <em>Hoje</em></div></div><div id="tlist"></div></div>'
+  +'<div class="fcast"><div style="font-size:9px;color:rgba(255,255,255,.3);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px">IA PREDITIVA</div><div style="font-family:var(--fd);font-size:14px;font-weight:300;color:var(--wh);margin-bottom:7px">Receita <em>prevista</em> 7 dias</div><div class="fv">R$ 8.340</div><div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:12px">Com base nos ciclos de retorno</div>'+D.preds.slice(0,4).map(p=>'<div class="fci"><div class="fcn">'+p.nm.split(' ')[0]+'</div><div class="fcd">em '+p.dias+'d</div><div class="fcval">'+R(p.vl)+'</div><span class="fcprob '+(p.prob==='alta'?'fchi':'fcme')+'">'+p.prob+'</span></div>').join('')+'</div></div></div>');
+  const dn=$('#dateNav');
+  dn.innerHTML='<div style="width:24px;height:24px;border-radius:5px;display:grid;place-items:center;font-size:12px;color:var(--ink3);cursor:pointer" onclick="Toast.show(\'Semana anterior\')">&lt;</div>';
+  days.forEach(d=>{dn.innerHTML+='<div style="padding:5px 9px;border-radius:6px;font-size:11px;font-weight:500;'+(d.td?'background:var(--ink);color:var(--wh)':'color:var(--ink3)')+';cursor:pointer;text-align:center;min-width:42px"><div style="font-size:9px;opacity:.65;margin-bottom:1px">'+d.l+'</div><div style="font-family:var(--fd);font-size:14px;font-weight:300">'+d.n+'</div></div>';});
+  dn.innerHTML+='<div style="width:24px;height:24px;border-radius:5px;display:grid;place-items:center;font-size:12px;color:var(--ink3);cursor:pointer" onclick="Toast.show(\'Proxima semana\')">&gt;</div>';
+  const grid=$('#agendaGrid');
+  grid.innerHTML='<div class="atcol"><div class="atch">Hora</div>'+times.map(t=>'<div class="atc">'+t+'</div>').join('')+'</div>';
+  D.staff.forEach((pro,pi)=>{
+    const pa=D.appts.filter(a=>a.pro===pi);
+    let col='<div class="apcol"><div class="apch"><div class="apav" style="background:'+pro.bg+';color:'+pro.c+'">'+pro.in+'</div><div><div class="apname">'+pro.nm.split(' ')[0]+'</div><div class="apcnt">'+pa.filter(a=>a.vl>0).length+' hoje - '+R(pa.reduce((s,a)=>s+a.vl,0))+'</div></div></div>';
+    times.forEach(time=>{
+      const a=pa.find(ap=>ap.t===time);
+      if(a&&a.st!=='empty'){
+        const bg=a.st==='ok'?'background:rgba(201,169,110,.18);border-left:3px solid '+a.ac:a.st==='pend'?'background:rgba(154,111,0,.12);border-left:3px solid var(--am)':'background:var(--cr2);border-left:3px solid var(--ink4)';
+        col+='<div class="apcell"><div class="appt" style="'+bg+'" onclick="Toast.show(\'Abrindo \'+a.cl)"><div class="apn">'+a.cl+'</div><div class="aps">'+a.sv+'</div>'+(a.vl>0?'<div class="app">'+R(a.vl)+'</div>':'')+'</div></div>';
+      }else{
+        col+='<div class="apcell" onclick="openM(\'agend\')"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><div style="width:18px;height:18px;border:1px dashed var(--cr3);border-radius:50%;display:grid;place-items:center;font-size:12px;color:var(--ink4)">+</div></div></div>';
+      }
+    });
+    col+='</div>';
+    grid.innerHTML+=col;
+  });
+  html($('#clist'),D.cancels.length?D.cancels.map(c=>'<div class="lr"><div class="av" style="background:var(--rsl);color:var(--rs)">'+c.cl.split(' ').map(w=>w[0]).join('').slice(0,2)+'</div><div><div class="lrn sit">'+c.cl+'</div><div class="lrm">'+c.sv+' - '+c.rs+'</div></div><div class="lrr"><div class="txs tm2">'+c.tm+'</div><div class="cardlnk mt4" onclick="Toast.show(\'Horario oferecido!\')">Oferecer</div></div></div>').join(''):'<div style="padding:13px 16px;font-size:12px;color:var(--ink3)">Nenhum cancelamento hoje</div>');
+  html($('#chlist'),D.churn.map(c=>'<div class="lr"><div class="av" style="background:'+c.bg+';color:'+c.c+'">'+c.in+'</div><div><div class="lrn sit">'+c.nm+'</div><div class="lrm">'+c.sv+' - '+c.ds+'d sem visita</div></div><div class="cardlnk" style="margin-left:auto" onclick="Toast.show(\'Mensagem enviada para \'+c.nm+\'!\')">Enviar oferta</div></div>').join(''));
+  html($('#tlist'),D.staff.map((f,fi)=>{const ap=D.appts.filter(a=>a.pro===fi&&a.vl>0);return'<div class="lr"><div class="av" style="background:'+f.bg+';color:'+f.c+'">'+f.in+'</div><div><div class="lrn">'+f.nm+'</div><div class="lrm">'+f.rl+'</div></div><div class="lrr"><div class="lrv">'+ap.length+' atend.</div><div class="lrs sg2">'+R(ap.reduce((s,a)=>s+a.vl,0))+'</div></div></div>';}).join(''));
+},
+
+clientes(){
+  const sm={ok:['tsg','Ativo'],churn:['trs','Em risco'],risk:['tam','Atencao'],novo:['tsk','Novo'],vip:['tgd','VIP']};
+  html($('#page-clientes'),'<div class="sech"><div><div class="sct">Ficha de <em>Clientes</em></div><div class="scsub">Historico completo, formula e ficha tecnica editavel - clique para abrir</div></div><div class="scacts"><button class="btn btv sm" onclick="openM(\'qrportal\')">📲 Portal PWA</button><button class="btn btp sm" onclick="openM(\'novaFunc\')">+ Nova cliente</button></div></div>'
+  +'<div class="tw mb12"><div class="thead tc5c"><div>Cliente</div><div>Ultimo servico</div><div>Total gasto</div><div>Visitas</div><div>Status</div></div>'
+  +D.clients.map(c=>{const[tc,tt]=sm[c.st]||['tik','-'];const info=c.st==='novo'?'1a visita - '+c.ds+'d atras':c.st==='vip'?'Plano mensal ativo':c.ds<7?'Prox. em '+c.ds+'d':c.ds+' dias sem aparecer';
+  return'<div class="trow tc5c" onclick="clientDetail(D.clients.find(x=>x.nm===c.nm))"><div class="flex ic g10"><div class="av" style="background:'+c.bg+';color:'+c.c+'">'+c.in+'</div><div><div class="lrn">'+c.nm+'</div><div class="lrm">'+c.ph+' - '+info+'</div></div></div><div class="tm2">'+c.ls+'<br><span class="txs">'+c.ld+'</span></div><div class="fw6 gd2">'+R(c.ltv)+'</div><div>'+c.vt+' visitas</div><div><span class="tag '+tc+'">'+tt+'</span></div></div>';}).join('')+'</div>'
+  +'<div class="g2"><div class="card"><div class="cardh"><div class="cardt">Por <em>Status</em></div></div><div class="cardb">'
+  +[['VIP',D.clients.filter(c=>c.st==='vip').length,'gd2'],['Ativos',D.clients.filter(c=>c.st==='ok').length,'sg2'],['Em risco',D.clients.filter(c=>c.st==='churn'||c.st==='risk').length,'rs2'],['Novos',D.clients.filter(c=>c.st==='novo').length,'']].map(([l,n,col])=>'<div class="sr"><span class="srl">'+l+'</span><span class="srv '+col+'">'+n+' clientes</span></div>').join('')
+  +'</div></div><div class="card"><div class="cardh"><div class="cardt">LTV <em>Total da Base</em></div></div><div class="cardb"><div class="sr"><span class="srl">LTV acumulado</span><span class="srv gd">'+R(D.clients.reduce((a,c)=>a+c.ltv,0))+'</span></div><div class="sr"><span class="srl">LTV medio</span><span class="srv">'+R(Math.round(D.clients.reduce((a,c)=>a+c.ltv,0)/D.clients.length))+'</span></div><div class="sr"><span class="srl">Total de visitas</span><span class="srv">'+D.clients.reduce((a,c)=>a+c.vt,0)+'</span></div></div></div></div>');
+},
+
+comanda(){
+  const preco=180,insumos=[{nm:'Tinta Wella 8.1 (60g)',cu:14,qt:1},{nm:'Oxidante 30vol (120ml)',cu:3.6,qt:1},{nm:'Mascara pos-coloracao',cu:8,qt:1},{nm:'Leave-in finalizador',cu:4,qt:1},{nm:'Shampoo antirresiduo',cu:3.5,qt:1}];
+  window._ins=insumos.map(i=>({...i,used:false}));
+  const cli=D.clients[0];
+  html($('#page-comanda'),'<div class="sech"><div><div class="sct">Comanda <em>Digital ao Vivo</em></div><div class="scsub">Protocolo completo, insumos, margem real e notas da cliente</div></div>'
+  +'<div class="scacts"><button class="btn btgh sm" onclick="Toast.show(\'Antes/depois registrado!\',\'📸\')">📸 Foto antes/depois</button><button class="btn btg sm" onclick="openM(\'pagamento\')">💳 Processar pagamento</button></div></div>'
+
+  // Etapas do atendimento
+  +'<div style="display:flex;gap:0;background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);margin-bottom:13px">'
+  +[['1','Consulta','done'],['2','Aplicacao','curr'],['3','Finalizacao',''],['4','Pagamento','']].map(([n,l,s],i)=>'<div style="flex:1;padding:10px 13px;text-align:center;background:'+(s==='done'?'var(--sgl)':s==='curr'?'rgba(201,169,110,.1)':'var(--cr2)')+(i?';border-left:1px solid var(--bd)':'')+'">'+'<div style="font-family:var(--fd);font-size:16px;color:'+(s==='done'?'var(--sg)':s==='curr'?'var(--gdd)':'var(--ink4)'+'">'+(s==='done'?'&#10003;':n))+'</div><div style="font-size:10px;color:var(--ink3);margin-top:2px">'+l+'</div></div>').join('')
+  +'</div>'
+
+  // Header cliente com alerta de alergia
+  +'<div class="cmdh">'
+  +'<div class="cmdav" style="background:rgba(139,122,85,.18);color:#8B7A55">AS</div>'
+  +'<div style="flex:1"><div style="font-family:var(--fd);font-size:17px;font-style:italic">Ana Beatriz Silva</div><div style="font-size:11px;color:var(--ink3);margin-top:1px">Coloracao Completa - com Camila Souza</div>'
+  +'<div style="margin-top:5px;display:flex;gap:6px"><span style="font-size:10px;padding:2px 7px;background:var(--sgl);color:var(--sg);border-radius:12px;font-weight:600">Formula: Louro 8.1 + 30vol</span><span style="font-size:10px;padding:2px 7px;background:var(--sgl);color:var(--sg);border-radius:12px">Sem alergias</span></div></div>'
+  +'<div style="margin-left:8px"><button class="btn btgh sm" onclick="clientDetail(D.clients[0])">Ver ficha</button></div>'
+  +'<div class="cmdtimer"><div class="cmdtv" id="ctv">00:45:43</div><div class="cmdtl">EM ATENDIMENTO</div></div>'
+  +'</div>'
+
+  // Protocolo + insumos + upsell + totais
+  +'<div class="g2">'
+  +'<div>'
+
+  // Checklist protocolo
+  +'<div class="cardh" style="background:var(--wh);border:1px solid var(--bd);border-radius:var(--r) var(--r) 0 0"><div class="cardt">Protocolo <em>de Atendimento</em></div><span class="tag tsk">Passo a passo</span></div>'
+  +'<div style="background:var(--wh);border:1px solid var(--bd);border-top:none;border-radius:0 0 0 0;padding:10px 13px">'
+  +[['Anamnese e consulta realizada','done'],['Teste de mecha aprovado','done'],['Aplicacao do produto em andamento','curr'],['Tempo de acao: 45 min',''],['Lavagem e finalizacao',''],['Foto do resultado registrada','']].map(([t,s],i)=>'<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--bd);font-size:12.5px;color:'+(s==='done'?'var(--ink3)':s==='curr'?'var(--ink)':'var(--ink4)')+'">'+'<div style="width:18px;height:18px;border-radius:50%;background:'+(s==='done'?'var(--sg)':s==='curr'?'var(--gd)':'var(--cr3)')+';display:grid;place-items:center;font-size:10px;color:var(--wh);flex-shrink:0">'+(s==='done'?'&#10003;':s==='curr'?'&#9654;':'&#8226;')+'</div>'+t+'</div>').join('')
+  +'</div>'
+
+  // Insumos
+  +'<div class="cardh" style="background:var(--wh);border:1px solid var(--bd);border-top:none"><div class="cardt">Insumos <em>Usados</em></div><div class="txs tm2">Marque o que foi usado</div></div>'
+  +'<div style="background:var(--wh);border:1px solid var(--bd);border-top:none;border-radius:0 0 var(--r) var(--r);padding:12px" id="iList">'
+  +insumos.map((ins,i)=>'<div class="irow" id="ir'+i+'"><div class="ichk" id="ic'+i+'" onclick="tgIns('+i+')">&#10003;</div><div style="flex:1"><div class="iname">'+ins.nm+'</div><div class="icost">Custo: R$'+ins.cu+'/un.</div></div><div class="iqty"><div class="qbtn" onclick="chQty('+i+',-1)">-</div><div class="qval" id="qv'+i+'">1</div><div class="qbtn" onclick="chQty('+i+',1)">+</div></div></div>').join('')
+  +'</div>'
+
+  // Upsell
+  +'<div class="mt12"><div class="cardh" style="background:var(--wh);border:1px solid var(--bd);border-radius:var(--r) var(--r) 0 0"><div class="cardt">Upsell <em>Sugerido</em></div><span class="tag tgd">Oportunidade</span></div>'
+  +'<div style="background:rgba(201,169,110,.06);border:1px solid rgba(201,169,110,.2);border-top:none;border-radius:0 0 var(--r) var(--r);padding:12px">'
+  +'<div class="flex ic jb mb8"><div><div class="lrn">Hidratacao Profunda</div><div class="lrm">Ideal apos coloracao — cabelo da cliente e fino</div></div><div class="lrv gd2">+R$ 30</div></div>'
+  +'<div class="flex g8"><button class="btn btp sm wf" style="justify-content:center" onclick="Toast.show(\'Hidratacao adicionada! +R$ 30\')">Adicionar</button><button class="btn btgh sm" onclick="Toast.show(\'Recusa registrada.\')">Nao quis</button></div>'
+  +'</div></div>'
+
+  +'</div>'
+
+  // Totais
+  +'<div><div class="ctotal">'
+  +'<div style="font-family:var(--fd);font-size:11px;color:var(--ink3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px">RESUMO DA COMANDA</div>'
+  +'<div class="ctrow"><span class="ctl">Servico</span><span class="ctv">R$ 180</span></div>'
+  +'<div class="ctrow"><span class="ctl">Custo insumos</span><span class="ctv rs2" id="ccost">R$ 0</span></div>'
+  +'<div class="ctrow"><span class="ctl">Comissao (45%)</span><span class="ctv am2">R$ 81</span></div>'
+  +'<div class="ctrow" style="border-top:2px solid var(--bd2);margin-top:5px;padding-top:9px"><span class="ctl fw6">Margem bruta real</span><span class="cttot" id="cmarg">R$ 99</span></div>'
+  +'<div class="mt10"><div class="mbar"><div class="mbarf" id="cmbar" style="width:73%;background:var(--sg)"></div></div><div class="flex jb mt4"><span class="txs tm2">Margem</span><span class="txs fw6 sg2" id="cmpct">73%</span></div></div>'
+  +'<div class="divider"></div>'
+  +'<div class="ctrow" style="font-size:15px"><span class="ctl fw6">Total a cobrar</span><span class="cttot">R$ 180</span></div>'
+
+  // Obs da cliente
+  +'<div style="background:var(--cr2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-top:12px">'
+  +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:5px">Obs. da ficha tecnica</div>'
+  +'<div style="font-size:12px;color:var(--ink2);line-height:1.5">Prefere nao usar amonia. Cabelo fino, precisa de volume. Ultimo resultado: aprovado.</div>'
+  +'</div>'
+
+  // Obs do atendimento
+  +'<div style="margin-top:10px"><textarea class="fi" placeholder="Observacoes deste atendimento (formula usada, resultado, proxima visita)..." style="min-height:60px;font-size:12px"></textarea></div>'
+
+  +'<div class="flex g8 mt10"><button class="btn btp sm wf" style="justify-content:center" onclick="openM(\'pagamento\')">&#128179; Processar pagamento</button></div>'
+  +'<div class="flex g8 mt8"><button class="btn btgh sm wf" style="justify-content:center;font-size:11px" onclick="openM(\'nfe\')">&#128197; Emitir NF-e</button></div>'
+  +'</div></div></div>');
+
+  startTimer();
+  window.tgIns=function(i){const s=window._ins[i];s.used=!s.used;const chk=document.getElementById('ic'+i),row=document.getElementById('ir'+i);s.used?(chk.classList.add('on'),row.classList.add('used')):(chk.classList.remove('on'),row.classList.remove('used'));rcalc();};
+  window.chQty=function(i,d){const s=window._ins[i];s.qt=Math.max(1,(s.qt||1)+d);document.getElementById('qv'+i).textContent=s.qt;rcalc();};
+  function rcalc(){const cost=window._ins.reduce((sum,s)=>sum+(s.used?s.cu*(s.qt||1):0),0);const comm=Math.round(preco*.45);const marg=preco-cost-comm;const pct=Math.max(0,Math.round((marg/preco)*100));const col=pct>50?'var(--sg)':pct>30?'var(--am)':'var(--rs)';const cc=document.getElementById('ccost'),cm=document.getElementById('cmarg'),cp=document.getElementById('cmpct'),cb=document.getElementById('cmbar');if(cc)cc.textContent='R$ '+Math.round(cost*100)/100;if(cm){cm.textContent='R$ '+Math.round(marg);cm.style.color=marg>0?'var(--gdd)':'var(--rs)';}if(cp){cp.textContent=pct+'%';cp.style.color=col;}if(cb){cb.style.width=pct+'%';cb.style.background=col;}}
+},
+
+
+caixa(){
+  const te=D.caixa.ent.reduce((a,e)=>a+e.vl,0),ts=D.caixa.sai.reduce((a,s)=>a+s.vl,0),sl=te-ts,mp=Math.min(Math.round(te/D.caixa.meta*100),100);
+  const pf=D.caixa.ent.reduce((acc,e)=>{acc[e.fm]=(acc[e.fm]||0)+e.vl;return acc},{});
+  html($('#page-caixa'),'<div class="sech"><div><div class="sct">Caixa <em>do Dia</em></div><div class="scsub">Entradas, saidas, NF-e e fechamento</div></div><div class="scacts"><button class="btn btre sm" onclick="openM(\'despesa\')">+ Despesa</button><button class="btn btv sm" onclick="openM(\'nfe\')">NF-e</button><button class="btn btp sm" onclick="openM(\'fechamento\')">Fechar caixa</button></div></div>'
+  +'<div class="g4 mb12"><div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Entradas Hoje</div><div class="kcv sg2">'+R(te)+'</div><div class="kcd n">'+mp+'% da meta</div><div class="kcico">money</div></div><div class="kc"><div class="kcbar" style="background:var(--rs)"></div><div class="kclbl">Saidas e Despesas</div><div class="kcv rs2">'+R(ts)+'</div><div class="kcd n">'+D.caixa.sai.length+' lancamentos</div><div class="kcico">out</div></div><div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Saldo do Dia</div><div class="kcv gd2">'+R(sl)+'</div><div class="kcd up">'+mp+'% da meta</div><div class="kcico">chart</div></div><div class="kc"><div class="kcbar" style="background:var(--sk)"></div><div class="kclbl">Meta do Dia</div><div class="kcv">'+R(D.caixa.meta)+'</div><div class="kcd '+(mp>=100?'up':'n')+'">'+(mp>=100?'Meta atingida!':'Faltam '+R(D.caixa.meta-te))+'</div><div class="kcico">target</div></div></div>'
+  +'<div class="g64"><div><div class="card mb12"><div class="cardh"><div class="cardt">Entradas <em>de Hoje</em></div></div>'+D.caixa.ent.map(e=>'<div class="lr"><div style="font-size:10px;color:var(--ink3);width:36px;flex-shrink:0">'+e.hr+'</div><div style="flex:1"><div class="lrn">'+e.ds+'</div><div class="lrm">'+e.fm+'</div></div><div class="lrv sg2">'+R(e.vl)+'</div></div>').join('')+'<div style="display:flex;justify-content:space-between;padding:9px 16px;background:var(--cr);border-top:2px solid var(--bd2);font-size:13px"><span class="fw6">Total</span><span class="fw6 sg2">'+R(te)+'</span></div></div><div class="card"><div class="cardh"><div class="cardt">Saidas <em>e Despesas</em></div><button class="btn btre sm" onclick="openM(\'despesa\')">+ Despesa</button></div>'+D.caixa.sai.map(s=>'<div class="lr"><div style="font-size:10px;color:var(--ink3);width:36px;flex-shrink:0">'+s.hr+'</div><div style="flex:1"><div class="lrn">'+s.ds+'</div></div><div class="lrv rs2">'+R(s.vl)+'</div></div>').join('')+'<div style="display:flex;justify-content:space-between;padding:9px 16px;background:var(--cr);border-top:2px solid var(--bd2);font-size:13px"><span class="fw6">Total</span><span class="fw6 rs2">'+R(ts)+'</span></div></div></div>'
+  +'<div style="display:flex;flex-direction:column;gap:12px"><div class="card"><div class="cardh"><div class="cardt">Por <em>Forma de Pagamento</em></div></div><div class="cardb">'+Object.entries(pf).map(([f,v])=>'<div class="sr"><span class="srl">'+f+'</span><span class="srv">'+R(v)+'</span></div>').join('')+'</div></div><div class="card"><div class="cardh"><div class="cardt">Meta <em>do Dia</em></div></div><div class="cardb"><div style="font-family:var(--fd);font-size:28px;font-weight:300;color:var(--gdd)">'+mp+'%</div><div class="pbt mt8" style="height:7px"><div class="pbf" style="width:'+mp+'%;background:'+(mp>=100?'var(--sg)':'var(--gd)')+'"></div></div><div class="flex jb txs tm2 mt4"><span>'+R(te)+'</span><span>'+R(D.caixa.meta)+'</span></div><div class="divider"></div><button class="btn btv sm wf" style="justify-content:center;margin-bottom:7px" onclick="openM(\'pagamento\')">Terminal de Pagamento</button><button class="btn btp wf" style="justify-content:center" onclick="openM(\'fechamento\')">Fechar caixa</button></div></div></div></div>');
+},
+
+estoque(){
+  const baixo=D.estoque.filter(p=>p.qt<=p.mn);
+  const hoje=new Date('2026-08-19');
+  const diasAte=v=>Math.round((new Date(v)-hoje)/86400000);
+  const vencendo=D.estoque.filter(p=>p.val&&diasAte(p.val)<=60&&diasAte(p.val)>=0);
+  const vencido=D.estoque.filter(p=>p.val&&diasAte(p.val)<0);
+  html($('#page-estoque'),'<div class="sech"><div><div class="sct">Estoque <em>e Margem por Servico</em></div><div class="scsub">Insumos, revenda, lote e lucratividade real de cada procedimento</div></div><div class="scacts"><button class="btn btgh sm" onclick="openM(\'vendap\')">Vender produto</button><button class="btn btp sm" onclick="openM(\'estqin\')">+ Entrada</button></div></div>'
+  +(baixo.length?'<div style="background:var(--aml);border:1px solid rgba(154,111,0,.2);border-radius:var(--r);padding:10px 14px;margin-bottom:10px;font-size:13px;color:var(--am)">Atencao: '+baixo.length+' produto(s) abaixo do minimo: '+baixo.map(p=>p.nm).join(', ')+'.</div>':'')
+  +(vencido.length?'<div style="background:var(--rsl);border:1px solid rgba(192,80,74,.2);border-radius:var(--r);padding:10px 14px;margin-bottom:10px;font-size:13px;color:var(--rs)">Vencido: '+vencido.map(p=>p.nm+' (lote '+p.lote+')').join(', ')+' - retirar de uso imediatamente.</div>':'')
+  +(vencendo.length?'<div style="background:var(--aml);border:1px solid rgba(154,111,0,.2);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--am)">Vencimento proximo (60 dias): '+vencendo.map(p=>p.nm+' - '+diasAte(p.val)+'d').join(', ')+'.</div>':'')
+  +'<div class="g2 mb12">'
+  +'<div><div style="font-family:var(--fd);font-style:italic;font-size:18px;margin-bottom:10px;color:var(--gdd)">Produtos em Estoque</div><div class="tw"><div class="thead tc5e"><div>Produto</div><div>Qtd.</div><div>Lote / Validade</div><div>Tipo</div><div>Acao</div></div>'
+  +D.estoque.map(p=>{const dv=p.val?diasAte(p.val):null;const vCol=dv===null?'var(--ink3)':dv<0?'var(--rs)':dv<=60?'var(--am)':'var(--ink3)';const vTag=dv===null?'':dv<0?' <span class="tag trs">Vencido</span>':dv<=60?' <span class="tag tam">'+dv+'d</span>':'';return'<div class="trow tc5e" style="'+(p.qt<=p.mn||dv<0?'background:rgba(192,80,74,.03)':(dv!==null&&dv<=60)?'background:rgba(154,111,0,.04)':'')+'"><div><div class="fw6">'+p.nm+'</div><div class="txs tm2 mt4">'+p.ct+'</div></div><div><span style="font-family:var(--fd);font-size:16px;font-weight:300;'+(p.qt<=p.mn?'color:var(--rs)':'')+'">'+p.qt+'</span><span class="txs tm2"> '+p.un+(p.qt<=p.mn?' <span class="tag trs">Baixo</span>':'')+'</span></div><div><div class="txs fw6">Lote '+(p.lote||'-')+'</div><div class="txs" style="color:'+vCol+'">'+(p.val?new Date(p.val).toLocaleDateString('pt-BR'):'-')+vTag+'</div></div><div><span class="tag '+(p.tp==='venda'?'tgd':'tik')+'">'+(p.tp==='venda'?'Revenda':'Insumo')+'</span></div><div class="flex g6">'+(p.tp==='venda'?'<button class="btn btg xs" onclick="openM(\'vendap\')">Vender</button>':'')+'<button class="btn btgh xs" onclick="Toast.show(\'Editando...\')">+/-</button></div></div>';}).join('')
+  +'</div></div>'
+  +'<div>'
+  +'<div class="card mb12"><div class="cardh"><div class="cardt">Rastreabilidade <em>de Lote</em></div><span class="tag tvi">Conformidade ANVISA</span></div><div class="cardb"><p class="tsm tm2" style="line-height:1.5">Cada insumo tem lote e validade rastreados. Se um produto tiver problema de qualidade, o SalonOS mostra em quais atendimentos e clientes aquele lote foi usado - rastreabilidade que nenhum sistema de agenda tradicional oferece.</p></div></div>'
+  +'<div style="font-family:var(--fd);font-style:italic;font-size:18px;margin-bottom:10px;color:var(--gdd)">Margem Real por Servico</div><div class="card"><div class="cardh"><div class="cardt"><em>Diferencial SalonOS</em></div><span class="tag tvi">Nativo no fluxo de atendimento</span></div><div class="cardb"><p class="tsm tm2 mb10" style="line-height:1.5">Receita menos insumos menos comissao igual lucro real por procedimento.</p>'
+  +D.procs.filter(p=>p.id<=6).map(p=>{const comm=Math.round(p.price*p.comm/100);const marg=p.price-p.cost-comm;const pct=Math.round((marg/p.price)*100);const col=pct>60?'var(--sg)':pct>40?'var(--gd)':'var(--am)';return'<div style="margin-bottom:11px;padding-bottom:11px;border-bottom:1px solid var(--bd)"><div class="flex jb mb4"><div class="tsm fw6">'+p.nm+'</div><div class="flex g8"><span class="txs tm2">'+R(p.price)+'</span><span class="txs fw6" style="color:'+col+'">'+pct+'% margem</span></div></div><div class="flex g8 txs tm2 mb5"><span>Insumo: <strong style="color:var(--rs)">'+R(p.cost)+'</strong></span><span>Comis: <strong style="color:var(--am)">'+R(comm)+'</strong></span><span>Lucro: <strong style="color:var(--sg)">'+R(marg)+'</strong></span></div><div class="mbar"><div class="mbarf" style="width:'+pct+'%;background:'+col+'"></div></div></div>';}).join('')
+  +'<div class="divider"></div>'
+  +'<div style="background:var(--cr2);border-radius:8px;padding:13px">'
+  +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:10px">Calculadora de Custo</div>'
+  +'<div class="fg"><label class="flbl">Servico</label><select class="fi" id="calcProc" onchange="calcMargem()">'
+  +D.procs.map(p=>'<option value="'+p.id+'">'+p.nm+'</option>').join('')
+  +'</select></div>'
+  +'<div class="frow" style="margin-top:8px">'
+  +'<div class="fg"><label class="flbl">Preco cobrado (R$)</label><input class="fi" type="number" id="calcPreco" value="180" oninput="calcMargem()"></div>'
+  +'<div class="fg"><label class="flbl">Custo insumos (R$)</label><input class="fi" type="number" id="calcCusto" value="32" oninput="calcMargem()"></div>'
+  +'</div>'
+  +'<div class="frow" style="margin-top:0">'
+  +'<div class="fg"><label class="flbl">% Comissao</label><input class="fi" type="number" id="calcComm" value="45" oninput="calcMargem()"></div>'
+  +'<div class="fg"><label class="flbl">Lucro real</label><input class="fi" id="calcResult" readonly style="background:var(--sgl);color:var(--sg);font-weight:700"></div>'
+  +'</div>'
+  +'<div id="calcBar" style="margin-top:8px"><div style="height:6px;background:var(--cr3);border-radius:3px;overflow:hidden"><div id="calcFill" style="height:100%;border-radius:3px;background:var(--sg);transition:width 1s;width:65%"></div></div><div style="display:flex;justify-content:space-between;margin-top:4px"><span style="font-size:10px;color:var(--ink3)">Margem</span><span id="calcPct" style="font-size:10px;font-weight:700;color:var(--sg)">65%</span></div></div>'
+  +'</div>'
+  +'</div></div>'
+  +'</div>'
+  +'</div>');
+  window.calcMargem=function(){const p=parseFloat(document.getElementById('calcPreco')?.value)||0;const c2=parseFloat(document.getElementById('calcCusto')?.value)||0;const cm=parseFloat(document.getElementById('calcComm')?.value)||0;const comm=Math.round(p*cm/100);const lucro=p-c2-comm;const pct=Math.max(0,Math.round((lucro/p)*100));const col=pct>60?'var(--sg)':pct>40?'var(--gd)':'var(--rs)';const r=document.getElementById('calcResult');const f=document.getElementById('calcFill');const pp=document.getElementById('calcPct');if(r)r.value='R$ '+Math.round(lucro);if(f){f.style.width=pct+'%';f.style.background=col;}if(pp){pp.textContent=pct+'%';pp.style.color=col;}};
+},
+
+avaliacoes(){
+  const med=(D.avals.reduce((a,e)=>a+e.st,0)/D.avals.length).toFixed(1);
+  html($('#page-avaliacoes'),'<div class="sech"><div><div class="sct">Avaliacoes <em>das Clientes</em></div><div class="scsub">O que elas estao falando sobre o seu salao</div></div></div>'
+  +'<div class="g64"><div>'+D.avals.map(e=>'<div class="evcard"><div class="evh"><div><div class="evname">'+e.nm+'</div><div class="txs tm2 mt4">'+e.sv+' com '+e.pr+'</div></div><div class="tr"><div class="evstars">'+'star'.repeat(e.st)+'empty'.repeat(5-e.st)+'</div><div class="txs tm2 mt4">'+e.dt+'</div></div></div><div class="evtxt">'+e.tx+'</div><div class="flex ic jb mt8"><span>'+(e.st===5?'<span class="tag tsg">5 estrelas</span>':e.st<=3?'<span class="tag trs">Atencao</span>':'<span class="tag tam">Boa</span>')+'</span>'+(e.rp?'<span class="txs sg2">Respondida</span>':'<button class="btn btgh xs" onclick="Toast.show(\'Abrindo resposta...\')">Responder</button>')+'</div></div>').join('')+'</div>'
+  +'<div style="display:flex;flex-direction:column;gap:12px"><div class="card"><div class="cardh"><div class="cardt">Nota <em>Geral</em></div></div><div class="cardb tc"><div style="font-family:var(--fd);font-size:48px;font-weight:300;color:var(--gdd);line-height:1">'+med+'</div><div style="color:var(--gd);font-size:17px;letter-spacing:2px;margin:4px 0">stars</div><div class="tsm tm2">'+D.avals.length+' avaliacoes</div><div class="divider"></div>'+[5,4,3,2,1].map(n=>{const cnt=D.avals.filter(e=>e.st===n).length;const pct=Math.round(cnt/D.avals.length*100);return'<div class="flex ic g8 mb8"><span class="txs" style="width:12px">'+n+'</span><span style="color:var(--gd);font-size:11px">*</span><div class="pbt" style="flex:1;height:4px"><div class="pbf" style="width:'+pct+'%;background:var(--gd)"></div></div><span class="txs tm2" style="width:22px">'+pct+'%</span></div>';}).join('')+'</div></div><div class="card"><div class="cardh"><div class="cardt">Por <em>Profissional</em></div></div><div class="cardb">'+D.staff.map(f=>{const evs=D.avals.filter(e=>e.pr===f.nm.split(' ')[0]);const avg=evs.length?(evs.reduce((a,e)=>a+e.st,0)/evs.length).toFixed(1):'-';return'<div class="sr"><div class="flex ic g8"><div class="av" style="background:'+f.bg+';color:'+f.c+';width:24px;height:24px;font-size:10px">'+f.in+'</div><span>'+f.nm.split(' ')[0]+'</span></div><span class="srv">'+avg+' star</span></div>';}).join('')+'</div></div></div></div>');
+},
+
+automacoes(){
+  const totalR=D.automacoes.reduce((a,x)=>a+x.receita,0);
+  const totalD=D.automacoes.reduce((a,x)=>a+x.disparos,0);
+  html($('#page-automacoes'),'<div class="sech"><div><div class="sct">Automacoes <em>e Fluxos</em></div><div class="scsub">Cada automacao ativa trabalha por voce enquanto voce atende</div></div><div class="scacts"><button class="btn btp sm" onclick="Toast.show(\'Abrindo editor de automacao...\')">+ Nova automacao</button></div></div>'
+  +'<div class="g4 mb14"><div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Receita gerada pelas automacoes</div><div class="kcv sg2">'+R(totalR)+'</div><div class="kcd up">este mes</div><div class="kcico">robot</div></div><div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Disparos totais no mes</div><div class="kcv gd2">'+totalD+'</div><div class="kcd n">mensagens enviadas</div><div class="kcico">send</div></div><div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Automacoes ativas</div><div class="kcv am2">'+D.automacoes.filter(a=>a.ativa).length+'</div><div class="kcd n">de '+D.automacoes.length+' configuradas</div><div class="kcico">bolt</div></div><div class="kc"><div class="kcbar" style="background:var(--vi)"></div><div class="kclbl">Taxa media de resposta</div><div class="kcv" style="color:var(--vi)">43%</div><div class="kcd up">acima da media do setor</div><div class="kcico">chart</div></div></div>'
+  +D.automacoes.map(a=>'<div class="auto-card" style="'+(a.ativa?'':'opacity:.6')+'"><div class="auto-icon" style="background:'+(a.ativa?'var(--sgl)':'var(--cr2)')+'">'+a.ico.slice(0,2)+'</div><div class="auto-body"><div class="flex ic jb"><div class="auto-name">'+a.nm+'</div><label class="tog"><input type="checkbox" '+(a.ativa?'checked':'')+' onchange="Toast.show(\'\'+a.nm+\' \'+(a.ativa?\'desativada\':\'ativada\')+\'!\')"><div class="togt"></div><div class="togk"></div></label></div><div class="auto-desc">'+a.desc+'</div><div class="auto-metrics"><span class="auto-metric"><strong>'+a.disparos+'</strong> disparos</span><span class="auto-metric"><strong>'+a.taxa+'%</strong> resposta</span>'+(a.receita>0?'<span class="auto-metric"><strong style="color:var(--gdd)">'+R(a.receita)+'</strong> gerados</span>':'')+'<span class="tag tik" style="font-size:9px">'+a.cat+'</span></div></div><button class="btn btgh sm" onclick="Toast.show(\'Editando \'+a.nm+\'...\')">Editar</button></div>').join(''));
+},
+
+whatsapp(){
+  html($('#page-whatsapp'),'<div class="sech"><div><div class="sct">WhatsApp <em>Flows</em></div><div class="scsub">Fluxos de mensagem automaticos - visualize e edite cada conversa</div></div><div class="scacts"><button class="btn btp sm" onclick="Toast.show(\'Abrindo editor de flow...\')">+ Novo flow</button></div></div>'
+  +'<div class="g2">'
+  +'<div>'
+  +[{nm:'Confirmacao 24h antes',trigger:'24h antes do agendamento',msgs:[{out:false,tx:'Oi [Nome]! Lembrando do seu horario amanha: [Servico] com [Profissional] as [Hora]. Voce confirma? Responda SIM ou NAO'},{out:true,tx:'SIM'},{out:false,tx:'Otimo! Te esperamos amanha. Se precisar reagendar, e so responder aqui.'}],ativa:true},
+  {nm:'Reativacao por Ciclo',trigger:'Quando ciclo de retorno vence',msgs:[{out:false,tx:'Oi [Nome]! Ja faz um tempinho que nao te vemos... Sua [Servico] ja deve estar pedindo uma renovacao! Temos horarios disponiveis essa semana.'},{out:true,tx:'Sim, quero marcar!'},{out:false,tx:'Que otimo! Clica no link para ver os horarios: [link]'}],ativa:true},
+  {nm:'Upsell no Agendamento',trigger:'Apos confirmar agendamento',msgs:[{out:false,tx:'Seu horario esta confirmado! Que tal aproveitar e adicionar uma hidratacao profunda? Por apenas +R$30, seu cabelo vai ficar ainda mais lindo.'},{out:true,tx:'Sim, quero a hidratacao!'},{out:false,tx:'Perfeito! Ja incluimos no seu horario.'}],ativa:true}].map(flow=>'<div class="card mb12"><div class="cardh"><div><div class="cardt">'+flow.nm+'</div><div class="txs tm2 mt4">Gatilho: '+flow.trigger+'</div></div><div class="flex ic g8"><span class="tag '+(flow.ativa?'tsg':'tik')+'">'+(flow.ativa?'Ativa':'Pausada')+'</span><button class="btn btgh xs" onclick="Toast.show(\'Editando automacao...\')">Editar</button></div></div><div class="cardb"><div style="background:#131a24;border-radius:var(--r);padding:12px">'+flow.msgs.map(msg=>'<div style="max-width:80%;margin-bottom:8px;padding:8px 11px;font-size:12px;line-height:1.6;border-radius:'+(msg.out?'10px 10px 2px 10px':'10px 10px 10px 2px')+';background:'+(msg.out?'#1a3a24':'#1e2a3a')+';'+(msg.out?'margin-left:auto;color:rgba(255,255,255,.9)':'color:rgba(255,255,255,.75)')+'">'+msg.tx+'</div>').join('')+'</div></div></div>').join('')
+  +'</div>'
+  +'<div style="display:flex;flex-direction:column;gap:12px">'
+  +'<div class="card"><div class="cardh"><div class="cardt">Estatisticas <em>do Mes</em></div></div><div class="cardb"><div class="sr"><span class="srl">Mensagens enviadas</span><span class="srv">348</span></div><div class="sr"><span class="srl">Taxa de abertura</span><span class="srv sg">94%</span></div><div class="sr"><span class="srl">Taxa de resposta</span><span class="srv gd">43%</span></div><div class="sr"><span class="srl">Agendamentos gerados</span><span class="srv">24</span></div><div class="sr"><span class="srl">Receita atribuida</span><span class="srv gd">R$ 7.440</span></div></div></div>'
+  +'<div class="card"><div class="cardh"><div class="cardt">Configuracao <em>do WhatsApp</em></div></div><div class="cardb"><div class="sr"><span class="srl">Numero conectado</span><span class="srv">(11) 9 8800-0000</span></div><div class="sr"><span class="srl">Status da API</span><span class="srv sg2">Online</span></div><div class="sr"><span class="srl">Mensagens restantes</span><span class="srv">1.652/2.000</span></div><div class="divider"></div><button class="btn btgh sm wf" style="justify-content:center" onclick="Toast.show(\'Abrindo config WhatsApp...\')">Gerenciar conexao</button></div></div>'
+  +'</div></div>');
+},
+
+relatorios(){
+  const pv=$('#relperiod')?.value||'mes';
+  const ml={hoje:.15,semana:.38,mes:1,trimestre:3.1};const m=ml[pv]||1;
+  const lb={hoje:'Hoje',semana:'Esta Semana',mes:'Este Mes',trimestre:'Trimestre'};
+  html($('#page-relatorios'),'<div class="sech"><div><div class="sct">Relatorios <em>e Resultados</em></div><div class="scsub">Desempenho com filtro de periodo</div></div><div class="scacts"><select class="fi" style="width:140px" id="relperiod" onchange="P.relatorios()"><option value="hoje">Hoje</option><option value="semana">Esta semana</option><option value="mes" selected>Este mes</option><option value="trimestre">Trimestre</option></select><button class="btn btgh sm">Exportar</button></div></div>'
+  +'<div class="g4 mb12">'+[['money',R(Math.round(18640*m)),'Receita total - '+lb[pv],'+ 23% vs anterior','gd2','up'],['cycle',R(4730),'Planos mensais MRR','43 clientes no plano','','up'],['calendar',String(Math.round(148*m)),'Clientes atendidas','media de 7.4 por dia','','up'],['up',R(Math.round(1280*m)),'Extras vendidos','34 clientes aceitaram','','up']].map(([ic,vl,lb2,dl,cl,dr])=>'<div class="kc"><div class="kclbl">'+lb2+'</div><div class="kcv '+(cl||'')+'">'+(vl)+'</div><div class="kcd '+dr+'">'+dl+'</div><div class="kcico">'+ic+'</div></div>').join('')+'</div>'
+  +'<div class="g2"><div class="card"><div class="cardh"><div class="cardt">Servicos <em>mais realizados</em></div></div><div class="cardb">'+[['Coloracao',38,'#8B7A55'],['Corte',31,'#4A7A62'],['Progressiva',20,'#7A5A8A'],['Manicure',17,'#9A6F00'],['Hidratacao',14,'#6A7A9A']].map(([s,n,c])=>'<div class="sr"><span class="srl">'+s+'</span><div class="pbrow" style="width:190px"><div class="pbt" style="flex:1;height:4px"><div class="pbf" style="width:'+Math.round(n/38*100)+'%;background:'+c+'"></div></div><span class="txs fw6" style="width:50px;text-align:right">'+Math.round(n*m)+'</span></div></div>').join('')+'</div></div>'
+  +'<div class="card"><div class="cardh"><div class="cardt">Receita <em>por semana</em></div></div><div class="cardb">'+[['Sem 1',3980],['Sem 2',4620],['Sem 3',5280],['Sem 4',4760]].map(([s,v],i)=>'<div style="margin-bottom:10px"><div class="flex jb tsm mb4"><span class="tm2">'+s+'</span><span class="fw6">'+R(Math.round(v*m))+'</span></div><div class="pbt" style="height:6px"><div class="pbf" style="width:'+Math.round(v/5280*100)+'%;background:'+(i===2?'var(--gd)':'var(--cr3)')+'"></div></div></div>').join('')+'<div class="divider"></div><div class="sr"><span class="srl">Ticket medio</span><span class="srv gd">R$ 118</span></div><div class="sr"><span class="srl">Taxa de retorno</span><span class="srv sg">68%</span></div><div class="sr"><span class="srl">Margem media</span><span class="srv vi2">62%</span></div></div></div></div>');
+},
+
+equipe(){
+  const tR=D.staff.reduce((a,f)=>a+f.re,0),tC=D.staff.reduce((a,f)=>a+f.cv,0);
+  html($('#page-equipe'),'<div class="sech"><div><div class="sct">Equipe <em>e Comissoes</em></div><div class="scsub">Metas, performance e comissoes do mes</div></div><div class="scacts"><button class="btn btp sm" onclick="openM(\'novaFunc\')">+ Cadastrar</button></div></div>'
+  +'<div class="g4 mb12"><div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Profissionais</div><div class="kcv">'+D.staff.length+'</div><div class="kcd n">todas ativas</div><div class="kcico">team</div></div><div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Receita da Equipe</div><div class="kcv gd2">'+R(tR)+'</div><div class="kcd up">+ 23%</div><div class="kcico">money</div></div><div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Comissoes a Pagar</div><div class="kcv am2">'+R(tC)+'</div><div class="kcd n">'+Math.round(tC/tR*100)+'% medio</div><div class="kcico">cash</div></div><div class="kc"><div class="kcbar" style="background:var(--sk)"></div><div class="kclbl">Avaliacao Media</div><div class="kcv" style="color:var(--sk)">'+(D.staff.reduce((a,f)=>a+f.rt,0)/D.staff.length).toFixed(1)+' star</div><div class="kcd up">Excelente</div><div class="kcico">star</div></div></div>'
+  +'<div class="card mb12"><div class="cardh"><div class="cardt">Metas <em>de Receita - Abril</em></div><div class="txs tm2">Progresso em tempo real</div></div><div class="cardb">'+D.staff.map(f=>{const pct=Math.min(Math.round(f.re/f.mt*100),100);const col=pct>=100?'var(--sg)':pct>=70?'var(--gd)':'var(--rs)';const tr=pct>=100?'trophy':pct>=70?'silver':'target';return'<div class="mb12"><div class="flex ic jb mb8"><div class="flex ic g10"><div class="av" style="background:'+f.bg+';color:'+f.c+'">'+f.in+'</div><div><div class="lrn">'+f.nm+' '+tr+'</div><div class="lrm">'+f.rl+' - '+f.at+' atend.</div></div></div><div class="tr"><div class="fw6" style="color:'+col+'">'+pct+'%</div><div class="txs tm2">'+R(f.re)+' / '+R(f.mt)+'</div></div></div><div class="pbt" style="height:6px"><div class="pbf" style="width:'+pct+'%;background:'+col+'"></div></div></div>';}).join('')+'</div></div>'
+  +'<div class="tw"><div class="thead tc6s"><div>Funcionaria</div><div>Cargo</div><div>Atend.</div><div>Receita</div><div>Comissao</div><div>Pagar</div></div>'+D.staff.map(f=>'<div class="trow tc6s"><div class="flex ic g10"><div class="av" style="background:'+f.bg+';color:'+f.c+'">'+f.in+'</div><div><div class="lrn">'+f.nm+'</div><div class="lrm">'+f.rt+' star - '+f.tl+'</div></div></div><div class="tm2">'+f.rl+'</div><div>'+f.at+' clientes</div><div class="fw6">'+R(f.re)+'</div><div style="font-family:var(--fd);font-size:16px;font-weight:300;color:var(--gdd)">'+R(f.cv)+'</div><div><button class="btn btg xs" onclick="Toast.show(\'Comissao de \'+f.nm+\' paga!\')">Pagar</button></div></div>').join('')+'<div class="trow tc6s ttotal"><div style="grid-column:1/4">TOTAL DO MES</div><div></div><div>'+R(tR)+'</div><div style="font-family:var(--fd);font-size:17px;color:var(--gdd)">'+R(tC)+'</div><div><button class="btn btp xs" onclick="Toast.show(\'Todas as comissoes pagas!\')">Pagar todas</button></div></div></div>');
+},
+
+previsao(){
+  const total=D.preds.reduce((a,p)=>a+p.vl,0);
+  const alta=D.preds.filter(p=>p.prob==='alta');
+  const chart=Array.from({length:30},(_,i)=>({d:i+1,v:Math.round(500+Math.sin(i*.4)*200+Math.random()*150),pred:i>14}));
+  const maxV=Math.max(...chart.map(d=>d.v));
+  html($('#page-previsao'),'<div class="sech"><div><div class="sct">IA Preditiva <em>de Receita</em></div><div class="scsub">Preve quando cada cliente vai voltar e quanto vai entrar - exclusividade SalonOS</div></div></div>'
+  +'<div class="aibanner mb12" style="cursor:default"><div style="font-size:18px">brain</div><div style="flex:1;font-size:13px;line-height:1.6"><div class="aitag">NATIVO NO SALONOS</div><br>O sistema calcula o ciclo de retorno de cada servico por cliente. Coloracao volta em 45 dias, progressiva em 90 dias. Isso gera uma <strong style="color:var(--gdd)">previsao de receita real</strong> - direto na sua agenda, sem contratar ou integrar nenhuma ferramenta separada.</div></div>'
+  +'<div class="g3 mb12"><div class="fcast"><div style="font-size:9px;color:rgba(255,255,255,.3);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px">PREVISAO TOTAL - 30 DIAS</div><div style="font-family:var(--fd);font-size:14px;font-weight:300;color:var(--wh);margin-bottom:7px">Receita <em>prevista</em></div><div class="fv">'+R(total)+'</div><div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:12px">'+D.preds.length+' clientes com retorno previsto</div><div class="mt10 flex g8" style="flex-wrap:wrap"><span style="font-size:10px;padding:3px 8px;border-radius:12px;background:rgba(74,122,98,.25);color:var(--sg)">'+alta.length+' alta prob.</span><span style="font-size:10px;padding:3px 8px;border-radius:12px;background:rgba(154,111,0,.25);color:var(--am)">'+D.preds.filter(p=>p.prob==='media').length+' media</span></div></div>'
+  +'<div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Alta probabilidade</div><div class="kcv sg2">'+alta.length+'</div><div class="kcd up">Retorno quase certo</div><div class="kcico">target</div></div>'
+  +'<div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Receita garantida alta</div><div class="kcv gd2">'+R(alta.reduce((a,p)=>a+p.vl,0))+'</div><div class="kcd up">Sem acao necessaria</div><div class="kcico">money</div></div></div>'
+  +'<div class="card mb12"><div class="cardh"><div class="cardt">Receita <em>Prevista - 30 Dias</em></div><div class="flex g8"><div class="flex ic g6 txs tm2"><div style="width:9px;height:9px;border-radius:2px;background:var(--gd)"></div>Historico</div><div class="flex ic g6 txs tm2"><div style="width:9px;height:9px;border-radius:2px;background:var(--gd);opacity:.45"></div>Previsto IA</div></div></div><div class="cardb"><div style="display:flex;align-items:flex-end;gap:2px;height:90px">'+chart.map(d=>{const h=Math.round((d.v/maxV)*86);const bg=d.pred?'var(--gd)':'var(--gdd)';const extra=d.pred?'opacity:.5;background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(255,255,255,.3) 3px,rgba(255,255,255,.3) 4px)':'';return'<div style="flex:1;height:'+h+'px;border-radius:2px 2px 0 0;background:'+bg+';'+extra+';cursor:pointer;min-height:3px" title="Dia '+d.d+': '+R(d.v)+'"></div>';}).join('')+'</div><div class="flex jb mt8 txs tm2"><span>Hoje</span><span>+15 dias</span><span>+30 dias</span></div></div></div>'
+  +'<div class="g2"><div class="card"><div class="cardh"><div class="cardt">Clientes com <em>Retorno Previsto</em></div></div>'+D.preds.sort((a,b)=>a.dias-b.dias).map(p=>'<div class="lr"><div class="av" style="background:'+(p.prob==="alta"?'var(--sgl)':p.prob==="media"?'var(--aml)':'var(--cr2)')+';color:'+(p.prob==="alta"?'var(--sg)':p.prob==="media"?'var(--am)':'var(--ink3)')+'">o</div><div style="flex:1"><div class="lrn">'+p.nm+'</div><div class="lrm">'+p.sv+' - retorno em <strong>'+p.dias+' dias</strong></div></div><div class="lrr"><div class="lrv gd2">'+R(p.vl)+'</div><span class="tag '+(p.prob==="alta"?'tsg':p.prob==="media"?'tam':'tik')+'">'+p.prob+'</span></div></div>').join('')+'</div>'
+  +'<div style="display:flex;flex-direction:column;gap:12px"><div class="card"><div class="cardh"><div class="cardt">Como a IA <em>Calcula</em></div></div><div class="cardb"><div class="sr"><span class="srl">Coloracao</span><span class="srv">ciclo medio 45 dias</span></div><div class="sr"><span class="srl">Progressiva</span><span class="srv">ciclo medio 90 dias</span></div><div class="sr"><span class="srl">Corte</span><span class="srv">ciclo medio 30 dias</span></div><div class="sr"><span class="srl">Manicure</span><span class="srv">ciclo medio 15 dias</span></div><div class="divider"></div><div class="tsm tm2" style="line-height:1.5">O sistema aprende o ciclo individual de cada cliente pelo historico real de visitas.</div></div></div><div class="card"><div class="cardh"><div class="cardt">Acao <em>Automatica</em></div></div><div class="cardb"><p class="tsm tm2 mb10" style="line-height:1.5">WhatsApp automatico enviado 5 dias antes do ciclo previsto.</p><div class="flex ic g8 mb10"><label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label><span class="tsm">Envio automatico ativado</span></div><button class="btn btp sm wf" style="justify-content:center" onclick="Toast.show(\'Lembretes enviados para todas!\')">Enviar para todas agora</button></div></div></div></div>');
+},
+
+marketplace(){
+  const saloes=[
+    {nm:'Studio Beleza Pro',bairro:'Jardins',nota:4.9,av:127,dist:'Seu salão',dest:true,servicos:['Coloração','Mechas','Progressiva'],preco:'R$ 80–280',foto:'💆'},
+    {nm:'Salão Glamour',bairro:'Moema',nota:4.6,av:84,dist:'2.3 km',dest:false,servicos:['Corte','Escova','Manicure'],preco:'R$ 50–150',foto:'💇'},
+    {nm:'Beauty Space',bairro:'Itaim Bibi',nota:4.7,av:203,dist:'3.1 km',dest:false,servicos:['Coloração','Limpeza de Pele'],preco:'R$ 90–220',foto:'✨'},
+    {nm:'Studio Essence',bairro:'Pinheiros',nota:4.5,av:61,dist:'4.2 km',dest:false,servicos:['Mechas','Progressiva','Escova'],preco:'R$ 70–250',foto:'🌟'},
+    {nm:'Top Nail Studio',bairro:'Vila Madalena',nota:4.8,av:312,dist:'5.0 km',dest:false,servicos:['Manicure','Nail Art','Pedicure'],preco:'R$ 35–90',foto:'💅'},
+  ];
+  html($('#page-marketplace'),`<div class="sech"><div><div class="sct">Marketplace <em>de Clientes</em></div><div class="scsub">Seu salão visível para novos clientes buscando serviços na sua região</div></div>
+    <div class="scacts"><button class="btn btgh sm" onclick="Toast.show(\'Abrindo config de destaque...\')">Gerenciar posição</button><button class="btn btg sm" onclick="Toast.show(\'Plano Destaque ativado! +40% visibilidade.\')">⬆ Destacar salão</button></div></div>
+
+  <div class="aibanner mb14" style="cursor:default">
+    <div style="font-size:18px">🛍</div>
+    <div style="flex:1;font-size:13px;line-height:1.6"><div class="aitag">Marketplace SalonOS</div><br>
+    <strong style="color:var(--gdd)">+28 clientes novos este mês</strong> encontraram o Studio Beleza Pro pelo marketplace. Você aparece em <strong style="color:var(--gdd)">#1</strong> na busca por coloração em Jardins.</div>
+    <div style="text-align:right;flex-shrink:0"><div style="font-family:var(--fd);font-size:22px;color:var(--gd)">R$ 4.920</div><div style="font-size:10px;color:rgba(255,255,255,.4)">Receita via marketplace</div></div>
+  </div>
+
+  <div class="g4 mb14">
+    <div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Visualizações do perfil</div><div class="kcv gd2">1.240</div><div class="kcd up">▲ este mês</div><div class="kcico">👁</div></div>
+    <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Clientes novos captados</div><div class="kcv sg2">28</div><div class="kcd up">▲ via marketplace</div><div class="kcico">👤</div></div>
+    <div class="kc"><div class="kcbar" style="background:var(--vi)"></div><div class="kclbl">Taxa de conversão</div><div class="kcv" style="color:var(--vi)">2.3%</div><div class="kcd up">▲ acima da media</div><div class="kcico">📊</div></div>
+    <div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Posição na busca</div><div class="kcv am2">#1</div><div class="kcd up">Coloração · Jardins</div><div class="kcico">🏆</div></div>
+  </div>
+
+  <div class="g64">
+    <div>
+      <div class="sct mb12" style="font-size:18px">Salões <em>na sua região</em></div>
+      ${saloes.map(s=>`<div style="background:var(--wh);border:${s.dest?'2px solid var(--gd)':'1px solid var(--bd)'};border-radius:var(--r);padding:16px;margin-bottom:10px;box-shadow:var(--sh);position:relative;transition:transform .15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+        ${s.dest?'<div style="position:absolute;top:-10px;left:16px;background:var(--gd);color:var(--ink);font-size:9px;font-weight:800;padding:2px 9px;border-radius:20px;letter-spacing:.5px">SEU SALÃO</div>':''}
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:10px;background:${s.dest?'rgba(201,169,110,.15)':'var(--cr2)'};display:grid;place-items:center;font-size:22px;flex-shrink:0">${s.foto}</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700;margin-bottom:2px">${s.nm}</div>
+            <div style="font-size:11px;color:var(--ink3)">${s.bairro} · ${s.dist}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${s.servicos.map(sv=>'<span style="font-size:10px;padding:2px 7px;background:var(--cr2);border:1px solid var(--bd);border-radius:12px;color:var(--ink3)">'+sv+'</span>').join('')}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-family:var(--fd);font-size:16px;font-weight:300;color:var(--gdd)">${s.preco}</div>
+            <div style="font-size:11px;color:var(--ink3);margin-top:3px">${s.nota} ★ (${s.av})</div>
+            ${s.dest?'<button class="btn btg xs" style="margin-top:6px" onclick="Toast.show(\'Editando perfil do marketplace...\')">Editar perfil</button>':'<button class="btn btgh xs" style="margin-top:6px" onclick="Toast.show(\'Analisando concorrente...\')">Analisar</button>'}
+          </div>
+        </div>
+      </div>`).join('')}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="card"><div class="cardh"><div class="cardt">Seu <em>Perfil Público</em></div><button class="btn btgh sm" onclick="Toast.show(\'Editando perfil do marketplace...\')">Editar</button></div>
+        <div class="cardb">
+          <div style="background:var(--cr2);border-radius:8px;padding:12px;margin-bottom:12px;text-align:center">
+            <div style="font-size:28px;margin-bottom:6px">💆</div>
+            <div style="font-family:var(--fd);font-size:16px;font-style:italic;margin-bottom:2px">Studio Beleza Pro</div>
+            <div style="font-size:11px;color:var(--ink3)">Jardins, São Paulo · 4.9 ★</div>
+          </div>
+          <div class="sr"><span class="srl">Foto do salão</span><span class="srv sg2">✓ Cadastrada</span></div>
+          <div class="sr"><span class="srl">Serviços listados</span><span class="srv">10 serviços</span></div>
+          <div class="sr"><span class="srl">Galeria de fotos</span><span class="srv am2">⚠ 2/8 fotos</span></div>
+          <div class="sr"><span class="srl">Descrição</span><span class="srv sg2">✓ Completa</span></div>
+          <div class="divider"></div>
+          <button class="btn btp sm wf" style="justify-content:center" onclick="Toast.show(\'Abrindo perfil publico...\')">👁 Ver perfil público</button>
+        </div>
+      </div>
+      <div class="card"><div class="cardh"><div class="cardt">Plano <em>Destaque</em></div></div>
+        <div class="cardb">
+          <div style="font-family:var(--fd);font-size:28px;font-weight:300;color:var(--gdd);margin-bottom:4px">+40%</div>
+          <div style="font-size:12px;color:var(--ink3);margin-bottom:12px;line-height:1.5">de visibilidade com o plano Destaque. Apareça no topo das buscas da sua região por R$ 49/mês.</div>
+          <button class="btn btg sm wf" style="justify-content:center" onclick="Toast.show(\'Ativando plano Destaque...\',\'⬆\')">Ativar destaque — R$ 49/mês</button>
+        </div>
+      </div>
+    </div>
+  </div>`);
+},
+
+planos(){
+  const planos=[
+    {nm:'Base',price:97,desc:'Para comecar',ico:'plant',feats:['Agenda digital completa','Confirmacao WhatsApp 24h','Caixa do dia e fechamento','Cadastro de clientes','Comissoes automaticas'],sem:['Upsell automatico','IA de reativacao','Comanda digital','NF-e eletronica'],current:false},
+    {nm:'Crescimento',price:197,desc:'Mais popular',ico:'rocket',feats:['Tudo do Base','Upsell automatico no agendamento','IA de reativacao por ciclo','Clube de assinaturas MRR','Comanda digital com margem','NF-e eletronica','WhatsApp flows completos'],sem:['IA Preditiva de Receita','Portal da cliente QR'],current:true},
+    {nm:'Escala',price:347,desc:'Para dominar',ico:'diamond',feats:['Tudo do Crescimento','IA Preditiva de Receita 30 dias','Portal da cliente QR Code','Custo real por servico','Multi-unidades consolidado','Relatorios exportaveis PDF','Suporte prioritario'],sem:[],current:false},
+  ];
+  html($('#page-planos'),'<div class="sech"><div><div class="sct">Planos <em>e Assinatura</em></div><div class="scsub">Voce esta no plano Crescimento - R$ 197 por mes - Proxima cobranca: 25/05</div></div><button class="btn btgh sm" onclick="Toast.show(\'Abrindo historico de faturas...\')">Ver faturas</button></div>'
+  +'<div class="g3 mb20">'+planos.map(p=>'<div class="plan-card '+(p.current?'featured':'')+'">'+(p.current?'<div class="plan-popular">Plano atual</div>':'')+'<div style="font-size:26px;margin-bottom:10px">'+p.ico+'</div><div class="plan-name">'+p.nm+'</div><div class="plan-desc">'+p.desc+'</div><div class="plan-price-v" style="color:'+(p.current?'var(--gdd)':'var(--ink)')+'">R$ '+p.price+'</div><div class="plan-price-p">por mes por unidade sem taxa extra</div><ul class="plan-feats">'+p.feats.map(f=>'<li class="plan-feat">'+f+'</li>').join('')+p.sem.map(f=>'<li class="plan-feat no">'+f+'</li>').join('')+'</ul>'+(p.current?'<button class="btn btgh sm wf" style="justify-content:center" onclick="Toast.show(\'Voce ja esta neste plano.\')">Plano atual</button>':'<button class="btn btg sm wf" style="justify-content:center" onclick="Toast.show(\'Alterando para o plano \'+p.nm+\'...\')">Mudar para '+p.nm+'</button>')+'</div>').join('')+'</div>'
+  +'<div class="card"><div class="cardh"><div class="cardt">O que <em>vem incluído</em></div><div class="txs tm2">Sem cobrança extra por funcionalidade</div></div><div class="cardb"><div style="display:flex;gap:32px;flex-wrap:wrap"><div class="tc"><div style="font-family:var(--fd);font-size:36px;font-weight:300;color:var(--sg)">5</div><div class="txs tm2 mt4">Ferramentas que hoje voce contrataria separadas</div></div><div class="tc"><div style="font-family:var(--fd);font-size:36px;font-weight:300;color:var(--gdd)">1</div><div class="txs tm2 mt4">Unico login, unico dado, sem integracao manual</div></div><div class="tc"><div style="font-family:var(--fd);font-size:36px;font-weight:300;color:var(--sg)">Real</div><div class="txs tm2 mt4">Margem calculada por servico, nao estimada</div></div><div class="tc"><div style="font-family:var(--fd);font-size:36px;font-weight:300;color:var(--rs)">R$ 0</div><div class="txs tm2 mt4">Cobrancas extras</div></div></div><div class="divider"></div><div class="tsm tm2" style="line-height:1.6">Numeros de retorno financeiro serao publicados aqui assim que tivermos resultado medido de salões piloto reais - nao antes disso.</div></div></div>');
+},
+
+config(){
+  const secs=[
+    {t:'Informacoes do Salao',rs:[{l:'Nome do salao',d:'Como aparece para as clientes',ct:'<input class="fi" style="width:200px" value="Studio Beleza Pro">'},{l:'WhatsApp',d:'Numero principal',ct:'<input class="fi" style="width:200px" value="(11) 9 8800-0000">'},{l:'CNPJ',d:'Para NF-e automatica',ct:'<input class="fi" style="width:200px" placeholder="00.000.000/0001-00">'},{l:'Endereco',d:'Usado nos lembretes',ct:'<input class="fi" style="width:200px" placeholder="Rua das Flores, 123">'}]},
+    {t:'Google Reserve e Instagram',rs:[{l:'Google Reserve',d:'Clientes agendam pelo Google Maps',ct:'<div class="flex ic g8"><div style="padding:4px 10px;background:var(--sgl);color:var(--sg);border-radius:20px;font-size:10px;font-weight:700">Conectado</div><button class="btn btgh sm" onclick="Toast.show(\'Abrindo config Instagram...\')">Gerenciar</button></div>'},{l:'Instagram',d:'Link Reservar no perfil',ct:'<div class="flex ic g8"><div style="padding:4px 10px;background:var(--sgl);color:var(--sg);border-radius:20px;font-size:10px;font-weight:700">Ativo</div><input class="fi" style="width:160px" value="@studiobelezapro"></div>'}]},
+    {t:'Automacoes',rs:[{l:'Confirmacao 24h antes',d:'WhatsApp automatico de confirmacao',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'IA de Retorno por Ciclo',d:'Mensagem no momento exato de retorno',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Upsell automatico',d:'Oferece servico complementar',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Buscar clientes sumidas',d:'Oferta para quem nao vem ha 45+ dias',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Oferta de aniversario',d:'Mensagem especial no aniversario',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Avaliacao pos-atendimento',d:'30 minutos depois do servico',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'}]},
+    {t:'Notificacoes',rs:[{l:'Cancelamento de cliente',d:'Notificacao imediata',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Avaliacao com nota baixa',d:'Notas 1 a 3 estrelas',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Relatorio diario no WhatsApp',d:'Resumo enviado as 20h',ct:'<label class="tog"><input type="checkbox"><div class="togt"></div><div class="togk"></div></label>'},{l:'Alerta de estoque minimo',d:'Quando produto atingir o minimo',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'}]},
+    {t:'Horario de Funcionamento',rs:[{l:'Abertura',d:'Primeiro horario disponivel',ct:'<input class="fi" style="width:110px" type="time" value="09:00">'},{l:'Fechamento',d:'Ultimo horario disponivel',ct:'<input class="fi" style="width:110px" type="time" value="19:00">'},{l:'Funciona aos sabados',d:'',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Funciona aos domingos',d:'',ct:'<label class="tog"><input type="checkbox"><div class="togt"></div><div class="togk"></div></label>'}]},
+  ];
+  html($('#page-config'),secs.map(s=>'<div class="cfsec"><div class="cfh">'+s.t+'</div>'+s.rs.map(r=>'<div class="cfrow"><div><div class="cflbl">'+r.l+'</div>'+(r.d?'<div class="cfdesc">'+r.d+'</div>':'')+'</div>'+r.ct+'</div>').join('')+'</div>').join('')+'<div class="flex jb mt4 ic"><span class="tsm tm2">SalonOS v6 - Build 2025.05</span><button class="btn btp" onclick="Toast.show(\'Configuracoes salvas!\')">Salvar configuracoes</button></div>');
+}
+};
+
+function agendaView(mode){
+  const grid = document.getElementById('agendaGrid');
+  const btnCol = document.getElementById('btnCol');
+  const btnLst = document.getElementById('btnLst');
+  if(!grid) return;
+  if(mode==='col'){
+    btnCol.className='btn btp xs'; btnCol.style.cssText='padding:4px 9px;font-size:11px';
+    btnLst.className='btn btgh xs'; btnLst.style.cssText='padding:4px 9px;font-size:11px;border:none';
+    grid.style.display='flex';
+  } else {
+    btnLst.className='btn btp xs'; btnLst.style.cssText='padding:4px 9px;font-size:11px';
+    btnCol.className='btn btgh xs'; btnCol.style.cssText='padding:4px 9px;font-size:11px;border:none';
+    grid.style.display='none';
+    const listWrap = document.getElementById('agendaList');
+    if(listWrap){ listWrap.style.display='block'; return; }
+    const lw = document.createElement('div');
+    lw.id='agendaList';
+    lw.style.cssText='background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)';
+    const times=['09:00','09:30','10:00','10:30','11:00','13:00','14:00','15:00','16:00','17:00'];
+    const stColors={ok:'var(--sgl)',pend:'var(--aml)',done:'var(--cr2)',empty:'transparent'};
+    const stLabels={ok:'Confirmado',pend:'Aguardando',done:'Concluído',empty:'Livre'};
+    let html='';
+    times.forEach(time=>{
+      const appts=D.appts.filter(a=>a.t===time&&a.st!=='empty'&&a.vl>0);
+      if(appts.length){
+        appts.forEach(a=>{
+          const pro=D.staff[a.pro];
+          html+=`<div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--cr)'" onmouseout="this.style.background='transparent'" onclick="Toast.show('Abrindo ${a.cl}')">
+            <div style="font-family:var(--fd);font-size:15px;font-weight:300;color:var(--ink3);width:46px;flex-shrink:0">${time}</div>
+            <div style="width:4px;height:36px;border-radius:2px;background:${a.ac};flex-shrink:0"></div>
+            <div style="width:26px;height:26px;border-radius:50%;background:${pro?.bg};color:${pro?.c};display:grid;place-items:center;font-size:10px;font-weight:700;flex-shrink:0">${pro?.in}</div>
+            <div style="flex:1"><div style="font-size:13px;font-weight:600">${a.cl}</div><div style="font-size:11px;color:var(--ink3);margin-top:1px">${a.sv} · ${pro?.nm?.split(' ')[0]}</div></div>
+            <div style="text-align:right"><div style="font-family:var(--fd);font-size:16px;font-weight:300;color:var(--gdd)">${R(a.vl)}</div><div style="font-size:9px;margin-top:2px;padding:2px 6px;border-radius:20px;background:${stColors[a.st]};color:var(--ink3)">${stLabels[a.st]}</div></div>
+          </div>`;
+        });
+      } else {
+        html+=`<div style="display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--bd);opacity:.4;cursor:pointer" onclick="openM('agend')">
+          <div style="font-family:var(--fd);font-size:15px;font-weight:300;color:var(--ink4);width:46px;flex-shrink:0">${time}</div>
+          <div style="flex:1;font-size:12px;color:var(--ink4)">Horário disponível — clique para agendar</div>
+          <div style="width:20px;height:20px;border:1px dashed var(--cr3);border-radius:50%;display:grid;place-items:center;font-size:13px;color:var(--ink4)">+</div>
+        </div>`;
+      }
+    });
+    lw.innerHTML=html;
+    grid.parentNode.insertBefore(lw, grid.nextSibling);
+  }
+}
+
+// PWA install prompt
+let _deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredPrompt = e;
+  setTimeout(() => document.getElementById('pwaBanner')?.classList.add('show'), 3000);
+});
+function installPWA() {
+  if (_deferredPrompt) {
+    _deferredPrompt.prompt();
+    _deferredPrompt.userChoice.then(() => { _deferredPrompt = null; document.getElementById('pwaBanner')?.classList.remove('show'); });
+  } else {
+    Toast.show('Para instalar: menu do navegador → "Adicionar à tela inicial"', '📱');
+    document.getElementById('pwaBanner')?.classList.remove('show');
+  }
+}
+
+function init(){
+  $('#dchip').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});
+  $$('.nb[data-page]').forEach(b=>b.addEventListener('click',()=>Router.go(b.dataset.page)));
+  $('#exitBtn').addEventListener('click',()=>{$('#topbar').style.display='none';$('#heroBar').style.display='none';$('#mainWrap').style.display='none';$('#lw').style.display='flex';$('#lw').classList.remove('hide');Toast.show('Sessao encerrada. Ate logo!');});
+  $('#mclose').addEventListener('click',Modal.close);
+  $('#mbd').addEventListener('click',e=>{if(e.target===$('#mbd'))Modal.close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')Modal.close();});
+  let hj=2840;
+  setInterval(()=>{hj+=Math.floor(Math.random()*60+20);const el=$('#hk1');if(el){el.style.transition='color .4s';el.style.color='var(--wh)';setTimeout(()=>{el.style.color='var(--gd)';el.textContent='R$ '+hj.toLocaleString('pt-BR');},400);}},10000);
+  P.agenda();
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  $('#mclose').addEventListener('click',Modal.close);
+  $('#mbd').addEventListener('click',e=>{if(e.target===$('#mbd'))Modal.close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')Modal.close();});
+});
+</script>
+</body>
+</html>
