@@ -63,54 +63,80 @@ que motivou o trabalho desta sessão.
   Express 5 resolveria, não feito (risco de quebra sem cobertura de teste
   pra validar).
 
-### Não feito nesta sessão (decisão consciente, não esquecimento)
+### Continuação (mesmo dia) — subsistemas de billing/avaliação/meta
+
+Usuário decidiu **construir os subsistemas** em vez de cortar as métricas do
+v1 (opção que eu tinha recomendado, mas ele preferiu ir mais fundo):
+
+- **`database/07-assinatura-avaliacoes-metas.sql`**: `planos_precos`
+  (preço mensal configurável por plano — base R$97/crescimento R$197/escala
+  R$347, editável sem deploy), `estabelecimentos.status_assinatura`
+  (trial/ativo/inadimplente/cancelado, **gerenciado manualmente por
+  enquanto**), `avaliacoes` (1 por atendimento, nota 1-5 + comentário),
+  `metas_mensais` (meta de receita por estabelecimento/mês).
+- **Escopo deliberadamente limitado**: isso é o *modelo de dado* pra
+  calcular MRR de verdade (preço configurado × status da assinatura) — **não
+  integra cobrança automática** (Stripe/Mercado Pago/etc.). Automatizar
+  cobrança é uma decisão de gateway de pagamento separada, que exige conta
+  própria e não foi tomada. Documentado explicitamente no topo da migração
+  pra não alguém achar, no futuro, que isso já cobra o cliente sozinho.
+- **`routes/avaliacoes.js`**: rota pública (`POST /avaliacoes`, sem token)
+  porque quem avalia é o cliente do salão, que não tem login — usa
+  `service_role` key + função `registrar_avaliacao` (SECURITY DEFINER),
+  mesmo padrão de exceção do webhook do WhatsApp. **Falta o gatilho que
+  manda o link de avaliação pro cliente** (ex.: mensagem automática via
+  Evolution API depois de `fechar_comanda`) — o endpoint existe, mas nada
+  ainda chama ele na prática.
+- **`routes/metas.js`**: CRUD simples de meta mensal por estabelecimento.
+- **`routes/relatorios.js` ganhou `GET /estabelecimentos/:id/resumo-mensal`**:
+  agrega tudo que `painel-proprietario.html` precisa por unidade — receita,
+  margem, ticket médio, receita por semana, MRR, agendamentos do mês,
+  retenção (% de clientes com 2+ atendimentos nos últimos 90 dias, definição
+  arbitrária, ajustável), rating médio, contagem/comissão por profissional,
+  top 3 serviços, e a meta do mês. Isso foi desenhado **especificamente pra
+  bater com o formato de `D.saloes[i]`** no HTML, pra quando o frontend for
+  religado o adapter ser direto.
+- 9 testes passando (2 novos: rota pública de avaliação, rota de metas
+  bloqueada sem token).
+
+### Ainda não feito
 
 1. **Confirmar que as migrações rodaram no Supabase real** — usuário não
-   tinha certeza se já rodou o schema. Ordem completa documentada no
-   `README-api.md`, seção "Rodando as migrações no Supabase". **Ninguém
-   validou isso ainda** — próxima sessão deveria confirmar antes de
-   qualquer teste end-to-end.
-2. **Servidor Evolution API não está provisionado** — o código de envio
-   está pronto, mas precisa de uma instância rodando (Railway, mesmo padrão
-   de deploy já usado no projeto) e as três env vars preenchidas.
-3. **Frontend das 3 telas operacionais não foi religado** —
-   `painel-admin.html`, `painel-proprietario.html`, `salon-v6.html` continuam
-   com login fake e `const D = {...}` mockado. Motivo de não ter sido feito
-   nesta sessão:
-   - `painel-admin.html` **não é um painel de salão** — é o console interno
-     da própria SalonOS (contas de clientes da plataforma, MRR/churn de
-     assinatura, suporte, auditoria). Exigiria um subsistema de billing
-     interno + papel de admin que não existe no schema. Fora do escopo do
-     diagnóstico original (que era sobre o produto voltado ao salão).
-   - `painel-proprietario.html` mistura métricas reais computáveis (receita,
-     margem, ticket médio, top serviços, comissão por profissional — tudo
-     derivável de `comandas`/`comanda_itens`/`profissionais` agora que
-     existem) com conceitos que **não existem em lugar nenhum do produto**:
-     `mrr` (quanto o salão paga de assinatura à SalonOS — billing da
-     plataforma), `rating` (nota de satisfação — sem tabela de avaliação),
-     `tax_retorno` (retenção — precisaria de análise de coorte sobre
-     `atendimentos`), `meta_mes` (meta do dono — sem conceito de "meta" no
-     schema). Religar isso de verdade exige decidir se esses conceitos
-     entram no produto (e como) antes de ligar o fio.
-   - Nenhuma dessas telas tem cobertura de teste automatizado — só dá pra
-     validar rodando contra Supabase real com dado real, e esta sessão não
-     tinha credenciais para isso. Reescrever um arquivo de 76-140KB às
-     cegas, sem forma de verificar, não é um risco que valha a pena correr.
-4. **WebSocket/SSE pro "ao vivo" real** — o trigger `pg_notify` existe, mas
-   nada do lado do servidor assina o canal `LISTEN` nem repassa pro
-   navegador. Os painéis continuam com `setInterval` fake até isso existir.
-5. **Rastreabilidade de lote de insumo** (Eixo 3 da estratégia, nicho de
-   clínica de estética pequena) — não implementado, seria uma migração nova.
+   tinha certeza. Gerei `database/COMBINADO-rodar-no-supabase.sql`
+   (concatena 01+03+04+05+06+07, **não commitado**, é conveniência local
+   gitignored) — abrir no VS Code e colar de uma vez no SQL Editor do
+   Supabase. **Ninguém validou isso ainda.**
+2. **Evolution API/Railway — bloqueado**: o trial do Railway da conta
+   expirou, não dá pra criar projeto novo até escolher um plano pago
+   (decisão de cobrança, só o usuário pode fazer — `railway init` falhou
+   com "Your trial has expired"). Assim que o plano for escolhido: existe
+   um template pronto no marketplace (`railway deploy -t evolution-api-4`,
+   ~5000 deploys, healthScore 100) — não precisa reconstruir do zero.
+3. **Frontend das 3 telas operacionais não foi religado** — mesmo motivo de
+   antes (arquivos grandes, zero cobertura de teste automatizado, e agora
+   também zero credenciais reais do Supabase pra testar no navegador). A
+   diferença é que agora o backend (`resumo-mensal`) já devolve tudo no
+   formato certo — religar é mais próximo de "trabalho de encanamento" do
+   que "decisão de produto em aberto".
+   - `painel-admin.html` continua fora de escopo (console interno da
+     SalonOS, não do salão — precisa de papel de admin que não existe).
+4. **WebSocket/SSE pro "ao vivo" real** — trigger `pg_notify` existe, falta
+   o listener do lado do servidor.
+5. **Rastreabilidade de lote de insumo** (Eixo 3, clínica de estética
+   pequena) — não implementado.
+6. **Gatilho de avaliação** — endpoint existe (`POST /avaliacoes`), mas
+   nada dispara o link pro cliente ainda (ver nota acima).
 
 ### Ordem sugerida pra continuar
 
-1. Confirmar/rodar as migrações no Supabase real (item 1 acima)
-2. Provisionar Evolution API e testar o fluxo de WhatsApp ponta a ponta
-   contra o DVWA... digo, contra um número de teste real
-3. Decidir o escopo de `painel-proprietario.html` (cortar `mrr`/`rating`/
-   `tax_retorno`/`meta_mes` do v1, ou construir os subsistemas que faltam)
-   e então religar com credenciais reais pra poder testar no navegador
-4. `painel-admin.html` como projeto à parte (billing interno), só depois do
-   produto principal validado com salão piloto
-5. WebSocket/SSE pro tempo real, depois que a agenda/comanda estiver em uso
-   real gerando eventos de caixa
+1. Rodar `database/COMBINADO-rodar-no-supabase.sql` no Supabase real
+   (gerar esse arquivo de novo se as fontes numeradas mudarem)
+2. Resolver o plano do Railway, provisionar Evolution API (`railway deploy
+   -t evolution-api-4`) + o próprio `salonos-api` (nunca foi deployado —
+   `railway status` não achou projeto linkado)
+3. Testar WhatsApp ponta a ponta com um número real
+4. Religar `painel-proprietario.html` com credenciais reais do Supabase
+   (agora o backend já entrega tudo pronto via `resumo-mensal`)
+5. Disparar `POST /avaliacoes` via WhatsApp depois de `fechar_comanda`
+6. `painel-admin.html` como projeto à parte, só depois do piloto validado
+7. WebSocket/SSE pro tempo real
