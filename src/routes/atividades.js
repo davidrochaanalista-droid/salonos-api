@@ -10,11 +10,15 @@
 const express = require('express');
 const router = express.Router();
 
-// GET /segmentos — lista todos os segmentos disponíveis (para a tela de cadastro)
+// GET /segmentos — lista os segmentos disponíveis para venda (para a tela de cadastro)
+// Segmentos de saúde regulada (nutricionista, psicologia, odontologia,
+// fisioterapia) ficam marcados `ativo = false` por decisão consciente —
+// ver database/06-desativar-segmentos-saude-regulada.sql.
 router.get('/segmentos', async (req, res) => {
   const { data, error } = await req.supabase
     .from('segmentos')
     .select('*')
+    .eq('ativo', true)
     .order('ordem');
 
   if (error) return res.status(500).json({ erro: error.message });

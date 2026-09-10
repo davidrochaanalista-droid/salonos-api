@@ -21,7 +21,10 @@ const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-const MODELO_IA = 'llama-3.3-70b-versatile';
+// 'llama-3.3-70b-versatile' saiu do catálogo do Groq (dava 404 -- achado
+// em 10/09/2026 num outro projeto usando a mesma conta). Configurável via
+// env var pra não repetir esse tipo de quebra se o catálogo mudar de novo.
+const MODELO_IA = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 
 // Gap de tempo que caracteriza "nova conversa" (não continuação imediata)
 // para disparar a pergunta de repetição de procedimento. Ajustável.
@@ -60,6 +63,10 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
   try {
     const { estabelecimentoId } = req.params;
     const { telefone, mensagem } = extrairMensagem(req.body);
+
+    // Ignora eventos sem texto (confirmação de leitura, status, mensagem de
+    // grupo etc.) -- não é o webhook de mensagem de cliente que interessa.
+    if (!telefone || !mensagem) return res.sendStatus(200);
 
     const { data: estabelecimento } = await supabase
       .from('estabelecimentos')
@@ -266,13 +273,43 @@ async function registrarMensagens({ estabelecimentoId, clienteId, mensagem, resp
   ]);
 }
 
+// Payload do webhook da Evolution API (evento "messages.upsert", formato v2).
+// Ver README-fase1.md, seção 3 -- decisão pelo Evolution API (self-hosted).
 function extrairMensagem(body) {
-  // Adaptar ao payload real do provedor escolhido (Evolution API ou Cloud API).
-  return { telefone: body.from, mensagem: body.text };
+  const dado = body?.data;
+  if (!dado || body?.event !== 'messages.upsert') return { telefone: null, mensagem: null };
+
+  // Ignora eco da própria mensagem enviada pelo bot e mensagens de grupo.
+  if (dado.key?.fromMe) return { telefone: null, mensagem: null };
+  const remoteJid = dado.key?.remoteJid || '';
+  if (remoteJid.endsWith('@g.us')) return { telefone: null, mensagem: null };
+
+  const texto = dado.message?.conversation
+    || dado.message?.extendedTextMessage?.text
+    || null;
+
+  return { telefone: remoteJid.replace('@s.whatsapp.net', ''), mensagem: texto };
 }
 
-async function enviarMensagemWhatsApp({ telefone, texto, estabelecimentoId }) {
-  // Implementar conforme o provedor escolhido (ver README-fase1.md, seção 3).
+async function enviarMensagemWhatsApp({ telefone, texto }) {
+  const baseUrl = process.env.EVOLUTION_API_URL;
+  const instancia = process.env.EVOLUTION_INSTANCE;
+  const apiKey = process.env.EVOLUTION_API_KEY;
+
+  if (!baseUrl || !instancia || !apiKey) {
+    console.error('EVOLUTION_API_URL/EVOLUTION_INSTANCE/EVOLUTION_API_KEY não configurados -- mensagem NÃO enviada.');
+    return;
+  }
+
+  const resposta = await fetch(`${baseUrl}/message/sendText/${instancia}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: apiKey },
+    body: JSON.stringify({ number: telefone, text: texto }),
+  });
+
+  if (!resposta.ok) {
+    console.error(`Falha ao enviar WhatsApp via Evolution API (${resposta.status}):`, await resposta.text());
+  }
 }
 
 module.exports = router;
