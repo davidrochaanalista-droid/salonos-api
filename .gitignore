@@ -1,3 +1,4 @@
 ﻿.env.railway
 .env
 node_modules/
+database/COMBINADO-*.sql
