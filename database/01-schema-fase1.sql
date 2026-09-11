@@ -159,10 +159,11 @@ create table whatsapp_memoria_cliente (
 create or replace function usuario_e_proprietario(p_estabelecimento_id uuid)
 returns boolean
 language sql security definer
+set search_path = public
 as $$
   select exists (
-    select 1 from estabelecimentos e
-    join proprietarios p on p.id = e.proprietario_id
+    select 1 from public.estabelecimentos e
+    join public.proprietarios p on p.id = e.proprietario_id
     where e.id = p_estabelecimento_id and p.user_id = auth.uid()
   );
 $$;
@@ -205,9 +206,10 @@ create policy "catalogo e publico para leitura" on atividades_catalogo for selec
 create or replace function criar_proprietario_no_signup()
 returns trigger
 language plpgsql security definer
+set search_path = public
 as $$
 begin
-  insert into proprietarios (user_id, nome, telefone)
+  insert into public.proprietarios (user_id, nome, telefone)
   values (new.id, coalesce(new.raw_user_meta_data->>'nome', ''), coalesce(new.raw_user_meta_data->>'telefone', ''));
   return new;
 end;

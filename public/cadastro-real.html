@@ -80,9 +80,11 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 // ============================================================
 // CONFIGURAÇÃO — preencher com os valores reais do seu projeto
 // ============================================================
-const SUPABASE_URL = 'https://obluisngzkxwbzewxthg.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_Q7uRhHIJmIEWnTmiDWwOfA_fPEWPpqb';
-const API_BASE_URL = 'https://SUA-API.up.railway.app'; // preencher depois do deploy no Railway (ver passo 4 do guia)
+const SUPABASE_URL = 'https://shekztrtkaknyudvzttf.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_WGAnLGQxexd89d0dOJhpTg_KoIGWVaX';
+// TODO: trocar pra URL do Railway depois do deploy (ver CLAUDE.md, pendência 2).
+// Local pra teste: `npm run dev` na raiz do projeto sobe em localhost:3001 (ver .env local).
+const API_BASE_URL = 'http://localhost:3001';
 // ============================================================
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
