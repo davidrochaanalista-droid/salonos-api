@@ -60,6 +60,14 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 .ativ-preco{width:90px}
 .ativ-preco input{padding:7px 9px;font-size:12px}
 
+.cat-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd);cursor:pointer}
+.cat-row:last-child{border-bottom:none}
+.cat-row input[type=checkbox]{width:16px;height:16px;flex-shrink:0;margin-top:2px;accent-color:var(--gd)}
+.cat-nome{font-size:12.5px;font-weight:500}
+.cat-desc{font-size:11px;color:var(--ink3);margin-top:2px}
+.cat-preco{font-size:11px;color:var(--ink3);white-space:nowrap}
+.cat-lista{max-height:340px;overflow-y:auto;margin-bottom:16px}
+
 .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:var(--wh);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .divider{height:1px;background:var(--bd);margin:20px 0}
@@ -90,7 +98,7 @@ const API_BASE_URL = 'http://localhost:3001';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const app = document.getElementById('app');
 
-let estado = { tela: 'auth', modoAuth: 'login', erro: null, carregando: false, segmentos: [], estabelecimento: null, atividades: [] };
+let estado = { tela: 'auth', modoAuth: 'login', erro: null, carregando: false, segmentos: [], estabelecimento: null, atividades: [], catalogoSugerido: null, catalogoSelecionado: null };
 
 function render() {
   if (estado.tela === 'auth') return renderAuth();
@@ -201,6 +209,10 @@ function renderCriarEstabelecimento() {
       <div class="fg"><label class="bl">Cidade</label><input class="fi" id="fCidade" placeholder="São Paulo"></div>
       <div class="fg"><label class="bl">Bairro</label><input class="fi" id="fBairro" placeholder="Jardins"></div>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
+      <div class="fg"><label class="bl">CEP</label><input class="fi" id="fCep" placeholder="00000-000"></div>
+      <div class="fg"><label class="bl">Endereço</label><input class="fi" id="fEndereco" placeholder="Rua, número"></div>
+    </div>
     <button class="btn btp" id="btnCriarEst" onclick="submeterEstabelecimento()">Cadastrar estabelecimento</button>
   `;
 }
@@ -211,6 +223,8 @@ async function submeterEstabelecimento() {
   const whatsapp = document.getElementById('fWhatsapp').value.trim();
   const cidade = document.getElementById('fCidade').value.trim();
   const bairro = document.getElementById('fBairro').value.trim();
+  const cep = document.getElementById('fCep').value.trim();
+  const endereco = document.getElementById('fEndereco').value.trim();
   const btn = document.getElementById('btnCriarEst');
 
   if (!nome || !whatsapp) { estado.erro = 'Nome e WhatsApp são obrigatórios.'; return render(); }
@@ -218,7 +232,7 @@ async function submeterEstabelecimento() {
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner"></div>';
 
-  const novoEstabelecimento = await chamarAPI('POST', '/estabelecimentos', { nome, segmento_id, whatsapp, cidade, bairro });
+  const novoEstabelecimento = await chamarAPI('POST', '/estabelecimentos', { nome, segmento_id, whatsapp, cidade, bairro, cep, endereco });
   if (!novoEstabelecimento) { btn.disabled = false; btn.textContent = 'Cadastrar estabelecimento'; return; }
 
   estado.estabelecimento = novoEstabelecimento;
@@ -227,27 +241,65 @@ async function submeterEstabelecimento() {
   render();
 }
 
-// ── TELA 3: ADOTAR CATÁLOGO DE ATIVIDADES ──
-function renderCatalogo() {
+// ── TELA 3: MARCAR QUAIS SERVIÇOS DO CATÁLOGO O ESTABELECIMENTO OFERECE ──
+// A IA/catálogo sugere tudo que é comum no segmento, mas cada estabelecimento
+// oferece um subconjunto — por isso vem pré-marcado (não pré-adotado) e a
+// dona confirma/desmarca antes de qualquer coisa ir pro banco.
+async function renderCatalogo() {
+  if (!estado.catalogoSugerido) {
+    app.innerHTML = `<div class="center txs">Carregando catálogo sugerido...</div>`;
+    estado.catalogoSugerido = await chamarAPI('GET', `/atividades-catalogo?segmento_id=${estado.estabelecimento.segmento_id}`) || [];
+    estado.catalogoSelecionado = new Set(estado.catalogoSugerido.map(a => a.id));
+  }
+
   app.innerHTML = `
     <div class="step-title">Seus <em>serviços</em></div>
-    <div class="step-sub">Preparamos uma lista sugerida para o seu segmento. Adote tudo de uma vez e ajuste os preços — ou remova o que não oferece.</div>
+    <div class="step-sub">Marcamos os serviços mais comuns do seu segmento. Desmarque o que você não oferece, ou deixe todos marcados.</div>
     ${estado.erro ? `<div class="msg erro">${estado.erro}</div>` : ''}
-    <button class="btn btg" id="btnAdotar" onclick="adotarCatalogoCompleto()">Adotar catálogo sugerido</button>
+    ${estado.catalogoSugerido.length ? `
+      <div class="cat-lista">
+        ${estado.catalogoSugerido.map(a => `
+          <label class="cat-row">
+            <input type="checkbox" ${estado.catalogoSelecionado.has(a.id) ? 'checked' : ''} onchange="alternarAtividadeCatalogo('${a.id}', this.checked)">
+            <div style="flex:1">
+              <div class="cat-nome">${a.nome}</div>
+              ${a.descricao_curta ? `<div class="cat-desc">${a.descricao_curta}</div>` : ''}
+            </div>
+            <div class="cat-preco">R$ ${a.preco_sugerido_min}–${a.preco_sugerido_max}</div>
+          </label>
+        `).join('')}
+      </div>
+    ` : `<div class="txs" style="margin-bottom:16px">Nenhum serviço sugerido pra esse segmento ainda — cadastre manualmente depois.</div>`}
+    <button class="btn btg" id="btnAdotar" onclick="confirmarServicosSelecionados()">Confirmar serviços selecionados</button>
     <div class="divider"></div>
     <button class="btn btgh" onclick="pularCatalogo()">Pular — vou cadastrar manualmente depois</button>
   `;
 }
 
-async function adotarCatalogoCompleto() {
+function alternarAtividadeCatalogo(id, marcado) {
+  if (marcado) estado.catalogoSelecionado.add(id);
+  else estado.catalogoSelecionado.delete(id);
+}
+
+async function confirmarServicosSelecionados() {
   const btn = document.getElementById('btnAdotar');
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner"></div>';
 
-  const resultado = await chamarAPI('POST', `/estabelecimentos/${estado.estabelecimento.id}/atividades/adotar-catalogo-completo`);
-  if (!resultado) { btn.disabled = false; btn.textContent = 'Adotar catálogo sugerido'; return; }
+  const selecionados = estado.catalogoSugerido.filter(a => estado.catalogoSelecionado.has(a.id));
+  const atividadesCriadas = [];
+  for (const a of selecionados) {
+    const criada = await chamarAPI('POST', `/estabelecimentos/${estado.estabelecimento.id}/atividades`, {
+      atividade_catalogo_id: a.id,
+      nome: a.nome,
+      descricao: a.descricao_curta,
+      duracao_min: a.duracao_padrao_min,
+      preco: a.preco_sugerido_min,
+    });
+    if (criada) atividadesCriadas.push(criada);
+  }
 
-  estado.atividades = resultado;
+  estado.atividades = atividadesCriadas;
   estado.tela = 'completo';
   render();
 }
