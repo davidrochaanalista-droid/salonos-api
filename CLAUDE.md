@@ -80,6 +80,16 @@ no ambiente de teste) — a chamada à API da Groq segue o mesmo padrão já
 validado em `whatsapp.js`, mas o formato exato da resposta multimodal não
 foi confirmado com uma requisição real.
 
+### Aba Serviços (edição de preço/duração/ciclo de retorno)
+
+Nova aba no `salon-v6.html` — antes não existia NENHUMA UI pra editar um
+serviço depois do cadastro inicial (só dava pra ver preço em dropdowns de
+agenda/comanda). Lista os serviços do salão, clique abre modal com
+nome/preço/duração/ciclo de retorno (dias)/ativo, salva via `PATCH
+/atividades/:id` (rota já existia, só faltava o front). É aqui que o dono
+configura `ciclo_recompra_dias`, usado pela automação "Retorno por Ciclo".
+Testado no navegador (editar Corte Feminino, ciclo 45 dias, persistiu).
+
 ### Conta de teste
 
 Existe um estabelecimento de teste ("Studio Teste QA") no Supabase de
@@ -90,11 +100,21 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
 ## Pendências reais restantes
 
 1. **Evolution API/Railway — ainda bloqueado**: trial do Railway expirado,
-   precisa de plano pago pra provisionar. Sem isso, nem o gatilho de
-   avaliação nem o motor de automações enviam mensagem de verdade (só
-   logam). Template pronto no marketplace do Railway quando for a hora:
-   `railway deploy -t evolution-api-4`. O próprio `salonos-api` também nunca
-   foi deployado.
+   precisa de plano pago pra provisionar (confirmado de novo em 13/09 via
+   `railway init`: "Your trial has expired. Please select a plan to
+   continue using Railway." — bloqueia até escolher plano, não dá pra
+   contornar por código). Sem isso, nem o gatilho de avaliação nem o motor
+   de automações enviam mensagem de verdade (só logam). Template pronto no
+   marketplace do Railway quando for a hora: `railway deploy -t
+   evolution-api-4`. O próprio `salonos-api` também nunca foi deployado.
+   CLI já está instalado e autenticado (`davidrocha.analista@gmail.com`).
+   Tentativa alternativa em 13/09 com Z-API (id/token/client-token de um
+   salão de teste) esbarrou em assinatura bloqueada da instância
+   ("subscribe to this instance again") — não é um problema de código,
+   ficou só confirmado que autenticação Z-API (header `Client-Token`) segue
+   o padrão esperado. Decisão: manter Evolution API como plano de produção
+   (multi-salão numa instância só sai muito mais barato que Z-API, que
+   cobra assinatura por número conectado).
 2. **Conexão de WhatsApp por salão + importação de contatos** — escopado e
    construído em 13/09 (`database/17-whatsapp-conexao.sql`,
    `src/lib/evolution-api.js`, `src/routes/whatsapp-conexao.js`, aba
@@ -112,24 +132,21 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
    pessoal do dono com cliente real do salão. Nomes de endpoint/payload da
    Evolution API v2 foram escritos de memória (não verificados) — primeira
    coisa a conferir/ajustar assim que existir uma instância real pra testar.
-3. **IA de Retorno por Ciclo** exige o dono configurar
-   `estabelecimento_atividades.ciclo_recompra_dias` por serviço (coluna
-   existe, mas não tem UI pra editar isso ainda — só via `PATCH
-   /atividades/:id` direto).
-4. **IA Preditiva / Marketplace / WhatsApp Flows (editor visual de
+3. **IA Preditiva / Marketplace / WhatsApp Flows (editor visual de
    conversa)** — placeholders "em breve", cada um exigiria decisão de
    produto própria antes de construir (não é só "religar fio").
-5. **Rastreabilidade de lote de insumo** (Eixo 3, clínica de estética
+4. **Rastreabilidade de lote de insumo** (Eixo 3, clínica de estética
    pequena) — não implementado.
-6. **`painel-admin.html`** — continua fora de escopo (console interno da
+5. **`painel-admin.html`** — continua fora de escopo (console interno da
    SalonOS, não do salão).
 
 ## Ordem sugerida pra continuar
 
 1. Resolver o plano do Railway, provisionar Evolution API + deployar o
-   `salonos-api` (bloqueio raiz de várias pendências)
-2. Testar WhatsApp ponta a ponta com número real (gatilho de avaliação +
-   as 4 automações do scheduler + os 2 gatilhos inline)
-3. UI pra configurar `ciclo_recompra_dias` por serviço (hoje só via API)
-4. Decidir se Estoque/IA Preditiva/Marketplace entram no roadmap ou saem
-   de vez do menu
+   `salonos-api` (bloqueio raiz de várias pendências) — David está
+   resolvendo isso (13/09)
+2. Testar WhatsApp ponta a ponta com número real (conexão QR, importação
+   de contatos, gatilho de avaliação, as 4 automações do scheduler e os 2
+   gatilhos inline)
+3. Decidir se IA Preditiva/Marketplace entram no roadmap ou saem de vez do
+   menu

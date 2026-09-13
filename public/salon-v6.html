@@ -205,6 +205,7 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
     <div class="nb nw" data-page="whatsapp">WhatsApp</div>
     <div class="nb" data-page="relatorios">Relatorios</div>
     <div class="nb" data-page="equipe">Equipe</div>
+    <div class="nb" data-page="servicos">Serviços</div>
     <div class="nb nw" data-page="previsao">IA Preditiva</div>
     <div class="nb nw" data-page="marketplace">🛍 Marketplace</div>
     <div class="nb" data-page="config">Config</div>
@@ -234,6 +235,7 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
   <section class="page" id="page-whatsapp"></section>
   <section class="page" id="page-relatorios"></section>
   <section class="page" id="page-equipe"></section>
+  <section class="page" id="page-servicos"></section>
   <section class="page" id="page-previsao"></section>
   <section class="page" id="page-marketplace"></section>
   <section class="page" id="page-planos"></section>
@@ -1104,6 +1106,34 @@ window.confirmarImportarContatos=async function(){
   }catch(erro){Toast.show(erro.message,'⚠');}
 };
 
+window.abrirModalEditarAtividade=function(id){
+  const a=(state.atividadesServicos||[]).find(x=>x.id===id);
+  if(!a)return;
+  const esc=v=>(v==null?'':String(v)).replace(/"/g,'&quot;');
+  Modal.open('Editar Serviço','<div class="mb2">'
+    +'<div class="fg"><label class="flbl">Nome</label><input class="fi" id="editAtvNome" value="'+esc(a.nome)+'"></div>'
+    +'<div class="frow"><div class="fg"><label class="flbl">Preço</label><input class="fi" id="editAtvPreco" type="number" step="0.01" value="'+(a.preco||0)+'"></div><div class="fg"><label class="flbl">Duração (min)</label><input class="fi" id="editAtvDuracao" type="number" value="'+(a.duracao_min||'')+'"></div></div>'
+    +'<div class="fg"><label class="flbl">Ciclo de retorno (dias)</label><input class="fi" id="editAtvCiclo" type="number" value="'+(a.ciclo_recompra_dias||'')+'" placeholder="Ex: 30 — de quanto em quanto tempo a cliente costuma repetir este serviço"></div>'
+    +'<label class="tsm tm2" style="display:flex;align-items:center;gap:8px;margin-top:12px;cursor:pointer"><input type="checkbox" id="editAtvAtivo" '+(a.ativo!==false?'checked':'')+'> Serviço ativo (some da agenda se desmarcado)</label>'
+    +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarEditarAtividade(\''+a.id+'\')">Salvar alterações</button></div>');
+};
+
+window.confirmarEditarAtividade=async function(id){
+  const corpo={
+    nome:$('#editAtvNome')?.value.trim(),
+    preco:Number($('#editAtvPreco')?.value||0),
+    duracao_min:$('#editAtvDuracao')?.value?Number($('#editAtvDuracao').value):null,
+    ciclo_recompra_dias:$('#editAtvCiclo')?.value?Number($('#editAtvCiclo').value):null,
+    ativo:$('#editAtvAtivo')?.checked,
+  };
+  try{
+    await chamarAPI('PATCH',`/atividades/${id}`,corpo);
+    Modal.close();
+    Toast.show('Serviço atualizado!');
+    P.servicos();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
 const Router={
   go(pg){
     $$('.page').forEach(p=>p.classList.remove('active'));
@@ -1352,6 +1382,33 @@ async equipe(){
   +'<div class="tw"><div class="thead" style="grid-template-columns:2fr 1fr 1fr 1fr"><div>Profissional</div><div>Comissao %</div><div>Receita</div><div>Comissao a pagar</div></div>'
   +(linhas.length?linhas.map(({p,receita,comPct,comissao})=>{const cor=corPara(p.id);return'<div class="trow" style="grid-template-columns:2fr 1fr 1fr 1fr"><div class="flex ic g10"><div class="av" style="background:'+cor.bg+';color:'+cor.c+'">'+iniciais(p.nome)+'</div><div><div class="lrn">'+p.nome+'</div></div></div><div class="tm2">'+comPct+'%</div><div class="fw6">'+R(receita)+'</div><div style="font-family:var(--fd);font-size:16px;font-weight:300;color:var(--gdd)">'+R(comissao)+'</div></div>';}).join('')+'<div class="trow ttotal" style="grid-template-columns:2fr 1fr 1fr 1fr"><div>TOTAL DO MES</div><div></div><div>'+R(tR)+'</div><div style="font-family:var(--fd);font-size:17px;color:var(--gdd)">'+R(tC)+'</div></div>':'<div style="padding:16px;color:var(--ink3);font-size:12px">Nenhuma profissional ativa cadastrada ainda.</div>')
   +'</div>');
+},
+
+async servicos(){
+  const pg=$('#page-servicos');
+  html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando serviços...</div>');
+  let atividades=[];
+  try{
+    atividades=await chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/atividades`);
+  }catch(erro){
+    html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível carregar os serviços: '+erro.message+'</div>');
+    return;
+  }
+  state.atividadesServicos=atividades;
+  const linhas=atividades.length?atividades.map(a=>{
+    const inativo=a.ativo===false;
+    return '<div class="trow" style="grid-template-columns:2fr 1fr 1fr 1.4fr 1fr" onclick="abrirModalEditarAtividade(\''+a.id+'\')">'
+      +'<div><div class="lrn">'+(a.nome||'-')+(inativo?' <span class="tsm tm2">(inativo)</span>':'')+'</div></div>'
+      +'<div class="tm2">'+R(a.preco)+'</div>'
+      +'<div class="tm2">'+(a.duracao_min?a.duracao_min+'min':'—')+'</div>'
+      +'<div class="tm2">'+(a.ciclo_recompra_dias?'a cada '+a.ciclo_recompra_dias+' dias':'sem ciclo definido')+'</div>'
+      +'<div class="tm2">'+(inativo?'Inativo':'Ativo')+'</div>'
+      +'</div>';
+  }).join(''):'<div style="padding:16px;font-size:12px;color:var(--ink3)">Nenhum serviço cadastrado ainda.</div>';
+
+  html(pg,'<div class="sech"><div><div class="sct">Serviços <em>Oferecidos</em></div><div class="scsub">'+atividades.length+' serviço(s) — clique num serviço pra editar preço, duração ou o ciclo de retorno usado pela automação "Retorno por Ciclo"</div></div></div>'
+    +'<div class="tw"><div class="thead" style="grid-template-columns:2fr 1fr 1fr 1.4fr 1fr"><div>Serviço</div><div>Preço</div><div>Duração</div><div>Ciclo de retorno</div><div>Status</div></div>'
+    +linhas+'</div>');
 },
 
 previsao(){
