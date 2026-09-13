@@ -361,6 +361,7 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
   </div>
   <nav class="tnav-top" id="topNav">
     <div class="tnt active" data-page="dashboard">◦ Visão Geral</div>
+    <div class="tnt" data-page="agenda">📅 Agenda</div>
     <div class="tnt" data-page="cadastro">＋ Cadastrar Salão</div>
     <div class="tnt" data-page="comparativo">◉ Comparativo</div>
     <div class="tnt" data-page="financeiro">◈ Financeiro</div>
@@ -392,6 +393,7 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
 <!-- MAIN -->
 <div class="main" id="mainWrap" style="display:none">
   <div class="page active" id="page-dashboard"></div>
+  <div class="page" id="page-agenda"></div>
   <div class="page" id="page-cadastro"></div>
   <div class="page" id="page-comparativo"></div>
   <div class="page" id="page-financeiro"></div>
@@ -414,7 +416,7 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
 let D = { owner: null, saloes: [] };
 
 /* ── COMPUTEDS (recalculados sempre que D.saloes muda, ver recalcTotals()) ── */
-let totalRec = 0, totalMRR = 0, totalStaff = 0, avgRating = '0.0', totalMeta = 0, metaPct = 0;
+let totalRec = 0, totalMRR = 0, totalStaff = 0, avgRating = null, totalMeta = 0, metaPct = 0;
 // Margem real ponderada por receita - agregado da rede. So existe porque a comanda de cada
 // unidade ja calcula margem por atendimento (insumo + comissao); nenhum concorrente de
 // gestao multi-unidade sobe margem real ate a visao do dono, so receita bruta.
@@ -424,7 +426,8 @@ function recalcTotals() {
   totalRec = D.saloes.reduce((a,s) => a + s.rec_mes, 0);
   totalMRR = D.saloes.reduce((a,s) => a + s.mrr, 0);
   totalStaff = D.saloes.reduce((a,s) => a + s.staff, 0);
-  avgRating = D.saloes.length ? (D.saloes.reduce((a,s) => a + s.rating, 0) / D.saloes.length).toFixed(1) : '0.0';
+  const saloesComRating = D.saloes.filter(s => typeof s.rating === 'number');
+  avgRating = saloesComRating.length ? (saloesComRating.reduce((a,s) => a + s.rating, 0) / saloesComRating.length).toFixed(1) : null;
   totalMeta = D.saloes.reduce((a,s) => a + s.meta_mes, 0);
   metaPct = totalMeta ? Math.round((totalRec / totalMeta) * 100) : 0;
   margemRede = totalRec ? Math.round(D.saloes.reduce((a,s) => a + s.margem_pct * s.rec_mes, 0) / totalRec) : 0;
@@ -556,7 +559,7 @@ async function carregarDados() {
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const html = (el, mk) => { el.innerHTML = mk; return el };
-const R = v => 'R$ ' + v.toLocaleString('pt-BR');
+const R = v => typeof v === 'number' ? 'R$ ' + v.toLocaleString('pt-BR') : '—';
 
 /* ── TOAST ── */
 const Toast = {
@@ -625,10 +628,10 @@ const P = {
 
     // Hero KPIs
     html($('#heroKpis'), [
-      [`${R(totalRec)}`, 'Receita Total do Mês', '▲ +21% vs anterior', 'g'],
-      [`${R(totalMRR)}`, 'Planos Mensais (MRR)', `▲ ${D.saloes.reduce((a,s)=>a+s.mrr/99|0,0)} assinantes`, 's'],
+      [`${R(totalRec)}`, 'Receita Total do Mês', '—', 'g'],
+      [`${margemRede}%`, 'Margem Real da Rede', `${R(lucroRedeMes)} de lucro/mês`, 's'],
       [`${D.saloes.length}`, 'Unidades Ativas', 'Todas operando', ''],
-      [`${avgRating} ★`, 'Avaliação Média', '▲ Excelente', 's'],
+      [avgRating ? `${avgRating} ★` : '—', 'Avaliação Média', avgRating ? '▲ Excelente' : 'Sem avaliação ainda', 's'],
       [`${metaPct}%`, 'Meta do Mês', `${R(totalRec)} / ${R(totalMeta)}`, ''],
     ].map(([v, l, d, c]) => `
       <div class="hkpi">
@@ -640,8 +643,8 @@ const P = {
     html($('#page-dashboard'), `
       <!-- KPIs -->
       <div class="g4 mb12" style="grid-template-columns:repeat(5,1fr)">
-        <div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Receita Total do Mês</div><div class="kcv gd2">${R(totalRec)}</div><div class="kcd up">▲ +21% vs mês anterior</div><div class="kcico">💰</div></div>
-        <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Receita Recorrente (MRR)</div><div class="kcv sg2">${R(totalMRR)}</div><div class="kcd up">▲ Garantida todo mês</div><div class="kcico">🔁</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Receita Total do Mês</div><div class="kcv gd2">${R(totalRec)}</div><div class="kcd n">todas as unidades</div><div class="kcico">💰</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Atendimentos do Mês</div><div class="kcv sg2">${D.saloes.reduce((a,s)=>a+s.agend_mes,0)}</div><div class="kcd n">todas as unidades</div><div class="kcico">📅</div></div>
         <div class="kc" style="border-color:var(--gd)"><div class="kcbar" style="background:var(--gdd)"></div><div class="kclbl">Margem Real da Rede</div><div class="kcv" style="color:var(--gdd)">${margemRede}%</div><div class="kcd up">${R(lucroRedeMes)} de lucro real/mês</div><div class="kcico">📐</div></div>
         <div class="kc"><div class="kcbar" style="background:var(--vi,#7A5A9A)"></div><div class="kclbl">Equipe Total</div><div class="kcv">${totalStaff} profis.</div><div class="kcd n">${D.saloes.length} unidades</div><div class="kcico">👩</div></div>
         <div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Meta do Mês (Consolidada)</div><div class="kcv">${metaPct}%</div><div class="kcd ${metaPct >= 100 ? 'up' : 'n'}">${R(totalRec)} de ${R(totalMeta)}</div><div class="kcico">🎯</div></div>
@@ -670,23 +673,25 @@ const P = {
         <div>
           <div class="sct mb12" style="font-size:20px">Ranking de <em>Receita</em></div>
           <div class="rank-table">
-            <div class="rt-head" style="display:grid;grid-template-columns:40px 2fr 1fr 1fr 1fr 1fr 1fr 100px;padding:10px 20px;border-bottom:1px solid var(--bd);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--ink3);background:var(--cr)"><div>#</div><div>Unidade</div><div>Receita</div><div>Margem</div><div>MRR</div><div>Meta</div><div>Atend.</div><div>Status</div></div>
+            <div class="rt-head" style="display:grid;grid-template-columns:40px 2fr 1fr 1fr 1fr 1fr 1fr 100px;padding:10px 20px;border-bottom:1px solid var(--bd);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--ink3);background:var(--cr)"><div>#</div><div>Unidade</div><div>Receita</div><div>Margem</div><div>Ticket Méd.</div><div>Meta</div><div>Atend.</div><div>Status</div></div>
             ${D.saloes
               .slice()
               .sort((a, b) => b.rec_mes - a.rec_mes)
               .map((s, i) => {
-                const pct = Math.round((s.rec_mes / s.meta_mes) * 100);
+                const temMeta = typeof s.meta_mes === 'number' && s.meta_mes > 0;
+                const pct = temMeta ? Math.round((s.rec_mes / s.meta_mes) * 100) : null;
                 const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
-                const mCol = s.margem_pct>=60?'var(--sg)':s.margem_pct>=50?'var(--gdd)':'var(--rs)';
+                const temMargem = typeof s.margem_pct === 'number';
+                const mCol = !temMargem ? 'var(--ink3)' : s.margem_pct>=60?'var(--sg)':s.margem_pct>=50?'var(--gdd)':'var(--rs)';
                 return `<div class="rt-row" style="display:grid;grid-template-columns:40px 2fr 1fr 1fr 1fr 1fr 1fr 100px;padding:14px 20px;border-bottom:1px solid var(--bd);align-items:center;font-size:13px;cursor:pointer" onclick="Router.go('detalhe', '${s.id}')">
                   <div style="font-size:18px">${medal}</div>
                   <div><div class="fw6">${s.nome}</div><div class="txs tm2">${s.bairro}, ${s.cidade}</div></div>
                   <div class="fw6 gd2">${R(s.rec_mes)}</div>
-                  <div class="fw6" style="color:${mCol}">${s.margem_pct}%</div>
-                  <div>${R(s.mrr)}</div>
+                  <div class="fw6" style="color:${mCol}">${temMargem ? s.margem_pct + '%' : '—'}</div>
+                  <div>${R(s.ticket_med)}</div>
                   <div>
-                    <div class="flex ic g6 mb4"><span class="txs">${pct}%</span></div>
-                    <div class="pbt" style="height:4px;width:80px"><div class="pbf" style="width:${Math.min(pct,100)}%;background:${pct>=100?'var(--sg)':'var(--gd)'}"></div></div>
+                    <div class="flex ic g6 mb4"><span class="txs">${temMeta ? pct + '%' : '—'}</span></div>
+                    <div class="pbt" style="height:4px;width:80px"><div class="pbf" style="width:${temMeta ? Math.min(pct,100) : 0}%;background:${temMeta && pct>=100?'var(--sg)':'var(--gd)'}"></div></div>
                   </div>
                   <div>${s.agend_mes}</div>
                   <div><span class="tag ${tagStatus(s.status).cls}">${tagStatus(s.status).label}</span></div>
@@ -704,7 +709,7 @@ const P = {
             <div class="cardh"><div class="cardt">Distribuição <em>por Unidade</em></div></div>
             <div class="cardb">
               ${D.saloes.map(s => {
-                const pct = Math.round((s.rec_mes / totalRec) * 100);
+                const pct = totalRec ? Math.round((s.rec_mes / totalRec) * 100) : 0;
                 return `<div class="mb12">
                   <div class="flex jb mb4 tsm"><span>${s.nome}</span><span class="fw6">${R(s.rec_mes)} <span class="tm2">(${pct}%)</span></span></div>
                   <div class="pbt" style="height:6px"><div class="pbf" style="width:${pct}%;background:${s.cor}"></div></div>
@@ -719,7 +724,8 @@ const P = {
     /* Salon cards */
     const grid = $('#salonGrid');
     D.saloes.forEach((s, i) => {
-      const pct = Math.round((s.rec_mes / s.meta_mes) * 100);
+      const temMeta = typeof s.meta_mes === 'number' && s.meta_mes > 0;
+      const pct = temMeta ? Math.round((s.rec_mes / s.meta_mes) * 100) : null;
       const card = document.createElement('div');
       card.className = `salon-card${i === 0 ? ' featured' : ''}`;
       card.onclick = () => Router.go('detalhe', s.id);
@@ -734,13 +740,13 @@ const P = {
             <span class="tag ${tagStatus(s.status).cls}">${tagStatus(s.status).label}</span>
             <span class="tag tgd">${s.plano}</span>
           </div>
-          <div class="flex jb txs mb4"><span class="tm2">Meta do mês</span><span class="fw6" style="color:${pct>=100?'var(--sg)':'var(--gdd)'}">${pct}%</span></div>
-          <div class="pbt" style="height:5px"><div class="pbf" style="width:${Math.min(pct,100)}%;background:${pct>=100?'var(--sg)':s.cor}"></div></div>
+          <div class="flex jb txs mb4"><span class="tm2">Meta do mês</span><span class="fw6" style="color:${temMeta && pct>=100?'var(--sg)':'var(--gdd)'}">${temMeta ? pct + '%' : 'sem meta'}</span></div>
+          <div class="pbt" style="height:5px"><div class="pbf" style="width:${temMeta ? Math.min(pct,100) : 0}%;background:${temMeta && pct>=100?'var(--sg)':s.cor}"></div></div>
         </div>
         <div class="salon-stat-row">
           <div class="salon-stat"><div class="salon-stat-v" style="color:${s.cor}">${R(s.rec_mes)}</div><div class="salon-stat-l">Receita Mês</div></div>
-          <div class="salon-stat"><div class="salon-stat-v">${R(s.mrr)}</div><div class="salon-stat-l">MRR</div></div>
-          <div class="salon-stat"><div class="salon-stat-v">${s.rating}★</div><div class="salon-stat-l">Avaliação</div></div>
+          <div class="salon-stat"><div class="salon-stat-v">${s.agend_mes}</div><div class="salon-stat-l">Atendimentos</div></div>
+          <div class="salon-stat"><div class="salon-stat-v">${typeof s.rating === 'number' ? s.rating + '★' : '—'}</div><div class="salon-stat-l">Avaliação</div></div>
         </div>`;
       grid.appendChild(card);
     });
@@ -764,6 +770,52 @@ const P = {
     }));
     const chartEl = $('#consolidadoChart');
     if (chartEl) barChart(chartEl, consolidated);
+  },
+
+  /* ══ AGENDA (todas as unidades, só leitura) ══ */
+  async agenda() {
+    const pg = $('#page-agenda');
+    html(pg, '<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando agenda...</div>');
+
+    const agora = new Date();
+    const daqui7dias = new Date(agora.getTime() + 7 * 24 * 3600 * 1000);
+    let todos;
+    try {
+      const porUnidade = await Promise.all(D.saloes.map(async s => {
+        const ags = await chamarAPI('GET', `/estabelecimentos/${s.id}/agendamentos?desde=${agora.toISOString()}&ate=${daqui7dias.toISOString()}`);
+        return ags.map(a => ({ ...a, salao: s }));
+      }));
+      todos = porUnidade.flat()
+        .filter(a => a.status !== 'cancelado')
+        .sort((a, b) => new Date(a.inicio) - new Date(b.inicio));
+    } catch (erro) {
+      html(pg, `<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível carregar a agenda: ${erro.message}</div>`);
+      return;
+    }
+
+    const statusLabel = { agendado: 'Agendado', confirmado: 'Confirmado', em_atendimento: 'Em atendimento', concluido: 'Concluído', nao_compareceu: 'Não compareceu' };
+    const statusTag = { agendado: 'tgd', confirmado: 'tsg', em_atendimento: 'tsg', concluido: 'tik', nao_compareceu: 'trs' };
+
+    html(pg, `
+      <div class="sech">
+        <div><div class="sct">Agenda <em>de Todas as Unidades</em></div><div class="scsub">Próximos 7 dias, todas as unidades juntas — só leitura, marcar/cancelar é feito no painel de cada salão</div></div>
+      </div>
+      ${!todos.length
+        ? '<div class="card"><div class="cardb" style="text-align:center;padding:40px;color:var(--ink3)">Nenhum agendamento nos próximos 7 dias.</div></div>'
+        : `<div class="card">${todos.map(a => `
+          <div class="lr">
+            <div style="width:32px;height:32px;border-radius:8px;background:${a.salao.bg};display:grid;place-items:center;font-size:15px;flex-shrink:0">${a.salao.emoji}</div>
+            <div style="flex:1">
+              <div class="lrn">${a.clientes?.nome || 'Cliente'} · ${a.estabelecimento_atividades?.nome || 'Serviço'}</div>
+              <div class="lrm">${a.salao.nome} · ${a.profissionais?.nome || 'Sem profissional'}</div>
+            </div>
+            <div class="lrr">
+              <div class="lrv">${new Date(a.inicio).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })}</div>
+              <div class="lrs">${new Date(a.inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+            </div>
+            <span class="tag ${statusTag[a.status] || 'tik'}" style="margin-left:10px">${statusLabel[a.status] || a.status}</span>
+          </div>`).join('')}</div>`}
+    `);
   },
 
   /* ══ CADASTRO ══ */
@@ -978,7 +1030,6 @@ const P = {
 
   /* ══ COMPARATIVO ══ */
   comparativo() {
-    const cats = ['Receita do Mês', 'MRR', 'Atendimentos', 'Ticket Médio', 'Taxa de Retorno', 'Avaliação'];
     html($('#page-comparativo'), `
       <div class="sech">
         <div><div class="sct">Comparativo <em>entre Unidades</em></div><div class="scsub">Performance lado a lado de todas as suas unidades</div></div>
@@ -1001,16 +1052,20 @@ const P = {
                 <span style="font-size:22px">${medal}</span>
               </div>
               <div class="sr"><span class="srl">Receita do mês</span><span class="srv" style="color:${s.cor}">${R(s.rec_mes)}</span></div>
-              <div class="sr"><span class="srl">Receita recorrente</span><span class="srv">${R(s.mrr)}</span></div>
+              <div class="sr"><span class="srl">Margem real</span><span class="srv">${typeof s.margem_pct === 'number' ? s.margem_pct + '%' : '—'}</span></div>
               <div class="sr"><span class="srl">Atendimentos</span><span class="srv">${s.agend_mes}</span></div>
               <div class="sr"><span class="srl">Ticket médio</span><span class="srv">${R(s.ticket_med)}</span></div>
-              <div class="sr"><span class="srl">Taxa de retorno</span><span class="srv">${s.tax_retorno}%</span></div>
-              <div class="sr"><span class="srl">Avaliação</span><span class="srv">${s.rating} ★</span></div>
+              <div class="sr"><span class="srl">Taxa de retorno</span><span class="srv">${typeof s.tax_retorno === 'number' ? s.tax_retorno + '%' : '—'}</span></div>
+              <div class="sr"><span class="srl">Avaliação</span><span class="srv">${typeof s.rating === 'number' ? s.rating + ' ★' : '—'}</span></div>
               <div class="sr"><span class="srl">Equipe</span><span class="srv">${s.staff} profis.</span></div>
               <div class="sr"><span class="srl">Meta do mês</span>
                 <div>
-                  <div class="fw6" style="color:${Math.round(s.rec_mes/s.meta_mes*100)>=100?'var(--sg)':'var(--gdd)'}; text-align:right">${Math.round(s.rec_mes/s.meta_mes*100)}%</div>
-                  <div class="pbt mt4" style="height:4px;width:80px;margin-left:auto"><div class="pbf" style="width:${Math.min(100,Math.round(s.rec_mes/s.meta_mes*100))}%;background:${s.cor}"></div></div>
+                  ${(() => {
+                    const temMeta = typeof s.meta_mes === 'number' && s.meta_mes > 0;
+                    const pct = temMeta ? Math.round(s.rec_mes/s.meta_mes*100) : null;
+                    return `<div class="fw6" style="color:${temMeta && pct>=100?'var(--sg)':'var(--gdd)'}; text-align:right">${temMeta ? pct + '%' : '—'}</div>
+                  <div class="pbt mt4" style="height:4px;width:80px;margin-left:auto"><div class="pbf" style="width:${temMeta ? Math.min(100,pct) : 0}%;background:${s.cor}"></div></div>`;
+                  })()}
                 </div>
               </div>
             </div>
@@ -1071,10 +1126,10 @@ const P = {
       </div>
 
       <div class="g4 mb20">
-        <div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Receita Anual Consolidada</div><div class="kcv gd2">${R(totalAno)}</div><div class="kcd up">▲ todas as unidades</div><div class="kcico">💰</div></div>
-        <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">MRR Total (Planos Mensais)</div><div class="kcv sg2">${R(totalMRR)}</div><div class="kcd up">▲ Receita garantida</div><div class="kcico">🔁</div></div>
-        <div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Custo com Planos SalonOS</div><div class="kcv am2">R$ 641</div><div class="kcd n">3 unidades ativas</div><div class="kcico">📋</div></div>
-        <div class="kc"><div class="kcbar" style="background:var(--vi,#7A5A9A)"></div><div class="kclbl">Custo do Sistema / Receita</div><div class="kcv" style="color:var(--vi,#7A5A9A)">${(totalMRR ? Math.round((641/totalRec)*1000)/10 : 0)}%</div><div class="kcd n">do faturamento mensal</div><div class="kcico">📈</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Receita Anual Consolidada</div><div class="kcv gd2">${R(totalAno)}</div><div class="kcd n">todas as unidades</div><div class="kcico">💰</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Margem Real da Rede</div><div class="kcv sg2">${margemRede}%</div><div class="kcd n">${R(lucroRedeMes)} de lucro/mês</div><div class="kcico">📐</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Ticket Médio da Rede</div><div class="kcv am2">${R(D.saloes.length ? Math.round(D.saloes.reduce((a,s)=>a+s.ticket_med,0)/D.saloes.length) : 0)}</div><div class="kcd n">média entre unidades</div><div class="kcico">🎟</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--vi,#7A5A9A)"></div><div class="kclbl">Meta do Mês (Consolidada)</div><div class="kcv" style="color:var(--vi,#7A5A9A)">${metaPct}%</div><div class="kcd n">${R(totalRec)} de ${R(totalMeta)}</div><div class="kcico">🎯</div></div>
       </div>
 
       <div class="g64">
@@ -1090,7 +1145,7 @@ const P = {
                 </div>
                 <div class="lrr">
                   <div class="lrv" style="color:${s.cor}">${R(s.rec_mes)}</div>
-                  <div class="lrs">${Math.round((s.rec_mes/totalRec)*100)}% do total</div>
+                  <div class="lrs">${totalRec ? Math.round((s.rec_mes/totalRec)*100) + '% do total' : '—'}</div>
                 </div>
               </div>`).join('')}
             <div style="display:flex;justify-content:space-between;padding:12px 18px;background:var(--cr);border-top:2px solid var(--bd2);font-size:13px">
@@ -1100,15 +1155,18 @@ const P = {
           </div>
           <div class="card">
             <div class="cardh"><div class="cardt">Custo dos Planos <em>SalonOS</em></div></div>
-            ${D.saloes.map(s => `
+            ${D.saloes.map(s => {
+              const precoPlano = s.plano === 'Escala' ? 347 : s.plano === 'Crescimento' ? 197 : 97;
+              return `
               <div class="lr">
                 <div style="width:32px;height:32px;border-radius:8px;background:${s.bg};display:grid;place-items:center;font-size:15px;flex-shrink:0">${s.emoji}</div>
                 <div style="flex:1"><div class="lrn">${s.nome}</div><div class="lrm">Plano ${s.plano}</div></div>
-                <div class="lrr"><div class="lrv am2">${s.plano === 'Escala' ? 'R$ 347' : s.plano === 'Crescimento' ? 'R$ 197' : 'R$ 97'}</div><div class="lrs">por mês</div></div>
-              </div>`).join('')}
+                <div class="lrr"><div class="lrv am2">${R(precoPlano)}</div><div class="lrs">por mês</div></div>
+              </div>`;
+            }).join('')}
             <div style="display:flex;justify-content:space-between;padding:12px 18px;background:var(--cr);border-top:2px solid var(--bd2);font-size:13px">
               <span class="fw6">Total planos</span>
-              <span class="fw6 am2">R$ 641/mês</span>
+              <span class="fw6 am2">${R(D.saloes.reduce((a,s) => a + (s.plano === 'Escala' ? 347 : s.plano === 'Crescimento' ? 197 : 97), 0))}/mês</span>
             </div>
           </div>
         </div>
@@ -1118,14 +1176,15 @@ const P = {
             <div class="cardh"><div class="cardt">Metas <em>por Unidade</em></div></div>
             <div class="cardb">
               ${D.saloes.map(s => {
-                const pct = Math.min(100, Math.round((s.rec_mes / s.meta_mes) * 100));
-                const col = pct >= 100 ? 'var(--sg)' : pct >= 70 ? 'var(--gd)' : 'var(--rs)';
+                const temMeta = typeof s.meta_mes === 'number' && s.meta_mes > 0;
+                const pct = temMeta ? Math.min(100, Math.round((s.rec_mes / s.meta_mes) * 100)) : null;
+                const col = !temMeta ? 'var(--ink3)' : pct >= 100 ? 'var(--sg)' : pct >= 70 ? 'var(--gd)' : 'var(--rs)';
                 return `<div class="mb14">
                   <div class="flex ic jb mb6">
                     <span class="tsm fw6">${s.nome.replace('Studio ', '')}</span>
-                    <span class="tsm fw6" style="color:${col}">${pct}%</span>
+                    <span class="tsm fw6" style="color:${col}">${temMeta ? pct + '%' : 'sem meta'}</span>
                   </div>
-                  <div class="pbt" style="height:6px"><div class="pbf" style="width:${pct}%;background:${col}"></div></div>
+                  <div class="pbt" style="height:6px"><div class="pbf" style="width:${temMeta ? pct : 0}%;background:${col}"></div></div>
                   <div class="flex jb mt4 txs tm2"><span>${R(s.rec_mes)}</span><span>${R(s.meta_mes)}</span></div>
                 </div>`;
               }).join('')}
@@ -1136,9 +1195,9 @@ const P = {
             <div class="cardb">
               <div class="sr"><span class="srl">Receita anual total</span><span class="srv gd">${R(totalAno)}</span></div>
               <div class="sr"><span class="srl">Média mensal</span><span class="srv">${R(Math.round(totalAno / 12))}</span></div>
-              <div class="sr"><span class="srl">Melhor unidade</span><span class="srv">${D.saloes[0].nome}</span></div>
-              <div class="sr"><span class="srl">Custo anual planos</span><span class="srv am2">R$ 7.692</span></div>
-              <div class="sr"><span class="srl">Custo do sistema</span><span class="srv sg">${(totalAno ? Math.round((7692/totalAno)*1000)/10 : 0)}% da receita anual</span></div>
+              <div class="sr"><span class="srl">Melhor unidade</span><span class="srv">${D.saloes.length ? D.saloes.slice().sort((a,b)=>b.rec_mes-a.rec_mes)[0].nome : '—'}</span></div>
+              <div class="sr"><span class="srl">Custo anual planos</span><span class="srv am2">${R(D.saloes.reduce((a,s) => a + (s.plano === 'Escala' ? 347 : s.plano === 'Crescimento' ? 197 : 97), 0) * 12)}</span></div>
+              <div class="sr"><span class="srl">Custo do sistema</span><span class="srv sg">${(() => { const custoAnual = D.saloes.reduce((a,s) => a + (s.plano === 'Escala' ? 347 : s.plano === 'Crescimento' ? 197 : 97), 0) * 12; return totalAno ? Math.round((custoAnual/totalAno)*1000)/10 : 0; })()}% da receita anual</span></div>
             </div>
           </div>
         </div>
@@ -1151,8 +1210,9 @@ const P = {
     const id = currentSalao;
     const s = D.saloes.find(x => x.id === id);
     if (!s) { Router.go('dashboard'); return }
-    const pct = Math.min(100, Math.round((s.rec_mes / s.meta_mes) * 100));
-    const col = pct >= 100 ? 'var(--sg)' : pct >= 70 ? 'var(--gd)' : 'var(--rs)';
+    const temMeta = typeof s.meta_mes === 'number' && s.meta_mes > 0;
+    const pct = temMeta ? Math.min(100, Math.round((s.rec_mes / s.meta_mes) * 100)) : null;
+    const col = !temMeta ? 'var(--ink3)' : pct >= 100 ? 'var(--sg)' : pct >= 70 ? 'var(--gd)' : 'var(--rs)';
 
     html($('#page-detalhe'), `
       <!-- Header de detalhe -->
@@ -1162,18 +1222,18 @@ const P = {
         <div class="sdh-meta">📍 ${s.bairro}, ${s.cidade} · Plano ${s.plano} · Desde ${s.desde} · ${s.staff} profissionais</div>
         <div class="sdh-kpis">
           <div class="sdh-kpi"><div class="sdh-kpi-v g">${R(s.rec_mes)}</div><div class="sdh-kpi-l">Receita do Mês</div></div>
-          <div class="sdh-kpi"><div class="sdh-kpi-v">${R(s.mrr)}</div><div class="sdh-kpi-l">MRR</div></div>
+          <div class="sdh-kpi"><div class="sdh-kpi-v">${typeof s.margem_pct === 'number' ? s.margem_pct + '%' : '—'}</div><div class="sdh-kpi-l">Margem Real</div></div>
           <div class="sdh-kpi"><div class="sdh-kpi-v">${s.agend_mes}</div><div class="sdh-kpi-l">Atendimentos</div></div>
           <div class="sdh-kpi"><div class="sdh-kpi-v">${R(s.ticket_med)}</div><div class="sdh-kpi-l">Ticket Médio</div></div>
-          <div class="sdh-kpi"><div class="sdh-kpi-v s">${s.tax_retorno}%</div><div class="sdh-kpi-l">Taxa de Retorno</div></div>
-          <div class="sdh-kpi"><div class="sdh-kpi-v">${s.rating} ★</div><div class="sdh-kpi-l">Avaliação</div></div>
+          <div class="sdh-kpi"><div class="sdh-kpi-v s">${typeof s.tax_retorno === 'number' ? s.tax_retorno + '%' : '—'}</div><div class="sdh-kpi-l">Taxa de Retorno</div></div>
+          <div class="sdh-kpi"><div class="sdh-kpi-v">${typeof s.rating === 'number' ? s.rating + ' ★' : '—'}</div><div class="sdh-kpi-l">Avaliação</div></div>
         </div>
       </div>
 
       <div class="flex jb mb20 ic" style="flex-wrap:wrap;gap:10px">
         <div>
-          <div class="flex ic g8 mb6"><span class="tsm fw6">Meta do mês</span><span class="fw6" style="color:${col}">${pct}%</span><span class="txs tm2">(${R(s.rec_mes)} / ${R(s.meta_mes)})</span></div>
-          <div class="pbt" style="height:8px;width:300px"><div class="pbf" style="width:${pct}%;background:${col}"></div></div>
+          <div class="flex ic g8 mb6"><span class="tsm fw6">Meta do mês</span><span class="fw6" style="color:${col}">${temMeta ? pct + '%' : 'sem meta definida'}</span><span class="txs tm2">(${R(s.rec_mes)} / ${R(s.meta_mes)})</span></div>
+          <div class="pbt" style="height:8px;width:300px"><div class="pbf" style="width:${temMeta ? pct : 0}%;background:${col}"></div></div>
         </div>
         <div class="flex g8">
           <button class="btn btgh sm" onclick="Toast.show('Abrindo SalonOS do ${s.nome}...','🚀')">Abrir SalonOS desta unidade →</button>
@@ -1352,7 +1412,7 @@ function openEditModal(id) {
         <div class="fg"><label class="flbl">Bairro</label><input class="fi" value="${s.bairro}"></div>
       </div>
       <div class="fgrid2">
-        <div class="fg"><label class="flbl">Meta mensal (R$)</label><input class="fi" type="number" value="${s.meta_mes}"></div>
+        <div class="fg"><label class="flbl">Meta mensal (R$)</label><input class="fi" type="number" value="${typeof s.meta_mes === 'number' ? s.meta_mes : ''}"></div>
         <div class="fg"><label class="flbl">Plano</label><select class="fi"><option ${s.plano==='Base'?'selected':''}>Base</option><option ${s.plano==='Crescimento'?'selected':''}>Crescimento</option><option ${s.plano==='Escala'?'selected':''}>Escala</option></select></div>
       </div>
     </div>
