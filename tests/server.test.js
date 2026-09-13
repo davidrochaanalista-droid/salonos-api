@@ -34,4 +34,14 @@ describe('Autenticação', () => {
     const res = await request(app).get('/estabelecimentos/qualquer-id/metas');
     expect(res.status).toBe(401);
   });
+
+  it('bloqueia /estabelecimentos/:id/automacoes sem Authorization header', async () => {
+    const res = await request(app).get('/estabelecimentos/qualquer-id/automacoes');
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia /estabelecimentos/:id/lista-espera sem Authorization header', async () => {
+    const res = await request(app).get('/estabelecimentos/qualquer-id/lista-espera');
+    expect(res.status).toBe(401);
+  });
 });

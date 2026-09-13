@@ -113,7 +113,7 @@ router.post('/estabelecimentos/:id/atividades/adotar-catalogo-completo', async (
 
 // PATCH /atividades/:id — editar preço/duração/status de uma atividade já vinculada
 router.patch('/atividades/:id', async (req, res) => {
-  const camposPermitidos = ['nome', 'descricao', 'duracao_min', 'preco', 'ativo'];
+  const camposPermitidos = ['nome', 'descricao', 'duracao_min', 'preco', 'ativo', 'ciclo_recompra_dias'];
   const atualizacoes = {};
   for (const campo of camposPermitidos) {
     if (req.body[campo] !== undefined) atualizacoes[campo] = req.body[campo];
