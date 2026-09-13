@@ -618,6 +618,11 @@ const P = {
 
   /* ══ DASHBOARD ══ */
   dashboard() {
+    const saloesComMargem = D.saloes.filter(s => typeof s.margem_pct === 'number');
+    const salaoMenorMargem = saloesComMargem.length
+      ? saloesComMargem.slice().sort((a, b) => a.margem_pct - b.margem_pct)[0]
+      : null;
+
     // Hero KPIs
     html($('#heroKpis'), [
       [`${R(totalRec)}`, 'Receita Total do Mês', '▲ +21% vs anterior', 'g'],
@@ -645,7 +650,7 @@ const P = {
       <div style="background:var(--ink);border-radius:var(--r);padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;gap:14px">
         <div style="font-size:20px;flex-shrink:0">📐</div>
         <div style="font-size:12.5px;color:rgba(255,255,255,.7);line-height:1.6">
-          <strong style="color:var(--gd)">Margem, não só receita.</strong> Sistemas de gestão multi-unidade mostram faturamento consolidado. O SalonOS mostra <strong style="color:var(--wh)">lucro real</strong> — porque cada comanda já calcula insumo e comissão no atendimento. A ${D.saloes.slice().sort((a,b)=>a.margem_pct-b.margem_pct)[0].nome} fatura bem, mas está com a margem mais apertada da rede (${D.saloes.slice().sort((a,b)=>a.margem_pct-b.margem_pct)[0].margem_pct}%) — um número que só aparece aqui porque só o SalonOS sabe o custo de cada procedimento em cada unidade.
+          <strong style="color:var(--gd)">Margem, não só receita.</strong> Sistemas de gestão multi-unidade mostram faturamento consolidado. O SalonOS mostra <strong style="color:var(--wh)">lucro real</strong> — porque cada comanda já calcula insumo e comissão no atendimento.${salaoMenorMargem ? ` A ${salaoMenorMargem.nome} fatura bem, mas está com a margem mais apertada da rede (${salaoMenorMargem.margem_pct}%) — um número que só aparece aqui porque só o SalonOS sabe o custo de cada procedimento em cada unidade.` : ' Assim que houver comanda fechada em alguma unidade, a margem real de cada uma aparece aqui — um número que só o SalonOS sabe calcular.'}
         </div>
       </div>
 
