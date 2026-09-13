@@ -27,13 +27,35 @@ const rotasComandas = require('./routes/comandas');
 const rotasCaixa = require('./routes/caixa');
 const rotasRelatorios = require('./routes/relatorios');
 const rotasMetas = require('./routes/metas');
+const rotasProprietarios = require('./routes/proprietarios');
+const rotasAutomacoes = require('./routes/automacoes');
+const rotasListaEspera = require('./routes/lista-espera');
+const { iniciarScheduler } = require('./lib/automacoes/scheduler');
 const rotaWhatsapp = require('./routes/whatsapp'); // wrapper do 02-whatsapp-ia-servico.js — ver nota no final deste arquivo
 const rotaAvaliacoes = require('./routes/avaliacoes'); // pública -- cliente sem login avalia via link
 
 const app = express();
 app.set('trust proxy', 1); // Railway fica atrás de proxy -- necessário pro rate limit identificar IP real
 
-app.use(helmet());
+// CSP padrão do helmet é 'self' em tudo -- mas public/ (servido como estático,
+// ver app.use(express.static abaixo) carrega o supabase-js via CDN, fala
+// direto com o Supabase (REST + Realtime via WebSocket), e o app inteiro
+// (salon-v6.html, painel-proprietario.html, cadastro-real.html) é um único
+// <script> inline, sem nonce. 'unsafe-inline' é necessário até esses HTMLs
+// serem refatorados pra JS em arquivo separado -- sem isso o script inline
+// inteiro é bloqueado e NADA da lógica da página roda, sem nenhum erro
+// visível na UI (só uma rejeição de CSP no console). Achado testando o
+// login de verdade no navegador.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      'script-src': ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+      'script-src-attr': ["'unsafe-inline'"], // onclick="..." inline, usado em todo o app
+      'connect-src': ["'self'", 'https://*.supabase.co', 'wss://*.supabase.co'],
+    },
+  },
+}));
 app.use(cors());
 app.use(express.json());
 app.use(pinoHttp({
@@ -49,6 +71,12 @@ app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: true,
 
 // ── Rota pública de checagem de saúde (útil para o Railway e para o "SISTEMA OK" do painel-admin.html) ──
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+// ── Arquivos estáticos do frontend (public/) — precisa vir antes de
+// `autenticar`: as telas de login (salon-v6.html, painel-proprietario.html,
+// cadastro-real.html) e a página pública de avaliação (avaliar.html) não
+// têm token de usuário ainda quando são abertas. ──
+app.use(express.static('public'));
 
 // ── Webhook do WhatsApp — sem middleware de autenticação de usuário ──
 // (rotaWhatsapp já define o caminho completo /webhook/whatsapp/:id
@@ -78,6 +106,9 @@ app.use('/', rotasComandas);   // já inclui o prefixo /estabelecimentos/:id/com
 app.use('/', rotasCaixa);      // já inclui o prefixo /estabelecimentos/:id/caixa internamente
 app.use('/', rotasRelatorios); // /relatorios/margem-rede e /estabelecimentos/:id/resumo-mensal
 app.use('/', rotasMetas);      // já inclui o prefixo /estabelecimentos/:id/metas internamente
+app.use('/', rotasProprietarios); // GET /proprietarios/me
+app.use('/', rotasAutomacoes);    // já inclui o prefixo /estabelecimentos/:id/automacoes e /automacoes/:id internamente
+app.use('/', rotasListaEspera);   // já inclui o prefixo /estabelecimentos/:id/lista-espera internamente
 
 // ── Tratamento de erro genérico ──
 app.use((err, req, res, next) => {
@@ -88,6 +119,7 @@ app.use((err, req, res, next) => {
 const PORTA = process.env.PORT || 3000;
 if (require.main === module) {
   app.listen(PORTA, () => console.log(`SalonOS API rodando na porta ${PORTA}`));
+  iniciarScheduler();
 }
 
 module.exports = app;

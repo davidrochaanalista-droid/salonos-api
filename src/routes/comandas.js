@@ -11,6 +11,7 @@
  */
 
 const express = require('express');
+const { enviarMensagemWhatsApp } = require('./whatsapp');
 const router = express.Router();
 
 // POST /estabelecimentos/:id/comandas — abrir uma comanda
@@ -128,6 +129,33 @@ router.post('/comandas/:id/fechar', async (req, res) => {
 
   if (error) return res.status(500).json({ erro: error.message });
   res.json(data);
+
+  dispararAvaliacoes(req.supabase, req.params.id).catch(erroAvaliacao =>
+    console.error('Falha ao disparar link de avaliação:', erroAvaliacao)
+  );
 });
+
+// Depois de fechar a comanda, manda um link de avaliação por WhatsApp pra
+// cada atendimento gerado. Fire-and-forget: nunca deve afetar a resposta
+// HTTP de /fechar, e enviarMensagemWhatsApp já loga e retorna em silêncio
+// se a Evolution API não estiver configurada (ver src/routes/whatsapp.js).
+async function dispararAvaliacoes(supabase, comandaId) {
+  const baseUrl = process.env.PUBLIC_BASE_URL;
+  if (!baseUrl) return;
+
+  const { data: atendimentos } = await supabase
+    .from('atendimentos')
+    .select('id, clientes(nome, telefone)')
+    .eq('comanda_id', comandaId);
+
+  for (const atendimento of atendimentos || []) {
+    const telefone = atendimento.clientes?.telefone;
+    if (!telefone) continue;
+
+    const link = `${baseUrl}/avaliar.html?atendimento_id=${atendimento.id}`;
+    const texto = `Oi! Como foi seu atendimento? Sua avaliação ajuda muito: ${link}`;
+    await enviarMensagemWhatsApp({ telefone, texto });
+  }
+}
 
 module.exports = router;

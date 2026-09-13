@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SalonOS — Avaliação</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --nude:#F2E8E1;--nude2:#EAD8CE;--wh:#FFFFFF;
+  --gd:#C9A96E;--gdd:#A8864A;
+  --ink:#1A1510;--ink2:#3A3028;--ink3:#8A7A72;
+  --rs:#C0504A;--rsl:#FBF0EF;--sg:#4A7A62;--sgl:#EDF4F0;
+  --bd:rgba(26,21,16,.09);--bd2:rgba(26,21,16,.18);
+  --sh:0 1px 4px rgba(26,21,16,.06),0 6px 28px rgba(26,21,16,.09);
+  --fd:'Cormorant Garamond',Georgia,serif;--fb:'DM Sans',system-ui,sans-serif;
+  --rs2:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:var(--fb);background:var(--nude);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+textarea{font-family:inherit;font-size:13px;outline:none;border:none;width:100%;resize:vertical}
+
+.wrap{width:100%;max-width:420px}
+.brand{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:28px}
+.bmark{width:34px;height:34px;background:var(--ink);border-radius:8px;display:grid;place-items:center;color:var(--gd);font-size:16px;transform:rotate(-5deg)}
+.bname{font-family:var(--fd);font-size:24px}.bname em{font-style:italic;color:var(--gdd)}
+
+.card{background:var(--wh);border:1px solid var(--bd);border-radius:16px;padding:32px;box-shadow:var(--sh);text-align:center}
+.titulo{font-family:var(--fd);font-size:24px;font-weight:400;margin-bottom:6px}
+.titulo em{font-style:italic;color:var(--gdd)}
+.sub{font-size:12.5px;color:var(--ink3);margin-bottom:24px;line-height:1.6}
+
+.estrelas{display:flex;gap:6px;justify-content:center;margin-bottom:20px}
+.estrela{font-size:34px;color:var(--bd2);transition:color .1s}
+.estrela.ativa{color:var(--gd)}
+
+.fi{background:var(--nude);border:1px solid var(--bd2);border-radius:var(--rs2);padding:11px 14px;font-size:13px;margin-bottom:16px;min-height:80px}
+.fi:focus{border-color:var(--gd)}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:12px;border-radius:var(--rs2);font-size:13px;font-weight:600;transition:all .15s}
+.btg{background:linear-gradient(135deg,var(--gd),var(--gdd));color:var(--wh)}.btg:hover{opacity:.92}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.msg{padding:11px 14px;border-radius:8px;font-size:12.5px;margin-bottom:16px;line-height:1.5}
+.msg.erro{background:var(--rsl);color:var(--rs)}
+.msg.ok{background:var(--sgl);color:var(--sg)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="brand"><div class="bmark">✂</div><div class="bname">Salon<em>OS</em></div></div>
+  <div class="card" id="app">Carregando...</div>
+</div>
+
+<script>
+'use strict';
+
+const app = document.getElementById('app');
+const params = new URLSearchParams(window.location.search);
+const atendimentoId = params.get('atendimento_id');
+
+let nota = 0;
+
+function renderFormulario(erro) {
+  app.innerHTML = `
+    <div class="titulo">Como foi seu <em>atendimento</em>?</div>
+    <div class="sub">Sua avaliação ajuda o estabelecimento a melhorar.</div>
+    ${erro ? `<div class="msg erro">${erro}</div>` : ''}
+    <div class="estrelas" id="estrelas">
+      ${[1,2,3,4,5].map(n => `<span class="estrela" data-nota="${n}">★</span>`).join('')}
+    </div>
+    <textarea class="fi" id="comentario" placeholder="Comentário (opcional)"></textarea>
+    <button class="btn btg" id="btEnviar" disabled>Enviar avaliação</button>
+  `;
+
+  const estrelas = [...document.querySelectorAll('.estrela')];
+  estrelas.forEach(el => {
+    el.addEventListener('click', () => {
+      nota = Number(el.dataset.nota);
+      estrelas.forEach(e => e.classList.toggle('ativa', Number(e.dataset.nota) <= nota));
+      document.getElementById('btEnviar').disabled = false;
+    });
+  });
+
+  document.getElementById('btEnviar').addEventListener('click', enviarAvaliacao);
+}
+
+async function enviarAvaliacao() {
+  const bt = document.getElementById('btEnviar');
+  bt.disabled = true;
+  bt.textContent = 'Enviando...';
+
+  try {
+    const resposta = await fetch('/avaliacoes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        atendimento_id: atendimentoId,
+        nota,
+        comentario: document.getElementById('comentario').value || undefined,
+      }),
+    });
+    const json = await resposta.json();
+    if (!resposta.ok) throw new Error(json.erro || 'Não foi possível enviar sua avaliação.');
+
+    app.innerHTML = `
+      <div class="titulo">Obrigado! <em>💛</em></div>
+      <div class="msg ok">Sua avaliação foi registrada com sucesso.</div>
+    `;
+  } catch (erro) {
+    renderFormulario(erro.message);
+  }
+}
+
+if (!atendimentoId) {
+  app.innerHTML = `<div class="titulo">Link inválido</div><div class="sub">Este link de avaliação está incompleto ou expirou.</div>`;
+} else {
+  renderFormulario();
+}
+</script>
+</body>
+</html>

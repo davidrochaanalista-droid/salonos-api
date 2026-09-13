@@ -313,3 +313,4 @@ async function enviarMensagemWhatsApp({ telefone, texto }) {
 }
 
 module.exports = router;
+module.exports.enviarMensagemWhatsApp = enviarMensagemWhatsApp;
