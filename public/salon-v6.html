@@ -1024,6 +1024,86 @@ window.salvarReceitaAtividade=async function(){
   }catch(erro){Toast.show(erro.message,'⚠');}
 };
 
+let pollingWhatsapp=null;
+
+window.conectarWhatsapp=async function(){
+  Modal.open('Conectar WhatsApp','<div class="mb2" style="text-align:center;padding:20px 0">Gerando QR code...</div>');
+  try{
+    const {qrCodeBase64}=await chamarAPI('POST',`/estabelecimentos/${estabelecimentoAtivo.id}/whatsapp/conectar`);
+    Modal.open('Conectar WhatsApp','<div class="mb2" style="text-align:center">'
+      +'<p class="tsm tm2" style="margin-bottom:12px">Abra o WhatsApp no celular do salão, vá em Aparelhos conectados e escaneie o código abaixo.</p>'
+      +'<img src="'+qrCodeBase64+'" style="width:240px;height:240px;border-radius:8px" alt="QR code do WhatsApp">'
+      +'<p class="tsm tm2" style="margin-top:12px" id="whatsappQrStatus">Aguardando leitura...</p>'
+      +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button></div>');
+    iniciarPollingWhatsapp();
+  }catch(erro){
+    Modal.open('Conectar WhatsApp','<div class="mb2" style="color:var(--rs)">Não foi possível gerar o QR code: '+erro.message+'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button></div>');
+  }
+};
+
+function iniciarPollingWhatsapp(){
+  pararPollingWhatsapp();
+  pollingWhatsapp=setInterval(async()=>{
+    try{
+      const status=await chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/whatsapp/status`);
+      if(status.whatsapp_status==='conectado'){
+        pararPollingWhatsapp();
+        Modal.close();
+        Toast.show('WhatsApp conectado!');
+        P.whatsapp();
+      }
+    }catch(erro){/* mantém tentando -- erro passageiro de rede não deve fechar o modal */}
+  },3000);
+}
+
+function pararPollingWhatsapp(){
+  if(pollingWhatsapp){clearInterval(pollingWhatsapp);pollingWhatsapp=null;}
+}
+
+window.desconectarWhatsapp=async function(){
+  try{
+    await chamarAPI('POST',`/estabelecimentos/${estabelecimentoAtivo.id}/whatsapp/desconectar`);
+    Toast.show('WhatsApp desconectado.');
+    P.whatsapp();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
+let contatosImportar=[];
+
+window.abrirImportarContatos=async function(){
+  Modal.open('Importar contatos','<div class="mb2" style="text-align:center;padding:20px 0">Buscando contatos salvos no celular...</div>');
+  try{
+    contatosImportar=await chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/whatsapp/contatos`);
+    renderModalImportarContatos();
+  }catch(erro){
+    Modal.open('Importar contatos','<div class="mb2" style="color:var(--rs)">Não foi possível buscar os contatos: '+erro.message+'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button></div>');
+  }
+};
+
+function renderModalImportarContatos(){
+  const disponiveis=contatosImportar.filter(c=>!c.ja_e_cliente);
+  const linhas=disponiveis.length?disponiveis.map((c,i)=>'<label class="lr" style="cursor:pointer"><input type="checkbox" checked data-idx="'+i+'" class="chkContato" style="margin-right:10px">'
+    +'<div><div class="lrn">'+(c.nome||c.telefone)+'</div><div class="lrm">'+c.telefone+'</div></div></label>').join('')
+    :'<div style="padding:16px;font-size:12px;color:var(--ink3)">Todos os contatos salvos já são clientes cadastrados.</div>';
+  Modal.open('Importar contatos','<div class="mb2">'
+    +'<p class="tsm tm2" style="margin-bottom:8px">'+disponiveis.length+' contato(s) novo(s) encontrado(s). Desmarque quem não deve virar cliente.</p>'
+    +'<div style="max-height:320px;overflow-y:auto">'+linhas+'</div>'
+    +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button>'
+    +(disponiveis.length?'<button class="btn btp" onclick="confirmarImportarContatos()">Importar selecionados</button>':'')
+    +'</div>');
+}
+
+window.confirmarImportarContatos=async function(){
+  const disponiveis=contatosImportar.filter(c=>!c.ja_e_cliente);
+  const selecionados=$$('.chkContato').filter(el=>el.checked).map(el=>disponiveis[Number(el.dataset.idx)]);
+  if(!selecionados.length){Toast.show('Selecione ao menos um contato','⚠');return;}
+  try{
+    const {importados}=await chamarAPI('POST',`/estabelecimentos/${estabelecimentoAtivo.id}/whatsapp/contatos/importar`,selecionados);
+    Modal.close();
+    Toast.show(importados+' cliente(s) importado(s)!');
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
 const Router={
   go(pg){
     $$('.page').forEach(p=>p.classList.remove('active'));
@@ -1186,8 +1266,30 @@ automacoes(){
   });
 },
 
-whatsapp(){
-  renderEmBreve('page-whatsapp','WhatsApp <em>Flows</em>','A automação por gatilho já existe (aba Automações). Um editor visual de fluxo de conversa livre ainda não foi construído.');
+async whatsapp(){
+  const pg=$('#page-whatsapp');
+  html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando...</div>');
+  let status;
+  try{
+    status=await chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/whatsapp/status`);
+  }catch(erro){
+    html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível carregar o status do WhatsApp: '+erro.message+'</div>');
+    return;
+  }
+
+  if(status.whatsapp_status==='conectado'){
+    html(pg,'<div class="sech"><div><div class="sct">WhatsApp <em>Conectado</em></div><div class="scsub">Número: '+(status.whatsapp_numero||'—')+'</div></div>'
+      +'<div class="scacts"><button class="btn btgh sm" onclick="desconectarWhatsapp()">Desconectar</button></div></div>'
+      +'<div class="card"><div class="cardh"><div class="cardt">Importar <em>Contatos</em></div></div>'
+      +'<div style="padding:16px"><p class="tsm tm2" style="margin-bottom:12px">Traz os contatos salvos no celular conectado pra você revisar e escolher quem vira cliente cadastrado — nada é importado automaticamente.</p>'
+      +'<button class="btn btp sm" onclick="abrirImportarContatos()">Importar contatos</button></div></div>');
+  }else{
+    html(pg,'<div class="sech"><div><div class="sct">WhatsApp <em>da IA de Atendimento</em></div><div class="scsub">Conecte o número do salão pra ativar a IA de atendimento e importar seus contatos</div></div></div>'
+      +'<div class="card"><div style="padding:32px;text-align:center">'
+      +'<p class="tsm tm2" style="margin-bottom:16px">Nenhum número conectado ainda.</p>'
+      +'<button class="btn btp" onclick="conectarWhatsapp()">Conectar WhatsApp</button>'
+      +'</div></div>');
+  }
 },
 
 async relatorios(){

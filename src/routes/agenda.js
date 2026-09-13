@@ -104,7 +104,7 @@ async function dispararUpsell(supabase, estabelecimentoId, agendamento) {
 
   const hora = new Date(agendamento.inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const texto = `Agendamento confirmado pra ${hora}! Quer aproveitar e incluir outro serviço no mesmo horário? É só responder aqui que a gente vê a disponibilidade 💇`;
-  await enviarMensagemWhatsApp({ telefone: cliente.telefone, texto });
+  await enviarMensagemWhatsApp({ telefone: cliente.telefone, texto, estabelecimentoId });
   await supabase.from('automacao_disparos').insert({
     automacao_id: automacao.id, estabelecimento_id: estabelecimentoId, cliente_id: agendamento.cliente_id, referencia_id: agendamento.id,
   });
@@ -135,7 +135,7 @@ async function dispararListaEspera(supabase, agendamentoCancelado) {
 
   const dataFormatada = new Date(agendamentoCancelado.inicio).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const texto = `Oi, ${proximo.clientes.nome || 'tudo bem'}? Abriu um horário em ${dataFormatada} pro serviço que você esperava. Quer que a gente reserve pra você?`;
-  await enviarMensagemWhatsApp({ telefone: proximo.clientes.telefone, texto });
+  await enviarMensagemWhatsApp({ telefone: proximo.clientes.telefone, texto, estabelecimentoId: agendamentoCancelado.estabelecimento_id });
   await supabase.from('lista_espera').update({ notificado_em: new Date().toISOString() }).eq('id', proximo.id);
   await supabase.from('automacao_disparos').insert({
     automacao_id: automacao.id, estabelecimento_id: agendamentoCancelado.estabelecimento_id, cliente_id: proximo.cliente_id, referencia_id: proximo.id,

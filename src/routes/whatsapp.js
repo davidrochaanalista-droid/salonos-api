@@ -16,6 +16,7 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const Groq = require('groq-sdk');
+const evolution = require('../lib/evolution-api');
 
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -62,6 +63,15 @@ ${instrucaoExtra || ''}`;
 router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
   try {
     const { estabelecimentoId } = req.params;
+
+    // Evento de status de conexão da instância (QR escaneado, desconexão
+    // etc.) -- é assim que estabelecimentos.whatsapp_status/whatsapp_numero
+    // ficam sincronizados sem o front precisar bater na Evolution API direto.
+    if (req.body?.event === 'connection.update') {
+      await tratarAtualizacaoConexao(estabelecimentoId, req.body?.data);
+      return res.sendStatus(200);
+    }
+
     const { telefone, mensagem } = extrairMensagem(req.body);
 
     // Ignora eventos sem texto (confirmação de leitura, status, mensagem de
@@ -291,25 +301,51 @@ function extrairMensagem(body) {
   return { telefone: remoteJid.replace('@s.whatsapp.net', ''), mensagem: texto };
 }
 
-async function enviarMensagemWhatsApp({ telefone, texto }) {
-  const baseUrl = process.env.EVOLUTION_API_URL;
-  const instancia = process.env.EVOLUTION_INSTANCE;
-  const apiKey = process.env.EVOLUTION_API_KEY;
-
-  if (!baseUrl || !instancia || !apiKey) {
-    console.error('EVOLUTION_API_URL/EVOLUTION_INSTANCE/EVOLUTION_API_KEY não configurados -- mensagem NÃO enviada.');
+// estabelecimentoId define QUAL instância (QUAL número de WhatsApp) envia a
+// mensagem -- ver src/lib/evolution-api.js. Nunca lança: todo chamador aqui
+// é fire-and-forget (webhook de IA, gatilho de automação, avaliação pós-
+// atendimento) e uma falha de envio não pode derrubar o fluxo principal.
+async function enviarMensagemWhatsApp({ telefone, texto, estabelecimentoId }) {
+  if (!estabelecimentoId) {
+    console.error('enviarMensagemWhatsApp chamado sem estabelecimentoId -- mensagem NÃO enviada.');
+    return;
+  }
+  if (!evolution.evolutionConfigurada()) {
+    console.error('EVOLUTION_API_URL/EVOLUTION_API_KEY não configurados -- mensagem NÃO enviada.');
     return;
   }
 
-  const resposta = await fetch(`${baseUrl}/message/sendText/${instancia}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', apikey: apiKey },
-    body: JSON.stringify({ number: telefone, text: texto }),
-  });
-
-  if (!resposta.ok) {
-    console.error(`Falha ao enviar WhatsApp via Evolution API (${resposta.status}):`, await resposta.text());
+  try {
+    await evolution.enviarTexto(estabelecimentoId, telefone, texto);
+  } catch (erro) {
+    console.error('Falha ao enviar WhatsApp via Evolution API:', erro.message);
   }
+}
+
+// Mantém estabelecimentos.whatsapp_status/whatsapp_numero sincronizados com
+// o estado real da instância. Payload de "connection.update" na Evolution
+// API v2 (de memória, não verificado): { state: 'open'|'connecting'|'close',
+// ...outros campos dependendo da versão }. O número conectado normalmente só
+// fica disponível depois que o estado vira "open" -- consultamos a própria
+// Evolution API pra pegar o número nesse momento, em vez de confiar no
+// payload do webhook (formato desse campo específico não está confirmado).
+async function tratarAtualizacaoConexao(estabelecimentoId, dados) {
+  const estado = dados?.state;
+  const mapaStatus = { open: 'conectado', connecting: 'conectando', close: 'desconectado' };
+  const novoStatus = mapaStatus[estado] || 'desconectado';
+
+  const atualizacoes = { whatsapp_status: novoStatus };
+  if (novoStatus === 'conectado') {
+    // Nome do campo com o número conectado não está confirmado nessa versão
+    // da Evolution API -- tentamos os formatos mais comuns e deixamos null
+    // se nenhum bater (a UI só usa isso pra exibição, não é crítico).
+    const jid = dados?.wuid || dados?.owner || dados?.number || null;
+    atualizacoes.whatsapp_numero = jid ? jid.replace('@s.whatsapp.net', '') : null;
+  } else {
+    atualizacoes.whatsapp_numero = null;
+  }
+
+  await supabase.from('estabelecimentos').update(atualizacoes).eq('id', estabelecimentoId);
 }
 
 module.exports = router;

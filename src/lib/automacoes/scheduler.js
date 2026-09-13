@@ -44,7 +44,7 @@ async function registrarDisparo({ automacaoId, estabelecimentoId, clienteId, ref
 async function enviar({ automacaoId, estabelecimentoId, clienteId, referenciaId, telefone, texto }) {
   if (!telefone) return;
   const { enviarMensagemWhatsApp } = require('../../routes/whatsapp');
-  await enviarMensagemWhatsApp({ telefone, texto });
+  await enviarMensagemWhatsApp({ telefone, texto, estabelecimentoId });
   await registrarDisparo({ automacaoId, estabelecimentoId, clienteId, referenciaId });
 }
 

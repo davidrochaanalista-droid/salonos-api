@@ -145,7 +145,7 @@ async function dispararAvaliacoes(supabase, comandaId) {
 
   const { data: atendimentos } = await supabase
     .from('atendimentos')
-    .select('id, clientes(nome, telefone)')
+    .select('id, estabelecimento_id, clientes(nome, telefone)')
     .eq('comanda_id', comandaId);
 
   for (const atendimento of atendimentos || []) {
@@ -154,7 +154,7 @@ async function dispararAvaliacoes(supabase, comandaId) {
 
     const link = `${baseUrl}/avaliar.html?atendimento_id=${atendimento.id}`;
     const texto = `Oi! Como foi seu atendimento? Sua avaliação ajuda muito: ${link}`;
-    await enviarMensagemWhatsApp({ telefone, texto });
+    await enviarMensagemWhatsApp({ telefone, texto, estabelecimentoId: atendimento.estabelecimento_id });
   }
 }
 

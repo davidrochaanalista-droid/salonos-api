@@ -64,6 +64,22 @@ self-service pelo cliente ainda.
 loga e não envia nada enquanto `EVOLUTION_API_URL/INSTANCE/KEY` não
 estiverem configurados (ver pendência do Railway abaixo).
 
+### Estoque completo (`database/15-estoque-receitas.sql`, `16-fechar-comanda-baixa-estoque.sql`)
+
+Produtos com quantidade/custo/estoque mínimo (alerta visual quando abaixo do
+mínimo), "receita" por serviço (`estabelecimento_atividade_produtos` — quanto
+de cada produto um serviço consome por atendimento), e baixa automática no
+estoque dentro do próprio `fechar_comanda` (mesmo momento em que
+atendimentos/caixa são gravados). Cadastro de produto aceita foto opcional;
+Groq vision (`GROQ_VISION_MODEL`) tenta pré-preencher marca/descrição/
+validade como sugestão — nunca salva sozinho, sempre exige confirmação
+manual no formulário. Testado ponta a ponta no navegador (cadastro, receita,
+fechamento de comanda com baixa exata, alerta de mínimo). **Não testado**: o
+fluxo de identificação por foto com uma imagem real (sem câmera disponível
+no ambiente de teste) — a chamada à API da Groq segue o mesmo padrão já
+validado em `whatsapp.js`, mas o formato exato da resposta multimodal não
+foi confirmado com uma requisição real.
+
 ### Conta de teste
 
 Existe um estabelecimento de teste ("Studio Teste QA") no Supabase de
@@ -79,7 +95,23 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
    logam). Template pronto no marketplace do Railway quando for a hora:
    `railway deploy -t evolution-api-4`. O próprio `salonos-api` também nunca
    foi deployado.
-2. **Estoque** — sem schema, sem rota, placeholder "em breve".
+2. **Conexão de WhatsApp por salão + importação de contatos** — escopado e
+   construído em 13/09 (`database/17-whatsapp-conexao.sql`,
+   `src/lib/evolution-api.js`, `src/routes/whatsapp-conexao.js`, aba
+   WhatsApp em `salon-v6.html`), mas **⚠️ não testado contra uma instância
+   real** — bloqueado pelo item 1 acima. Modelo: um único serviço Railway do
+   Evolution API, **uma instância por salão** (`salon_{estabelecimento_id}`,
+   substituiu a `EVOLUTION_INSTANCE` fixa do `.env` — `enviarMensagemWhatsApp`
+   e todo mundo que a chama agora passam `estabelecimentoId`). Fluxo: dono
+   clica "Conectar WhatsApp" → modal com QR code (webhook sincroniza
+   `estabelecimentos.whatsapp_status`/`whatsapp_numero` via evento
+   `connection.update`) → depois de conectado, "Importar contatos" busca os
+   contatos salvos no celular (`findContacts` do Evolution) numa tela de
+   revisão com checkbox antes de virar `clientes` de verdade — decisão
+   consciente de não importar automaticamente pra não misturar contato
+   pessoal do dono com cliente real do salão. Nomes de endpoint/payload da
+   Evolution API v2 foram escritos de memória (não verificados) — primeira
+   coisa a conferir/ajustar assim que existir uma instância real pra testar.
 3. **IA de Retorno por Ciclo** exige o dono configurar
    `estabelecimento_atividades.ciclo_recompra_dias` por serviço (coluna
    existe, mas não tem UI pra editar isso ainda — só via `PATCH
