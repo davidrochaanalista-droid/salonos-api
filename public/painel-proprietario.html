@@ -9,6 +9,7 @@
 <title>SalonOS — Painel do Proprietário</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{
   --nude:#F2E8E1;--nude2:#EAD8CE;--nude3:#D4BFB4;--wh:#FFFFFF;
@@ -317,12 +318,40 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
 ::-webkit-scrollbar-track{background:var(--nude2)}
 ::-webkit-scrollbar-thumb{background:var(--nude3);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--gd)}
+
+/* ── LOGIN ── */
+.lw{position:fixed;inset:0;background:linear-gradient(145deg,#1A1510 0%,#2C1F1A 50%,#1A1510 100%);display:flex;align-items:center;justify-content:center;z-index:9999}
+.lb{background:rgba(242,232,225,.06);border:1px solid rgba(201,169,110,.2);border-radius:20px;padding:44px 40px;width:100%;max-width:400px;backdrop-filter:blur(20px)}
+.llogo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
+.lmark{width:34px;height:34px;background:var(--gd);border-radius:8px;display:grid;place-items:center;font-size:16px;color:var(--ink);flex-shrink:0}
+.lbrand{font-family:var(--fd);font-size:24px;color:var(--wh);letter-spacing:-.5px}.lbrand em{font-style:italic;color:var(--gd)}
+.lh{font-family:var(--fd);font-size:28px;font-weight:300;color:var(--wh);margin-bottom:6px}.lh em{font-style:italic;color:var(--gd)}
+.lsub{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:24px;line-height:1.5}
+.lf{margin-bottom:13px}.lf label{display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.4);margin-bottom:6px}
+.lf input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 14px;color:var(--wh);font-size:13px;font-family:var(--fb)}
+.lf input:focus{border-color:var(--gd);outline:none}.lf input::placeholder{color:rgba(255,255,255,.25)}
+.lbtn{width:100%;background:var(--gd);color:var(--ink);border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:var(--fb);margin-top:6px}
+.lbtn:hover{background:var(--gdd)}.lbtn:disabled{opacity:.6;cursor:not-allowed}
+.lerro{background:var(--rsl);color:var(--rs);border-radius:8px;padding:10px 13px;font-size:12px;margin-bottom:14px;line-height:1.5}
 </style>
 </head>
 <body>
 
+<!-- LOGIN -->
+<div class="lw" id="lw">
+  <div class="lb">
+    <div class="llogo"><div class="lmark">✂</div><div class="lbrand">Salon<em>OS</em></div></div>
+    <div class="lh">Painel do <em>Proprietário</em></div>
+    <div class="lsub">Acompanhe todas as suas unidades em um único lugar.</div>
+    <div id="lwErro"></div>
+    <div class="lf"><label>E-mail</label><input type="email" id="lwEmail" placeholder="contato@seusalao.com"></div>
+    <div class="lf"><label>Senha</label><input type="password" id="lwSenha" placeholder="Digite sua senha"></div>
+    <button class="lbtn" id="lwBtn" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
 <!-- TOPBAR -->
-<header class="topbar">
+<header class="topbar" id="topbar" style="display:none">
   <div class="brand">
     <div class="bmark">✂</div>
     <div>
@@ -339,20 +368,20 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
   </nav>
   <div class="tright">
     <div class="owner-chip" onclick="Toast.show('Abrindo configurações do perfil...')">
-      <div class="owner-av">RB</div>
+      <div class="owner-av" id="ownerAv">-</div>
       <div>
-        <div class="owner-nm">Roberta Bezerra</div>
-        <div class="owner-plan">Plano Multi-Unidades</div>
+        <div class="owner-nm" id="ownerNm">-</div>
+        <div class="owner-plan" id="ownerPlan">-</div>
       </div>
     </div>
   </div>
 </header>
 
 <!-- HERO -->
-<div class="hero" id="heroSection">
+<div class="hero" id="heroSection" style="display:none">
   <div class="hero-inner">
     <div>
-      <div class="hero-ey">Bem-vinda de volta, Roberta</div>
+      <div class="hero-ey" id="heroEy">Bem-vindo(a) de volta</div>
       <div class="hero-h">Seus salões, <em>ao vivo</em></div>
       <div class="hero-sub">Acompanhe todas as suas unidades em um único lugar. Receita consolidada, equipes e desempenho em tempo real.</div>
     </div>
@@ -361,7 +390,7 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
 </div>
 
 <!-- MAIN -->
-<div class="main">
+<div class="main" id="mainWrap" style="display:none">
   <div class="page active" id="page-dashboard"></div>
   <div class="page" id="page-cadastro"></div>
   <div class="page" id="page-comparativo"></div>
@@ -381,64 +410,147 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
 <script>
 'use strict';
 
-/* ── DATA ── */
-const D = {
-  owner: { nm: 'Roberta Bezerra', plan: 'Multi-Unidades', since: 'Mar 2023' },
-  saloes: [
-    {
-      id: 1, nome: 'Studio Beleza Pro', emoji: '💆', cidade: 'São Paulo', bairro: 'Jardins',
-      status: 'ativo', plano: 'Escala', desde: 'Mar 2023', cor: '#C9A96E', bg: 'rgba(201,169,110,.12)',
-      rec_mes: 18640, rec_ano: 198400, mrr: 4730, agend_mes: 148, ticket_med: 118,
-      tax_retorno: 68, staff: 4, rating: 4.9, meta_mes: 22000, margem_pct: 61,
-      rec_semanas: [3980, 4620, 5280, 4760],
-      top_servicos: [['Coloração', 38, '#8B7A55'], ['Corte', 31, '#4A7A62'], ['Progressiva', 20, '#7A5A8A']],
-      staff_list: [
-        { nm:'Camila Souza', rl:'Colorista', in:'CS', c:'#8B7A55', bg:'rgba(139,122,85,.18)', rec:5720, comm:45 },
-        { nm:'Renata Lima', rl:'Cabeleireira', in:'RL', c:'#4A7A62', bg:'rgba(74,122,98,.18)', rec:3720, comm:40 },
-        { nm:'Bruna Martins', rl:'Manicure', in:'BM', c:'#7A5A8A', bg:'rgba(122,90,138,.18)', rec:2430, comm:50 },
-        { nm:'Patricia Costa', rl:'Esteticista', in:'PC', c:'#6A7A9A', bg:'rgba(106,122,154,.18)', rec:3960, comm:40 },
-      ],
-    },
-    {
-      id: 2, nome: 'Studio Moema', emoji: '✂', cidade: 'São Paulo', bairro: 'Moema',
-      status: 'ativo', plano: 'Crescimento', desde: 'Jan 2024', cor: '#4A7A62', bg: 'rgba(74,122,98,.12)',
-      rec_mes: 12380, rec_ano: 132000, mrr: 2940, agend_mes: 98, ticket_med: 106,
-      tax_retorno: 61, staff: 3, rating: 4.7, meta_mes: 15000, margem_pct: 54,
-      rec_semanas: [2800, 3200, 3400, 2980],
-      top_servicos: [['Corte', 28, '#4A7A62'], ['Mechas', 22, '#8B7A55'], ['Escova', 18, '#6A7A9A']],
-      staff_list: [
-        { nm:'Julia Santos', rl:'Colorista', in:'JS', c:'#4A7A62', bg:'rgba(74,122,98,.18)', rec:4200, comm:45 },
-        { nm:'Mariana Costa', rl:'Cabeleireira', in:'MC', c:'#7A5A8A', bg:'rgba(122,90,138,.18)', rec:3800, comm:40 },
-        { nm:'Larissa Dias', rl:'Manicure', in:'LD', c:'#9A6F00', bg:'rgba(154,111,0,.15)', rec:2100, comm:50 },
-      ],
-    },
-    {
-      id: 3, nome: 'Studio ABC', emoji: '💅', cidade: 'Santo André', bairro: 'Centro',
-      status: 'ativo', plano: 'Base', desde: 'Jun 2024', cor: '#7A5A8A', bg: 'rgba(122,90,154,.12)',
-      rec_mes: 8920, rec_ano: 78000, mrr: 1880, agend_mes: 72, ticket_med: 94,
-      tax_retorno: 55, staff: 2, rating: 4.6, meta_mes: 12000, margem_pct: 43,
-      rec_semanas: [1980, 2240, 2480, 2220],
-      top_servicos: [['Manicure', 32, '#7A5A8A'], ['Pedicure', 24, '#9A6F00'], ['Esmalterias', 16, '#3A6EA8']],
-      staff_list: [
-        { nm:'Fernanda Rocha', rl:'Manicure', in:'FR', c:'#7A5A8A', bg:'rgba(122,90,138,.18)', rec:4200, comm:50 },
-        { nm:'Tatiane Lima', rl:'Cabeleireira', in:'TL', c:'#3A6EA8', bg:'rgba(58,110,168,.18)', rec:3400, comm:40 },
-      ],
-    },
-  ],
-};
+/* ── DATA (populado depois do login, ver carregarDados()) ── */
+let D = { owner: null, saloes: [] };
 
-/* ── COMPUTEDS ── */
-const totalRec = D.saloes.reduce((a,s) => a + s.rec_mes, 0);
-const totalMRR = D.saloes.reduce((a,s) => a + s.mrr, 0);
-const totalStaff = D.saloes.reduce((a,s) => a + s.staff, 0);
-const avgRating = (D.saloes.reduce((a,s) => a + s.rating, 0) / D.saloes.length).toFixed(1);
-const totalMeta = D.saloes.reduce((a,s) => a + s.meta_mes, 0);
-const metaPct = Math.round((totalRec / totalMeta) * 100);
+/* ── COMPUTEDS (recalculados sempre que D.saloes muda, ver recalcTotals()) ── */
+let totalRec = 0, totalMRR = 0, totalStaff = 0, avgRating = '0.0', totalMeta = 0, metaPct = 0;
 // Margem real ponderada por receita - agregado da rede. So existe porque a comanda de cada
 // unidade ja calcula margem por atendimento (insumo + comissao); nenhum concorrente de
 // gestao multi-unidade sobe margem real ate a visao do dono, so receita bruta.
-const margemRede = Math.round(D.saloes.reduce((a,s) => a + s.margem_pct * s.rec_mes, 0) / totalRec);
-const lucroRedeMes = Math.round(D.saloes.reduce((a,s) => a + s.rec_mes * (s.margem_pct/100), 0));
+let margemRede = 0, lucroRedeMes = 0;
+
+function recalcTotals() {
+  totalRec = D.saloes.reduce((a,s) => a + s.rec_mes, 0);
+  totalMRR = D.saloes.reduce((a,s) => a + s.mrr, 0);
+  totalStaff = D.saloes.reduce((a,s) => a + s.staff, 0);
+  avgRating = D.saloes.length ? (D.saloes.reduce((a,s) => a + s.rating, 0) / D.saloes.length).toFixed(1) : '0.0';
+  totalMeta = D.saloes.reduce((a,s) => a + s.meta_mes, 0);
+  metaPct = totalMeta ? Math.round((totalRec / totalMeta) * 100) : 0;
+  margemRede = totalRec ? Math.round(D.saloes.reduce((a,s) => a + s.margem_pct * s.rec_mes, 0) / totalRec) : 0;
+  lucroRedeMes = Math.round(D.saloes.reduce((a,s) => a + s.rec_mes * (s.margem_pct/100), 0));
+}
+
+/* ── AUTH + CARGA DE DADO REAL ── */
+const SUPABASE_URL = 'https://shekztrtkaknyudvzttf.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_WGAnLGQxexd89d0dOJhpTg_KoIGWVaX';
+const API_BASE_URL = 'http://localhost:3001';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function chamarAPI(metodo, caminho, corpo) {
+  const { data: { session } } = await sb.auth.getSession();
+  const resposta = await fetch(API_BASE_URL + caminho, {
+    method: metodo,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
+    body: corpo ? JSON.stringify(corpo) : undefined,
+  });
+  const json = await resposta.json();
+  if (!resposta.ok) throw new Error(json.erro || 'Erro na requisição.');
+  return json;
+}
+
+// Paleta fixa pra colorir cada unidade -- o backend não guarda cor/emoji
+// (isso é puramente decorativo, não existe no schema de estabelecimentos).
+const PALETA = [
+  { cor:'#C9A96E', bg:'rgba(201,169,110,.12)', emoji:'💆' },
+  { cor:'#4A7A62', bg:'rgba(74,122,98,.12)', emoji:'✂' },
+  { cor:'#7A5A8A', bg:'rgba(122,90,154,.12)', emoji:'💅' },
+  { cor:'#6A7A9A', bg:'rgba(106,122,154,.12)', emoji:'🧖' },
+  { cor:'#9A6F00', bg:'rgba(154,111,0,.12)', emoji:'💇' },
+  { cor:'#3A6EA8', bg:'rgba(58,110,168,.12)', emoji:'💇‍♀️' },
+];
+function corDaUnidade(indice) { return PALETA[indice % PALETA.length]; }
+function iniciais(nome) {
+  return (nome || '').trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() || '').join('');
+}
+function capitalizar(txt) { return txt ? txt.charAt(0).toUpperCase() + txt.slice(1) : txt; }
+function formatarDesde(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const mes = capitalizar(d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''));
+  return `${mes} ${d.getFullYear()}`;
+}
+function anoMesAtual() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+}
+function tagStatus(status) {
+  const mapa = {
+    ativo: { cls: 'tsg', label: 'Ativo' },
+    trial: { cls: 'tgd', label: 'Trial' },
+    inadimplente: { cls: 'trs', label: 'Inadimplente' },
+    cancelado: { cls: 'tik', label: 'Cancelado' },
+  };
+  return mapa[status] || { cls: 'tik', label: status || '—' };
+}
+
+async function doLogin() {
+  const email = $('#lwEmail').value.trim();
+  const senha = $('#lwSenha').value;
+  const btn = $('#lwBtn');
+  $('#lwErro').innerHTML = '';
+  if (!email || !senha) { $('#lwErro').innerHTML = `<div class="lerro">Preencha e-mail e senha.</div>`; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Entrando...';
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email, password: senha });
+    if (error) throw error;
+    await carregarDados();
+  } catch (erro) {
+    $('#lwErro').innerHTML = `<div class="lerro">${erro.message === 'Invalid login credentials' ? 'E-mail ou senha incorretos.' : erro.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+  }
+}
+
+async function carregarDados() {
+  const estabelecimentos = await chamarAPI('GET', '/estabelecimentos');
+  const anoMes = anoMesAtual();
+  const resumos = await Promise.all(
+    estabelecimentos.map(e => chamarAPI('GET', `/estabelecimentos/${e.id}/resumo-mensal?ano_mes=${anoMes}`))
+  );
+
+  D.saloes = resumos.map((r, i) => {
+    const paleta = corDaUnidade(i);
+    const topServicos = (r.top_servicos || []).map(([nome, pct]) => [nome, pct, paleta.cor]);
+    const staffList = (r.staff_list || []).map(f => ({
+      nm: f.nome, rl: '', in: iniciais(f.nome), c: paleta.cor, bg: paleta.bg,
+      rec: f.receita_mes, comm: f.comissao_percentual,
+    }));
+    return {
+      ...r,
+      cor: paleta.cor, bg: paleta.bg, emoji: paleta.emoji,
+      plano: capitalizar(r.plano),
+      status: r.status_assinatura,
+      desde: formatarDesde(r.desde),
+      top_servicos: topServicos,
+      staff_list: staffList,
+    };
+  });
+
+  try {
+    const owner = await chamarAPI('GET', '/proprietarios/me');
+    const planoLabel = D.saloes.length > 1 ? 'Multi-Unidades' : (D.saloes[0]?.plano ? `Plano ${D.saloes[0].plano}` : '');
+    D.owner = { nm: owner.nome, plan: planoLabel, since: formatarDesde(owner.created_at) };
+  } catch {
+    D.owner = { nm: '—', plan: '', since: '' };
+  }
+
+  $('#ownerAv').textContent = iniciais(D.owner.nm) || '—';
+  $('#ownerNm').textContent = D.owner.nm || '—';
+  $('#ownerPlan').textContent = D.owner.plan || '';
+  $('#heroEy').textContent = D.owner.nm && D.owner.nm !== '—' ? `Bem-vindo(a) de volta, ${D.owner.nm.split(' ')[0]}` : 'Bem-vindo(a) de volta';
+
+  recalcTotals();
+  $('#lw').style.display = 'none';
+  $('#topbar').style.display = '';
+  $('#heroSection').style.display = '';
+  $('#mainWrap').style.display = '';
+  if (!window.__painelIniciado) { init(); window.__painelIniciado = true; }
+  else P.dashboard();
+}
 
 /* ── UTILS ── */
 const $ = s => document.querySelector(s);
@@ -561,7 +673,7 @@ const P = {
                 const pct = Math.round((s.rec_mes / s.meta_mes) * 100);
                 const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
                 const mCol = s.margem_pct>=60?'var(--sg)':s.margem_pct>=50?'var(--gdd)':'var(--rs)';
-                return `<div class="rt-row" style="display:grid;grid-template-columns:40px 2fr 1fr 1fr 1fr 1fr 1fr 100px;padding:14px 20px;border-bottom:1px solid var(--bd);align-items:center;font-size:13px;cursor:pointer" onclick="Router.go('detalhe', ${s.id})">
+                return `<div class="rt-row" style="display:grid;grid-template-columns:40px 2fr 1fr 1fr 1fr 1fr 1fr 100px;padding:14px 20px;border-bottom:1px solid var(--bd);align-items:center;font-size:13px;cursor:pointer" onclick="Router.go('detalhe', '${s.id}')">
                   <div style="font-size:18px">${medal}</div>
                   <div><div class="fw6">${s.nome}</div><div class="txs tm2">${s.bairro}, ${s.cidade}</div></div>
                   <div class="fw6 gd2">${R(s.rec_mes)}</div>
@@ -572,7 +684,7 @@ const P = {
                     <div class="pbt" style="height:4px;width:80px"><div class="pbf" style="width:${Math.min(pct,100)}%;background:${pct>=100?'var(--sg)':'var(--gd)'}"></div></div>
                   </div>
                   <div>${s.agend_mes}</div>
-                  <div><span class="tag tsg">Ativo</span></div>
+                  <div><span class="tag ${tagStatus(s.status).cls}">${tagStatus(s.status).label}</span></div>
                 </div>`;
               }).join('')}
           </div>
@@ -614,7 +726,7 @@ const P = {
           <div class="salon-name">${i === 0 ? `<em>${s.nome}</em>` : s.nome}</div>
           <div class="salon-city">📍 ${s.bairro}, ${s.cidade}</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-            <span class="tag tsg">Ativo</span>
+            <span class="tag ${tagStatus(s.status).cls}">${tagStatus(s.status).label}</span>
             <span class="tag tgd">${s.plano}</span>
           </div>
           <div class="flex jb txs mb4"><span class="tm2">Meta do mês</span><span class="fw6" style="color:${pct>=100?'var(--sg)':'var(--gdd)'}">${pct}%</span></div>
@@ -965,7 +1077,7 @@ const P = {
           <div class="card mb16">
             <div class="cardh"><div class="cardt">Receita <em>por Unidade — Mês Atual</em></div></div>
             ${D.saloes.map(s => `
-              <div class="lr" onclick="Router.go('detalhe', ${s.id})">
+              <div class="lr" onclick="Router.go('detalhe', '${s.id}')">
                 <div style="width:32px;height:32px;border-radius:8px;background:${s.bg};display:grid;place-items:center;font-size:15px;flex-shrink:0">${s.emoji}</div>
                 <div style="flex:1">
                   <div class="lrn">${s.nome}</div>
@@ -1060,7 +1172,7 @@ const P = {
         </div>
         <div class="flex g8">
           <button class="btn btgh sm" onclick="Toast.show('Abrindo SalonOS do ${s.nome}...','🚀')">Abrir SalonOS desta unidade →</button>
-          <button class="btn bto sm" onclick="openEditModal(${s.id})">✏️ Editar dados</button>
+          <button class="btn bto sm" onclick="openEditModal('${s.id}')">✏️ Editar dados</button>
         </div>
       </div>
 
@@ -1269,28 +1381,28 @@ function switchUnit(id) {
 /* ── INIT ── */
 function init() {
   $$('.tnt[data-page]').forEach(b => b.addEventListener('click', () => Router.go(b.dataset.page)));
-  $('#exitBtn').addEventListener('click', () => Toast.show('Sessão encerrada. Até logo! 👋', '👋'));
+  $('#exitBtn').addEventListener('click', async () => {
+    await sb.auth.signOut();
+    $('#topbar').style.display = 'none';
+    $('#heroSection').style.display = 'none';
+    $('#mainWrap').style.display = 'none';
+    $('#lwEmail').value = '';
+    $('#lwSenha').value = '';
+    $('#lw').style.display = '';
+  });
   $('#mclose').addEventListener('click', Modal.close);
   $('#mbd').addEventListener('click', e => { if (e.target === $('#mbd')) Modal.close() });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') Modal.close() });
 
-  // Live ticker
-  setInterval(() => {
-    const hk = $$('.hkpi-v.g');
-    hk.forEach(el => {
-      if (!el) return;
-      const cur = parseInt(el.textContent.replace(/\D/g, ''));
-      const nv = cur + Math.floor(Math.random() * 80 + 20);
-      el.style.transition = 'color .4s';
-      el.style.color = 'var(--wh)';
-      setTimeout(() => { el.style.color = 'var(--gd)'; el.textContent = R(nv) }, 400);
-    });
-  }, 12000);
-
   P.dashboard();
 }
 
-document.addEventListener('DOMContentLoaded', init);
+async function verificarSessaoEContinuar() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) await carregarDados();
+}
+
+document.addEventListener('DOMContentLoaded', verificarSessaoEContinuar);
 </script>
 </body>
 </html>

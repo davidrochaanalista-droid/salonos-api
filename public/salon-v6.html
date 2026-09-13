@@ -33,6 +33,7 @@
 <title>SalonOS v6 — Studio Beleza Pro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{
   /* ── Paleta de identidade ── */
@@ -114,7 +115,7 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 .dchip{font-size:11px;color:var(--ink3);padding:4px 10px;background:var(--cr2);border:1px solid var(--bd);border-radius:var(--rs2)}
 /* HERO */
-.hero{background:linear-gradient(135deg,#1A1510 0%,#2A1C18 40%,#1E1612 100%);padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:20px;overflow:hidden;position:relative;flex-wrap:wrap}
+.hero{background:linear-gradient(135deg,#1A1510 0%,#2A1C18 40%,#1E1612 100%);margin-top:56px;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:20px;overflow:hidden;position:relative;flex-wrap:wrap}
 .hero::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(201,169,110,.025) 40px,rgba(201,169,110,.025) 41px)}
 .hero::after{content:'';position:absolute;top:-120px;right:-80px;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(201,169,110,.09),transparent 65%);pointer-events:none}
 .hey{font-size:9px;font-weight:500;color:rgba(255,255,255,.3);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}
@@ -181,16 +182,12 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
 <div class="lw" id="lw">
   <div class="lb">
     <div class="llogo"><div class="lmark">&#9986;</div><div class="lbrand">Salon<em>OS</em></div></div>
-    <div class="lh">Bem-vinda <em>de volta</em></div>
+    <div class="lh">Bem-vindo(a) <em>de volta</em></div>
     <div class="lsub">Acesse o painel do seu salao para acompanhar tudo em tempo real.</div>
-    <div class="lf"><label>E-mail</label><input type="email" placeholder="contato@seusalao.com" value="camila@studiobeleza.com"></div>
-    <div class="lf"><label>Senha</label><input type="password" placeholder="Digite sua senha"></div>
-    <button class="lbtn" onclick="doLogin()">Entrar no SalonOS</button>
-    <div class="lprofs">
-      <div class="lp" onclick="quickLogin('Roberta')"><div class="lp-i">&#128081;</div><div class="lp-n">Roberta</div><div class="lp-r">Dona</div></div>
-      <div class="lp" onclick="quickLogin('Camila')"><div class="lp-i">&#128188;</div><div class="lp-n">Camila</div><div class="lp-r">Gerente</div></div>
-      <div class="lp" onclick="quickLogin('Renata')"><div class="lp-i">&#128134;</div><div class="lp-n">Renata</div><div class="lp-r">Profissional</div></div>
-    </div>
+    <div id="loginErro" style="display:none;background:rgba(192,80,74,.18);color:#e6a19c;border-radius:8px;padding:10px 13px;font-size:12px;margin-bottom:14px;line-height:1.5"></div>
+    <div class="lf"><label>E-mail</label><input type="email" id="loginEmail" placeholder="contato@seusalao.com"></div>
+    <div class="lf"><label>Senha</label><input type="password" id="loginSenha" placeholder="Digite sua senha"></div>
+    <button class="lbtn" id="loginBtn" onclick="doLogin()">Entrar no SalonOS</button>
   </div>
 </div>
 <!-- TOPBAR -->
@@ -210,7 +207,6 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
     <div class="nb" data-page="equipe">Equipe</div>
     <div class="nb nw" data-page="previsao">IA Preditiva</div>
     <div class="nb nw" data-page="marketplace">🛍 Marketplace</div>
-    <div class="nb nw" data-page="planos">Plano</div>
     <div class="nb" data-page="config">Config</div>
     <div class="ndiv"></div>
     <div class="nb exit" id="exitBtn">Sair</div>
@@ -219,13 +215,11 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
 </header>
 <!-- HERO -->
 <div class="hero" id="heroBar" style="display:none">
-  <div><div class="hey">BEM-VINDA DE VOLTA</div><div class="htitle">Seu salao hoje, <em>ao vivo</em></div></div>
+  <div><div class="hey">BEM-VINDO(A) DE VOLTA</div><div class="htitle">Seu salao hoje, <em>ao vivo</em></div></div>
   <div class="hkpis">
-    <div class="hk"><div class="hkv g" id="hk1">R$ 2.840</div><div class="hkl">RECEITA HOJE</div><div class="hkd" style="color:var(--sg)">meta 71%</div></div>
-    <div class="hk"><div class="hkv">8/12</div><div class="hkl">AGENDAMENTOS</div><div class="hkd" style="color:var(--sg)">6 confirmados</div></div>
-    <div class="hk"><div class="hkv">R$ 18.640</div><div class="hkl">RECEITA MES</div><div class="hkd" style="color:var(--sg)">+23%</div></div>
-    <div class="hk"><div class="hkv">R$ 4.730</div><div class="hkl">PLANOS MENSAIS</div><div class="hkd" style="color:var(--sg)">43 clientes</div></div>
-    <div class="hk"><div class="hkv s">R$ 8.340</div><div class="hkl">PREVISAO 30D</div><div class="hkd" style="color:var(--gd)">IA nativa</div></div>
+    <div class="hk"><div class="hkv g" id="hk1">-</div><div class="hkl">RECEITA HOJE</div><div class="hkd" id="hk1d" style="color:var(--sg)">-</div></div>
+    <div class="hk"><div class="hkv" id="hk2">-</div><div class="hkl">AGENDAMENTOS HOJE</div><div class="hkd" id="hk2d" style="color:var(--sg)">-</div></div>
+    <div class="hk"><div class="hkv" id="hk3">-</div><div class="hkl">RECEITA MES</div><div class="hkd" id="hk3d" style="color:var(--sg)">-</div></div>
   </div>
 </div>
 <!-- MAIN -->
@@ -249,6 +243,44 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
 <div class="twrap" id="twrap"></div>
 <script>
 'use strict';
+
+// ============================================================
+// CONFIGURAÇÃO / AUTH REAL (mesmo padrão de cadastro-real.html)
+// ============================================================
+const SUPABASE_URL = 'https://shekztrtkaknyudvzttf.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_WGAnLGQxexd89d0dOJhpTg_KoIGWVaX';
+const API_BASE_URL = 'http://localhost:3001';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let estabelecimentoAtivo = null;
+let caixaChannel = null;
+let comandaAtual = null;
+let atividadesCache = [];
+const state = { agendamentosHoje: [], clientes: [] };
+
+async function chamarAPI(metodo, caminho, corpo) {
+  const { data: { session } } = await sb.auth.getSession();
+  const resposta = await fetch(API_BASE_URL + caminho, {
+    method: metodo,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
+    body: corpo ? JSON.stringify(corpo) : undefined,
+  });
+  const json = await resposta.json().catch(() => ({}));
+  if (!resposta.ok) throw new Error(json.erro || 'Erro na requisição.');
+  return json;
+}
+
+const PALETA_STAFF=[{c:'#8B7A55',bg:'rgba(139,122,85,.18)'},{c:'#4A7A62',bg:'rgba(74,122,98,.18)'},{c:'#7A5A8A',bg:'rgba(122,90,138,.18)'},{c:'#6A7A9A',bg:'rgba(106,122,154,.18)'},{c:'#9A6F00',bg:'rgba(154,111,0,.15)'},{c:'#3A6EA8',bg:'rgba(58,110,168,.18)'}];
+function corPara(id){let h=0;for(const ch of String(id))h=(h*31+ch.charCodeAt(0))>>>0;return PALETA_STAFF[h%PALETA_STAFF.length];}
+function iniciais(nome){return(nome||'?').trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
+function renderEmBreve(pageId,titulo,sub){
+  html($('#'+pageId),'<div class="sech"><div><div class="sct">'+titulo+'</div><div class="scsub">'+sub+'</div></div></div>'
+  +'<div class="card"><div class="cardb" style="text-align:center;padding:44px 20px;color:var(--ink3)">'
+  +'<div style="font-size:15px;font-weight:600;margin-bottom:6px;color:var(--ink2)">Em breve</div>'
+  +'<div style="font-size:12.5px;line-height:1.6">Essa área ainda não está conectada a dados reais.</div>'
+  +'</div></div>');
+}
+
 const D={
   units:[{id:1,nm:'Studio Principal',city:'Jardins, SP',active:true},{id:2,nm:'Studio Moema',city:'Moema, SP',active:false},{id:3,nm:'Studio ABC',city:'Santo Andre',active:false}],
   staff:[
@@ -256,27 +288,6 @@ const D={
     {id:2,nm:'Renata Lima',rl:'Cabeleireira',in:'RL',c:'#4A7A62',bg:'rgba(74,122,98,.18)',st:'ativo',cm:40,at:31,re:3720,cv:1488,rt:4.7,mt:5000,tl:'(11)97711-3344'},
     {id:3,nm:'Bruna Martins',rl:'Manicure',in:'BM',c:'#7A5A8A',bg:'rgba(122,90,138,.18)',st:'ativo',cm:50,at:54,re:2430,cv:1215,rt:4.8,mt:3000,tl:'(11)96622-5566'},
     {id:4,nm:'Patricia Costa',rl:'Esteticista',in:'PC',c:'#6A7A9A',bg:'rgba(106,122,154,.18)',st:'ativo',cm:40,at:22,re:3960,cv:1584,rt:4.6,mt:5000,tl:'(11)95533-7788'},
-  ],
-  appts:[
-    {t:'09:00',pro:0,cl:'Ana Beatriz Silva',sv:'Coloracao Completa',vl:180,st:'ok',ac:'#C9A96E'},
-    {t:'09:30',pro:1,cl:'Marina Costa',sv:'Corte + Escova',vl:110,st:'ok',ac:'#4A7A62'},
-    {t:'10:00',pro:1,cl:'Juliana Ferreira',sv:'Progressiva',vl:280,st:'pend',ac:'#9A6F00'},
-    {t:'10:00',pro:0,cl:'Paula Cardoso',sv:'Mechas',vl:220,st:'ok',ac:'#C9A96E'},
-    {t:'11:00',pro:2,cl:'Sara Nunes',sv:'Manicure+Pedicure',vl:80,st:'ok',ac:'#7A5A8A'},
-    {t:'13:00',pro:0,cl:'Cris Barbosa',sv:'Coloracao',vl:160,st:'pend',ac:'#C9A96E'},
-    {t:'14:00',pro:3,cl:'Roberta Lima',sv:'Limpeza de Pele',vl:150,st:'ok',ac:'#6A7A9A'},
-    {t:'15:00',pro:1,cl:'Debora Alves',sv:'Escova Modeladora',vl:70,st:'done',ac:'#4A7A62'},
-    {t:'16:00',pro:2,cl:'',sv:'',vl:0,st:'empty',ac:''},
-  ],
-  cancels:[{cl:'Fernanda Dias',sv:'Coloracao',tm:'08:14',rs:'Pediu reagendamento'},{cl:'Leticia Moraes',sv:'Escova',tm:'07:52',rs:'Nao confirmou'}],
-  churn:[{nm:'Gisele Ramos',sv:'Coloracao',ds:62,in:'GR',c:'#8B7A55',bg:'rgba(139,122,85,.18)'},{nm:'Camila Torres',sv:'Progressiva',ds:55,in:'CT',c:'#4A7A62',bg:'rgba(74,122,98,.18)'},{nm:'Viviane Pereira',sv:'Mechas',ds:48,in:'VP',c:'#7A5A8A',bg:'rgba(122,90,138,.18)'}],
-  clients:[
-    {nm:'Ana Beatriz Silva',in:'AS',c:'#8B7A55',bg:'rgba(139,122,85,.18)',ph:'(11)99100-1111',ls:'Coloracao',ld:'25/04',cy:45,ds:3,ltv:2340,vt:18,st:'ok',bd:'15 de Marco',fr:'Louro 8.1 + oxidante 30vol - 45min',al:'Nenhuma',hist:['25/04 - Coloracao R$180','28/03 - Hidratacao R$90','12/03 - Coloracao R$180','14/02 - Escova R$70'],obs:'Prefere nao usar amonia. Cabelo fino.'},
-    {nm:'Marina Costa',in:'MC',c:'#C0504A',bg:'rgba(192,80,74,.18)',ph:'(11)99200-2222',ls:'Coloracao',ld:'26/02',cy:45,ds:60,ltv:1080,vt:9,st:'churn',bd:'22 de Julho',fr:'Castanho 5.0 + oxidante 20vol',al:'Amonia forte',hist:['26/02 - Coloracao R$180','12/01 - Coloracao R$180'],obs:'Sensivel ao couro cabeludo.'},
-    {nm:'Paula Cardoso',in:'PC',c:'#4A7A62',bg:'rgba(74,122,98,.18)',ph:'(11)99300-3333',ls:'Clube Beleza',ld:'01/04',cy:30,ds:12,ltv:3760,vt:32,st:'vip',bd:'8 de Dezembro',fr:'Mechas naturais - luzes finas',al:'Nenhuma',hist:['01/04 - Mechas R$220','01/03 - Mechas R$220','01/02 - Mechas R$220'],obs:'VIP. Plano mensal. Sempre as quintas.'},
-    {nm:'Cris Barbosa',in:'CB',c:'#7A5A8A',bg:'rgba(122,90,138,.18)',ph:'(11)99400-4444',ls:'Coloracao',ld:'08/03',cy:45,ds:48,ltv:540,vt:5,st:'risk',bd:'30 de Janeiro',fr:'Vermelho 7.66 + oxidante 30vol',al:'Nenhuma',hist:['08/03 - Coloracao R$160','22/01 - Coloracao R$160'],obs:'Gosta da cor vibrante.'},
-    {nm:'Sara Nunes',in:'SN',c:'#9A6F00',bg:'rgba(154,111,0,.15)',ph:'(11)99500-5555',ls:'Mechas',ld:'15/04',cy:60,ds:10,ltv:720,vt:6,st:'ok',bd:'11 de Junho',fr:'Luzes naturais - mechas finas',al:'Nenhuma',hist:['15/04 - Mechas R$220','15/02 - Mechas R$220'],obs:'Prefere resultado natural.'},
-    {nm:'Bruna Ferreira',in:'BF',c:'#3A6EA8',bg:'rgba(58,110,168,.18)',ph:'(11)99600-6666',ls:'Mechas',ld:'20/04',cy:45,ds:5,ltv:180,vt:1,st:'novo',bd:'3 de Setembro',fr:'A definir - 1a visita',al:'Nenhuma',hist:['20/04 - Mechas R$180 - 1a visita'],obs:'Indicacao da Paula Cardoso.'},
   ],
   procs:[
     {id:1,nm:'Coloracao Completa',cat:'Cabelo',dur:120,price:180,cost:32,comm:45},
@@ -290,54 +301,33 @@ const D={
     {id:9,nm:'Limpeza de Pele',cat:'Estetica',dur:90,price:150,cost:22,comm:40},
     {id:10,nm:'Depilacao Completa',cat:'Estetica',dur:60,price:120,cost:15,comm:40},
   ],
-  estoque:[
-    {nm:'Tinta Wella Koleston',ct:'Coloracao',un:'Tubo',qt:24,mn:10,cu:28,sp:0,tp:'insumo',lote:'WK2506',val:'2027-03-15'},
-    {nm:'Oxidante 30vol 900ml',ct:'Coloracao',un:'Frasco',qt:8,mn:5,cu:18,sp:0,tp:'insumo',lote:'OX0426',val:'2026-11-02'},
-    {nm:'Mascara Hidratacao 1kg',ct:'Tratamento',un:'Pote',qt:4,mn:3,cu:45,sp:0,tp:'insumo',lote:'MH1125',val:'2026-09-30'},
-    {nm:'Botox Capilar 1kg',ct:'Progressiva',un:'Pote',qt:2,mn:2,cu:120,sp:0,tp:'insumo',lote:'BX0326',val:'2026-08-28'},
-    {nm:'Shampoo Profissional',ct:'Revenda',un:'Unidade',qt:12,mn:5,cu:22,sp:58,tp:'venda',lote:'SP0925',val:'2027-06-01'},
-    {nm:'Mascara Reconstrucao',ct:'Revenda',un:'Unidade',qt:7,mn:4,cu:35,sp:85,tp:'venda',lote:'MR1225',val:'2027-04-10'},
-    {nm:'Leave-in Protetor',ct:'Revenda',un:'Unidade',qt:15,mn:6,cu:18,sp:42,tp:'venda',lote:'LP0126',val:'2027-01-20'},
-    {nm:'Base Fortalecedora',ct:'Manicure',un:'Frasco',qt:3,mn:5,cu:8,sp:0,tp:'insumo',lote:'BF0626',val:'2026-09-05'},
-  ],
-  caixa:{
-    ent:[{hr:'09:47',ds:'Ana Beatriz - Coloracao',fm:'Pix',vl:180},{hr:'10:15',ds:'Marina Costa - Corte',fm:'Debito',vl:110},{hr:'11:02',ds:'Venda Shampoo',fm:'Pix',vl:58},{hr:'13:30',ds:'Paula Cardoso - Mechas',fm:'Dinheiro',vl:220},{hr:'14:55',ds:'Sara Nunes - Manicure',fm:'Credito',vl:80}],
-    sai:[{hr:'08:30',ds:'Insumos - Beleza Dist.',vl:180},{hr:'12:00',ds:'Almoco da equipe',vl:85}],
-    meta:4000,
-  },
-  avals:[
-    {nm:'Ana Beatriz Silva',st:5,tx:'Amei o resultado! Camila e incrivel.',sv:'Coloracao',pr:'Camila',dt:'25/04',rp:false},
-    {nm:'Paula Cardoso',st:5,tx:'Studio maravilhoso, atendimento impecavel!',sv:'Mechas',pr:'Camila',dt:'24/04',rp:true},
-    {nm:'Sara Nunes',st:4,tx:'Gostei muito. So esperou um pouco.',sv:'Manicure',pr:'Bruna',dt:'23/04',rp:false},
-    {nm:'Roberta Lima',st:5,tx:'Minha pele ficou radiante! Patricia e atenciosa.',sv:'Limpeza de Pele',pr:'Patricia',dt:'22/04',rp:true},
-    {nm:'Cris Barbosa',st:3,tx:'Servico bom, mas salao estava barulhento.',sv:'Coloracao',pr:'Renata',dt:'20/04',rp:false},
-  ],
-  automacoes:[
-    {ico:'smartphone',nm:'Confirmacao 24h antes',desc:'WhatsApp automatico pedindo confirmacao. Reduz cancelamentos em 60%.',ativa:true,cat:'Retencao',disparos:148,taxa:78,receita:1840},
-    {ico:'cycle',nm:'IA de Retorno por Ciclo',desc:'Manda mensagem no momento exato de retorno de cada servico.',ativa:true,cat:'IA Preditiva',disparos:62,taxa:43,receita:4200},
-    {ico:'up',nm:'Upsell no Agendamento',desc:'Oferece servico complementar quando a cliente marca online.',ativa:true,cat:'Receita',disparos:94,taxa:34,receita:1260},
-    {ico:'target',nm:'Reativar Clientes Sumidas',desc:'Oferta personalizada para quem nao vem ha 45+ dias.',ativa:true,cat:'Retencao',disparos:31,taxa:29,receita:1380},
-    {ico:'cake',nm:'Oferta de Aniversario',desc:'Mensagem especial no aniversario com oferta exclusiva.',ativa:true,cat:'Fidelizacao',disparos:12,taxa:58,receita:720},
-    {ico:'star',nm:'Avaliacao Pos-Atendimento',desc:'Pede avaliacao 30 minutos apos o servico finalizado.',ativa:true,cat:'Reputacao',disparos:148,taxa:42,receita:0},
-    {ico:'clock',nm:'Lista de Espera Automatica',desc:'Quando cancelado, oferece o horario para lista de espera.',ativa:false,cat:'Otimizacao',disparos:8,taxa:75,receita:480},
-    {ico:'bag',nm:'Pos-Compra de Produto',desc:'Dica de uso enviada 2 dias apos compra de produto.',ativa:false,cat:'Fidelizacao',disparos:0,taxa:0,receita:0},
-  ],
-  preds:[
-    {nm:'Ana Beatriz Silva',sv:'Coloracao',dias:42,prob:'alta',vl:180},
-    {nm:'Paula Cardoso',sv:'Mechas',dias:18,prob:'alta',vl:220},
-    {nm:'Sara Nunes',sv:'Manicure',dias:50,prob:'media',vl:80},
-    {nm:'Debora Alves',sv:'Escova',dias:28,prob:'alta',vl:70},
-    {nm:'Flavia Santos',sv:'Progressiva',dias:85,prob:'media',vl:280},
-    {nm:'Gisele Ramos',sv:'Coloracao',dias:62,prob:'baixa',vl:160},
-    {nm:'Leticia Cruz',sv:'Hidratacao',dias:55,prob:'media',vl:90},
-    {nm:'Camila Torres',sv:'Progressiva',dias:55,prob:'baixa',vl:280},
-  ],
 };
 
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
 const html=(el,mk)=>{el.innerHTML=mk;return el};
 const R=v=>'R$ '+v.toLocaleString('pt-BR');
+
+async function atualizarHero(){
+  try{
+    const inicioMes=new Date();inicioMes.setDate(1);inicioMes.setHours(0,0,0,0);
+    const [resumoHoje,resumoMes]=await Promise.all([
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/caixa/resumo`),
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/caixa/resumo?desde=${inicioMes.toISOString()}`),
+    ]);
+    $('#hk1').textContent=R(resumoHoje.total_entradas||0);
+    $('#hk1d').textContent=(resumoHoje.total_entradas||0)>0?'saldo '+R(resumoHoje.saldo||0):'sem lançamento hoje';
+    $('#hk3').textContent=R(resumoMes.total_entradas||0);
+    $('#hk3d').textContent='saldo '+R(resumoMes.saldo||0);
+
+    const validos=(state.agendamentosHoje||[]).filter(a=>a.status!=='cancelado'&&a.status!=='nao_compareceu');
+    const confirmados=validos.filter(a=>a.status==='confirmado'||a.status==='em_atendimento'||a.status==='concluido');
+    $('#hk2').textContent=validos.length;
+    $('#hk2d').textContent=confirmados.length+' confirmados';
+  }catch(erro){
+    console.error('Falha ao atualizar KPIs do topo:',erro);
+  }
+}
 
 const Toast={show(tx,ic){
   const t=document.createElement('div');t.className='toast';
@@ -351,48 +341,43 @@ const Modal={
   close(){$('#mbd').classList.remove('open');}
 };
 
-function doLogin(){
-  $('#lw').classList.add('hide');
-  setTimeout(()=>{
-    $('#lw').style.display='none';
-    $('#topbar').style.display='flex';
-    $('#heroBar').style.display='flex';
-    $('#mainWrap').style.display='block';
-    init();
-  },500);
+async function doLogin(){
+  const email=$('#loginEmail').value.trim();
+  const senha=$('#loginSenha').value;
+  const erroEl=$('#loginErro');
+  const btn=$('#loginBtn');
+  erroEl.style.display='none';
+  btn.textContent='Entrando...';
+  try{
+    const{error}=await sb.auth.signInWithPassword({email,password:senha});
+    if(error)throw error;
+    const estabelecimentos=await chamarAPI('GET','/estabelecimentos');
+    if(!estabelecimentos.length)throw new Error('Nenhum estabelecimento cadastrado para este login.');
+    estabelecimentoAtivo=estabelecimentos[0];
+    $('#unitLabel').textContent=estabelecimentoAtivo.nome;
+    $('#unitName').textContent=estabelecimentoAtivo.nome;
+    $('#lw').classList.add('hide');
+    setTimeout(()=>{
+      $('#lw').style.display='none';
+      $('#topbar').style.display='flex';
+      $('#heroBar').style.display='flex';
+      $('#mainWrap').style.display='block';
+      init();
+    },500);
+  }catch(erro){
+    erroEl.textContent=erro.message||'Não foi possível entrar.';
+    erroEl.style.display='block';
+  }finally{
+    btn.textContent='Entrar no SalonOS';
+  }
 }
-function quickLogin(nm){Toast.show('Entrando como '+nm+'...');setTimeout(doLogin,600);}
 
 function openM(id){
-  const te=D.caixa.ent.reduce((a,e)=>a+e.vl,0),ts=D.caixa.sai.reduce((a,s)=>a+s.vl,0);
+  const te=0,ts=0;
   const po=D.procs.map(p=>`<option>${p.nm} - ${R(p.price)}</option>`).join('');
   const so=D.staff.map(f=>`<option>${f.nm} (${f.rl})</option>`).join('');
-  const vo=D.estoque.filter(p=>p.tp==='venda').map(p=>`<option>${p.nm} - ${R(p.sp)}</option>`).join('');
+  const vo='';
   const M={
-    agend:{t:'Novo Agendamento',b:`<div class="mb2">
-      <div class="fg"><label class="flbl">Cliente</label><input class="fi" placeholder="Nome ou telefone"></div>
-      <div class="frow"><div class="fg"><label class="flbl">Data</label><input class="fi" type="date" value="2025-04-25"></div><div class="fg"><label class="flbl">Horario</label><input class="fi" type="time" value="09:00"></div></div>
-      <div class="fg"><label class="flbl">Servico</label><select class="fi">${po}</select></div>
-      <div class="frow"><div class="fg"><label class="flbl">Profissional</label><select class="fi">${so}</select></div><div class="fg"><label class="flbl">Upsell automatico</label><select class="fi"><option>Oferecer hidratacao (+R$30)</option><option>Oferecer escova (+R$45)</option><option>Nao oferecer</option></select></div></div>
-      <div class="fg"><label class="flbl">Obs/Alergias</label><textarea class="fi" placeholder="Alergias, preferencias..."></textarea></div>
-    </div>
-    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Agendamento criado!')">Confirmar e enviar WhatsApp</button></div>`},
-
-    espera:{t:'Lista de Espera',b:`<div class="mb2">
-      <p style="font-size:12px;color:var(--ink3);margin-bottom:12px;line-height:1.6">Ao cancelar um horario, o sistema oferece automaticamente para esta lista.</p>
-      ${['Debora Alves - Coloracao - qualquer horario','Flavia Souza - Escova - tarde','Isa Cunha - Manicure - manha'].map((entry,i)=>`
-        <div class="lr"><div class="av" style="background:var(--cr2);color:var(--ink3)">${i+1}</div>
-        <div><div class="lrn">${entry.split('-')[0].trim()}</div><div class="lrm">${entry.split('-').slice(1).join('-').trim()}</div></div>
-        <button class="btn btg xs" style="margin-left:auto" onclick="Toast.show('Horario oferecido!')">Oferecer</button></div>`).join('')}
-    </div>
-    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button><button class="btn btp" onclick="Modal.close();Toast.show('Todos notificados!')">Notificar todos</button></div>`},
-
-    reativ:{t:'Chamar Clientes de Volta',b:`<div class="mb2">
-      <p style="font-size:13px;color:var(--ink3);margin-bottom:12px;line-height:1.6">Mensagem para <strong style="color:var(--ink)">${D.churn.length} clientes</strong> que nao aparecem ha mais de 45 dias.</p>
-      <div class="fg"><label class="flbl">Oferta</label><select class="fi"><option>10% de desconto</option><option>15% de desconto</option><option>R$ 20 fixo</option><option>Hidratacao gratis</option></select></div>
-      <div class="fg"><label class="flbl">Validade</label><select class="fi"><option>7 dias (recomendado)</option><option>3 dias</option><option>15 dias</option></select></div>
-    </div>
-    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Mensagens enviadas!')">Enviar agora</button></div>`},
 
     despesa:{t:'Registrar Despesa',b:`<div class="mb2">
       <div class="fg"><label class="flbl">Descricao</label><input class="fi" placeholder="Ex: Compra de insumos..."></div>
@@ -596,11 +581,275 @@ function switchUnit(id){
   Toast.show('Trocado para '+u.nm);
 }
 
-let cmdSec=2743,cmdInt=null;
-function startTimer(){
-  if(cmdInt)return;
-  cmdInt=setInterval(()=>{cmdSec++;const el=$('#ctv');if(!el)return;const h=Math.floor(cmdSec/3600).toString().padStart(2,'0'),m=Math.floor((cmdSec%3600)/60).toString().padStart(2,'0'),s=(cmdSec%60).toString().padStart(2,'0');el.textContent=h+':'+m+':'+s;},1000);
+// ============================================================
+// AGENDA — modal de novo agendamento + ações sobre um agendamento
+// ============================================================
+window.abrirModalNovoAgendamento=async function(){
+  Modal.open('Novo Agendamento','<div class="mb2">Carregando...</div>');
+  let clientesDisp=[],atividadesDisp=[],profissionaisDisp=[];
+  try{
+    [clientesDisp,atividadesDisp,profissionaisDisp]=await Promise.all([
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/clientes`),
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/atividades`),
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/profissionais`),
+    ]);
+  }catch(erro){Modal.close();Toast.show(erro.message,'⚠');return;}
+  const clienteOpts=clientesDisp.map(c=>`<option value="${c.id}">${c.nome||c.telefone}</option>`).join('');
+  const atividadeOpts=atividadesDisp.filter(a=>a.ativo!==false).map(a=>`<option value="${a.id}" data-duracao="${a.duracao_min||60}">${a.nome} — ${R(a.preco)}</option>`).join('');
+  const profissionalOpts='<option value="">Sem preferência</option>'+profissionaisDisp.filter(p=>p.ativo!==false).map(p=>`<option value="${p.id}">${p.nome}</option>`).join('');
+  const hoje=new Date().toISOString().slice(0,10);
+  Modal.open('Novo Agendamento',`<div class="mb2">
+    ${clientesDisp.length?'':'<div class="msg erro" style="background:var(--rsl);color:var(--rs);padding:10px 13px;border-radius:8px;font-size:12px;margin-bottom:12px">Nenhum cliente cadastrado ainda.</div>'}
+    <div class="fg"><label class="flbl">Cliente</label><select class="fi" id="novoAgCliente">${clienteOpts}</select></div>
+    <div class="frow"><div class="fg"><label class="flbl">Data</label><input class="fi" type="date" id="novoAgData" value="${hoje}"></div><div class="fg"><label class="flbl">Horário</label><input class="fi" type="time" id="novoAgHora" value="09:00"></div></div>
+    <div class="fg"><label class="flbl">Serviço</label><select class="fi" id="novoAgAtividade">${atividadeOpts}</select></div>
+    <div class="fg"><label class="flbl">Profissional</label><select class="fi" id="novoAgProfissional">${profissionalOpts}</select></div>
+  </div>
+  <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarNovoAgendamento()">Confirmar</button></div>`);
+};
+window.confirmarNovoAgendamento=async function(){
+  const clienteId=$('#novoAgCliente')?.value;
+  const data=$('#novoAgData').value;
+  const hora=$('#novoAgHora').value;
+  const atividadeSel=$('#novoAgAtividade');
+  const atividadeId=atividadeSel?.value;
+  const duracao=Number(atividadeSel?.selectedOptions?.[0]?.dataset.duracao||60);
+  const profissionalId=$('#novoAgProfissional').value||null;
+  if(!clienteId||!atividadeId){Toast.show('Selecione cliente e serviço','⚠');return;}
+  const inicio=new Date(`${data}T${hora}:00`);
+  const fim=new Date(inicio.getTime()+duracao*60000);
+  try{
+    await chamarAPI('POST',`/estabelecimentos/${estabelecimentoAtivo.id}/agendamentos`,{
+      cliente_id:clienteId,profissional_id:profissionalId,estabelecimento_atividade_id:atividadeId,
+      inicio:inicio.toISOString(),fim:fim.toISOString(),
+    });
+    Modal.close();
+    Toast.show('Agendamento criado!');
+    P.agenda();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+window.abrirAgendamento=function(id){
+  const ag=state.agendamentosHoje.find(a=>a.id===id);
+  if(!ag)return;
+  const cliente=ag.clientes?.nome||'Cliente';
+  const servico=ag.estabelecimento_atividades?.nome||'Serviço';
+  const preco=ag.estabelecimento_atividades?.preco;
+  Modal.open(cliente,`<div class="mb2">
+    <div class="tsm tm2 mb8">${servico}${preco?' · '+R(preco):''}</div>
+    <div class="tsm tm2">Status atual: <strong>${ag.status}</strong></div>
+  </div>
+  <div class="mf">
+    <button class="btn btgh sm" onclick="Modal.close()">Fechar</button>
+    <button class="btn btre sm" onclick="atualizarStatusAgendamento('${ag.id}','cancelado')">Cancelar</button>
+    <button class="btn btg sm" onclick="atualizarStatusAgendamento('${ag.id}','concluido')">Marcar concluído</button>
+  </div>`);
+};
+window.atualizarStatusAgendamento=async function(id,status){
+  try{
+    await chamarAPI('PATCH',`/agendamentos/${id}`,{status});
+    Modal.close();
+    Toast.show('Agendamento atualizado!');
+    P.agenda();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
+// ============================================================
+// AUTOMAÇÕES — toggle liga/desliga
+// ============================================================
+window.alternarAutomacao=async function(id,ativa){
+  try{
+    await chamarAPI('PATCH',`/automacoes/${id}`,{ativa});
+    Toast.show(ativa?'Automação ativada.':'Automação desativada.');
+  }catch(erro){
+    Toast.show('Não foi possível atualizar: '+erro.message);
+    P.automacoes();
+  }
+};
+
+// ============================================================
+// CLIENTES — detalhe (ficha real, sem campo inventado)
+// ============================================================
+window.abrirClienteDetalhe=async function(id){
+  Modal.open('Carregando...','<div class="mb2">Carregando ficha...</div>');
+  try{
+    const c=await chamarAPI('GET',`/clientes/${id}`);
+    Modal.open(c.nome||'Cliente',`<div class="mb2">
+      <div class="tsm tm2 mb8">${c.telefone||'-'}</div>
+      ${c.endereco?'<div class="tsm tm2 mb8">Endereço: '+c.endereco+'</div>':''}
+      ${c.observacoes?'<div class="txs tm2 fw6 mb8">OBSERVAÇÕES</div><div style="background:var(--cr2);border-radius:8px;padding:10px 12px;font-size:12.5px;margin-bottom:12px">'+c.observacoes+'</div>':''}
+      ${c.memoria_ia?.resumo?'<div class="txs tm2 fw6 mb8">RESUMO IA (WHATSAPP)</div><div style="background:var(--cr2);border-radius:8px;padding:10px 12px;font-size:12.5px">'+c.memoria_ia.resumo+'</div>':''}
+      ${!c.observacoes&&!c.memoria_ia?.resumo?'<div class="tsm tm2">Sem observações registradas ainda.</div>':''}
+    </div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button></div>`);
+  }catch(erro){Modal.close();Toast.show(erro.message,'⚠');}
+};
+
+// ============================================================
+// COMANDA — abrir, adicionar/remover item, fechar (dados reais)
+// ============================================================
+function renderAbrirComanda(){
+  const pg=$('#page-comanda');
+  html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando clientes...</div>');
+  chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/clientes`).then(clientesDisp=>{
+    const clienteOpts=clientesDisp.map(c=>`<option value="${c.id}">${c.nome||c.telefone}</option>`).join('');
+    html(pg,'<div class="sech"><div><div class="sct">Comanda <em>Digital</em></div><div class="scsub">Abra uma comanda para começar um atendimento</div></div></div>'
+    +'<div class="card" style="max-width:420px"><div class="cardb">'
+    +(clientesDisp.length?'<div class="fg"><label class="flbl">Cliente</label><select class="fi" id="comandaCliente">'+clienteOpts+'</select></div><button class="btn btp sm wf" style="justify-content:center;margin-top:10px" onclick="abrirNovaComanda()">Abrir comanda</button>':'<div class="tsm tm2">Nenhum cliente cadastrado ainda.</div>')
+    +'</div></div>');
+  }).catch(erro=>{html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">'+erro.message+'</div>');});
 }
+window.abrirNovaComanda=async function(){
+  const clienteId=$('#comandaCliente')?.value;
+  if(!clienteId){Toast.show('Selecione um cliente','⚠');return;}
+  try{
+    comandaAtual=await chamarAPI('POST',`/estabelecimentos/${estabelecimentoAtivo.id}/comandas`,{cliente_id:clienteId});
+    comandaAtual.itens=[];
+    P.comanda();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+function renderComandaAberta(){
+  const pg=$('#page-comanda');
+  html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando comanda...</div>');
+  chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/atividades`).then(atividadesDisp=>{
+    atividadesCache=atividadesDisp;
+    const total=(comandaAtual.itens||[]).reduce((s,i)=>s+i.preco_unitario*i.quantidade,0);
+    const atividadeOpts=atividadesDisp.filter(a=>a.ativo!==false).map(a=>`<option value="${a.id}">${a.nome} — ${R(a.preco)}</option>`).join('');
+    html(pg,'<div class="sech"><div><div class="sct">Comanda <em>Aberta</em></div><div class="scsub">Adicione os serviços realizados</div></div>'
+    +'<div class="scacts"><button class="btn btgh sm" onclick="cancelarComandaLocal()">Fechar sem salvar</button></div></div>'
+    +'<div class="g2"><div>'
+    +'<div class="card"><div class="cardh"><div class="cardt">Itens <em>da Comanda</em></div></div><div>'
+    +((comandaAtual.itens||[]).length?comandaAtual.itens.map(item=>'<div class="lr"><div style="flex:1"><div class="lrn">'+(item.nome||'Serviço')+'</div><div class="lrm">'+item.quantidade+'x '+R(item.preco_unitario)+'</div></div><div class="lrv">'+R(item.preco_unitario*item.quantidade)+'</div><button class="btn btre xs" style="margin-left:8px" onclick="removerItemComanda(\''+item.id+'\')">Remover</button></div>').join(''):'<div style="padding:16px;color:var(--ink3);font-size:12px">Nenhum item ainda.</div>')
+    +'</div></div>'
+    +'<div class="card mt12"><div class="cardb">'
+    +'<div class="fg"><label class="flbl">Adicionar serviço</label><select class="fi" id="comandaAtividade">'+atividadeOpts+'</select></div>'
+    +'<button class="btn btgh sm wf" style="justify-content:center;margin-top:8px" onclick="adicionarItemComanda()">+ Adicionar item</button>'
+    +'</div></div>'
+    +'</div>'
+    +'<div><div class="ctotal">'
+    +'<div class="ctrow" style="font-size:15px"><span class="ctl fw6">Total</span><span class="cttot">'+R(total)+'</span></div>'
+    +'<div class="fg mt10"><label class="flbl">Forma de pagamento</label><select class="fi" id="comandaPagamento"><option value="pix">Pix</option><option value="dinheiro">Dinheiro</option><option value="credito">Crédito</option><option value="debito">Débito</option><option value="outro">Outro</option></select></div>'
+    +'<button class="btn btg sm wf" style="justify-content:center;margin-top:10px" onclick="fecharComandaAtual()">Fechar comanda</button>'
+    +'</div></div>'
+    +'</div>');
+  }).catch(erro=>{html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">'+erro.message+'</div>');});
+}
+window.adicionarItemComanda=async function(){
+  const atividadeId=$('#comandaAtividade')?.value;
+  if(!atividadeId)return;
+  try{
+    const item=await chamarAPI('POST',`/comandas/${comandaAtual.id}/itens`,{estabelecimento_atividade_id:atividadeId});
+    const atividade=atividadesCache.find(a=>a.id===atividadeId);
+    item.nome=atividade?.nome;
+    comandaAtual.itens=comandaAtual.itens||[];
+    comandaAtual.itens.push(item);
+    P.comanda();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+window.removerItemComanda=async function(itemId){
+  try{
+    await chamarAPI('DELETE',`/comandas/${comandaAtual.id}/itens/${itemId}`);
+    comandaAtual.itens=(comandaAtual.itens||[]).filter(i=>i.id!==itemId);
+    P.comanda();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+window.fecharComandaAtual=async function(){
+  const forma=$('#comandaPagamento').value;
+  try{
+    await chamarAPI('POST',`/comandas/${comandaAtual.id}/fechar`,{forma_pagamento:forma});
+    Toast.show('Comanda fechada!','✅');
+    comandaAtual=null;
+    P.comanda();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+window.cancelarComandaLocal=function(){
+  comandaAtual=null;
+  P.comanda();
+};
+
+// ============================================================
+// CAIXA — extrato real + Supabase Realtime (Item 4)
+// ============================================================
+function renderCaixa(extrato,resumo){
+  const entradas=extrato.filter(e=>e.tipo==='entrada');
+  const saidas=extrato.filter(e=>e.tipo==='saida');
+  const pf=entradas.reduce((acc,e)=>{const f=e.forma_pagamento||'Outro';acc[f]=(acc[f]||0)+Number(e.valor);return acc;},{});
+  const fmtHora=iso=>new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  html($('#page-caixa'),'<div class="sech"><div><div class="sct">Caixa <em>do Dia</em></div><div class="scsub">Entradas e saídas de hoje — atualiza sozinho</div></div></div>'
+  +'<div class="g3 mb12">'
+  +'<div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Entradas Hoje</div><div class="kcv sg2">'+R(resumo.total_entradas)+'</div></div>'
+  +'<div class="kc"><div class="kcbar" style="background:var(--rs)"></div><div class="kclbl">Saídas Hoje</div><div class="kcv rs2">'+R(resumo.total_saidas)+'</div></div>'
+  +'<div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Saldo do Dia</div><div class="kcv gd2">'+R(resumo.saldo)+'</div></div>'
+  +'</div>'
+  +'<div class="g64"><div>'
+  +'<div class="card mb12"><div class="cardh"><div class="cardt">Entradas <em>de Hoje</em></div></div>'
+  +(entradas.length?entradas.map(e=>'<div class="lr"><div style="font-size:10px;color:var(--ink3);width:40px;flex-shrink:0">'+fmtHora(e.created_at)+'</div><div style="flex:1"><div class="lrn">'+(e.descricao||'Comanda fechada')+'</div><div class="lrm">'+(e.forma_pagamento||'-')+'</div></div><div class="lrv sg2">'+R(e.valor)+'</div></div>').join(''):'<div style="padding:16px;color:var(--ink3);font-size:12px">Nenhuma entrada ainda hoje.</div>')
+  +'</div>'
+  +'<div class="card"><div class="cardh"><div class="cardt">Saídas</div></div>'
+  +(saidas.length?saidas.map(s=>'<div class="lr"><div style="font-size:10px;color:var(--ink3);width:40px;flex-shrink:0">'+fmtHora(s.created_at)+'</div><div style="flex:1"><div class="lrn">'+(s.descricao||'-')+'</div></div><div class="lrv rs2">'+R(s.valor)+'</div></div>').join(''):'<div style="padding:16px;color:var(--ink3);font-size:12px">Nenhuma saída hoje.</div>')
+  +'</div>'
+  +'</div>'
+  +'<div><div class="card"><div class="cardh"><div class="cardt">Por <em>Forma de Pagamento</em></div></div><div class="cardb">'
+  +(Object.keys(pf).length?Object.entries(pf).map(([f,v])=>'<div class="sr"><span class="srl">'+f+'</span><span class="srv">'+R(v)+'</span></div>').join(''):'<div class="tsm tm2">Sem entradas ainda.</div>')
+  +'</div></div></div>'
+  +'</div>');
+}
+function assinarCaixaAoVivo(){
+  if(caixaChannel){sb.removeChannel(caixaChannel);caixaChannel=null;}
+  caixaChannel=sb.channel('caixa-'+estabelecimentoAtivo.id)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'caixa_entradas',filter:'estabelecimento_id=eq.'+estabelecimentoAtivo.id},()=>{
+      Toast.show('Novo lançamento no caixa!','💰');
+      if($('#page-caixa').classList.contains('active'))P.caixa();
+    })
+    .subscribe();
+}
+
+// ============================================================
+// EQUIPE — cadastro real de profissional
+// ============================================================
+window.abrirModalNovoProfissional=function(){
+  Modal.open('Cadastrar Profissional',`<div class="mb2">
+    <div class="fg"><label class="flbl">Nome completo</label><input class="fi" id="novoProfNome" placeholder="Nome"></div>
+    <div class="fg"><label class="flbl">% Comissao padrao</label><input class="fi" id="novoProfComissao" type="number" value="40"></div>
+  </div>
+  <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarNovoProfissional()">Cadastrar</button></div>`);
+};
+window.confirmarNovoProfissional=async function(){
+  const nome=$('#novoProfNome')?.value.trim();
+  const comissao=Number($('#novoProfComissao')?.value||0);
+  if(!nome){Toast.show('Informe o nome','⚠');return;}
+  try{
+    await chamarAPI('POST',`/estabelecimentos/${estabelecimentoAtivo.id}/profissionais`,{nome,comissao_padrao_percentual:comissao});
+    Modal.close();
+    Toast.show('Profissional cadastrada!');
+    P.equipe();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
+// ============================================================
+// CONFIG — salvar dados reais do estabelecimento
+// ============================================================
+window.salvarConfigSalao=async function(){
+  const btn=$('#cfgSalvarBtn');
+  const corpo={
+    nome:$('#cfgNome')?.value.trim(),
+    whatsapp:$('#cfgWhatsapp')?.value.trim(),
+    cnpj:$('#cfgCnpj')?.value.trim(),
+    endereco:$('#cfgEndereco')?.value.trim(),
+    horario_abertura:$('#cfgAbertura')?.value||null,
+    horario_fechamento:$('#cfgFechamento')?.value||null,
+  };
+  if(btn)btn.textContent='Salvando...';
+  try{
+    const atualizado=await chamarAPI('PATCH',`/estabelecimentos/${estabelecimentoAtivo.id}`,corpo);
+    estabelecimentoAtivo=Object.assign(estabelecimentoAtivo,atualizado);
+    $('#unitLabel').textContent=estabelecimentoAtivo.nome;
+    $('#unitName').textContent=estabelecimentoAtivo.nome;
+    Toast.show('Configuracoes salvas!');
+  }catch(erro){
+    Toast.show('Nao foi possivel salvar: '+erro.message,'⚠');
+  }finally{
+    if(btn)btn.textContent='Salvar configuracoes';
+  }
+};
 
 const Router={
   go(pg){
@@ -614,330 +863,214 @@ const Router={
 };
 
 const P={
-agenda(){
-  const times=['09:00','09:30','10:00','10:30','11:00','13:00','14:00','15:00','16:00','17:00'];
-  const days=[{l:'Seg',n:'21'},{l:'Ter',n:'22'},{l:'Qua',n:'23'},{l:'Qui',n:'24'},{l:'Sex',n:'25',td:true},{l:'Sab',n:'26'},{l:'Dom',n:'27'}];
+async agenda(){
   const pg=$('#page-agenda');
-  html(pg,'<div class="aibanner mb12" onclick="Router.go(\'previsao\')"><div style="font-size:18px">brain</div><div style="flex:1"><div class="aitag">IA Preditiva</div><br><span style="font-size:13px"><strong style="color:var(--gdd)">3 clientes devem retornar esta semana</strong> - Ana Beatriz (42d), Paula Cardoso (18d), Debora Alves (28d).</span></div><div style="font-size:11px;color:var(--gdd);font-weight:600;flex-shrink:0">Ver previsao</div></div>'
-  +'<div class="gsplit"><div>'
-  +'<div class="sech"><div><div class="sct">Agenda <em>de Hoje</em></div><div class="scsub">Sex 25 Abril - 8 atendimentos - por profissional</div></div><div class="scacts"><div style="display:flex;gap:2px;background:var(--cr2);border:1px solid var(--bd);border-radius:var(--rs2);padding:2px"><button id="btnCol" class="btn btp xs" style="padding:4px 9px;font-size:11px" onclick="agendaView(\'col\')">⊞ Colunas</button><button id="btnLst" class="btn btgh xs" style="padding:4px 9px;font-size:11px;border:none" onclick="agendaView(\'list\')">☰ Lista</button></div><button class="btn btgh sm" onclick="openM(\'espera\')">Espera (3)</button><button class="btn btg sm" onclick="Toast.show(\'Lembretes enviados!\')">Enviar lembretes</button><button class="btn btp sm" onclick="openM(\'agend\')">+ Agendar</button></div></div>'
-  +'<div id="dateNav" style="display:flex;align-items:center;gap:3px;background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);padding:4px;box-shadow:var(--sh);margin-bottom:12px;overflow-x:auto"></div>'
-  +'<div class="card mb12" style="overflow:hidden"><div style="display:grid;grid-template-columns:repeat(5,1fr);background:var(--bd)">'
-  +[['8/12','Ocupados',''],['R$ 118','Ticket medio','var(--gdd)'],['6 de 8','Confirmadas','var(--sg)'],['+ R$240','Extras','var(--gdd)'],['72%','Meta do dia','']].map(([v,l,c],i)=>'<div style="background:var(--cr);padding:10px 13px;text-align:center;'+(i?'border-left:1px solid var(--bd)':'')+'"><div style="font-family:var(--fd);font-size:17px;font-weight:300;'+(c?'color:'+c:'')+'">'+(v)+'</div><div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.6px;margin-top:2px">'+l+'</div></div>').join('')
+  html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando agenda...</div>');
+  const inicioDia=new Date();inicioDia.setHours(0,0,0,0);
+  const fimDia=new Date();fimDia.setHours(23,59,59,999);
+  let agendamentos=[],profissionais=[];
+  try{
+    [agendamentos,profissionais]=await Promise.all([
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/agendamentos?desde=${inicioDia.toISOString()}&ate=${fimDia.toISOString()}`),
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/profissionais`),
+    ]);
+  }catch(erro){
+    html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível carregar a agenda: '+erro.message+'</div>');
+    return;
+  }
+  profissionais=profissionais.filter(p=>p.ativo!==false);
+  state.agendamentosHoje=agendamentos;
+  const validos=agendamentos.filter(a=>a.status!=='cancelado'&&a.status!=='nao_compareceu');
+  const confirmados=validos.filter(a=>a.status==='confirmado'||a.status==='em_atendimento'||a.status==='concluido');
+  const precos=validos.map(a=>a.estabelecimento_atividades?.preco).filter(v=>typeof v==='number');
+  const ticketMedio=precos.length?Math.round(precos.reduce((a,b)=>a+b,0)/precos.length):0;
+  const times=[];for(let h=8;h<20;h++){times.push(String(h).padStart(2,'0')+':00');times.push(String(h).padStart(2,'0')+':30');}
+  const horaLocal=iso=>{const d=new Date(iso);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
+  const dataHoje=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+  html(pg,'<div class="gsplit"><div>'
+  +'<div class="sech"><div><div class="sct">Agenda <em>de Hoje</em></div><div class="scsub">'+dataHoje+' - '+validos.length+' agendamento(s) - por profissional</div></div><div class="scacts"><button class="btn btp sm" onclick="abrirModalNovoAgendamento()">+ Agendar</button></div></div>'
+  +'<div class="card mb12" style="overflow:hidden"><div style="display:grid;grid-template-columns:repeat(3,1fr);background:var(--bd)">'
+  +[[String(validos.length),'Agendamentos hoje'],[R(ticketMedio),'Ticket médio'],[confirmados.length+' de '+validos.length,'Confirmados/concluídos']].map(([v,l],i)=>'<div style="background:var(--cr);padding:10px 13px;text-align:center;'+(i?'border-left:1px solid var(--bd)':'')+'"><div style="font-family:var(--fd);font-size:17px;font-weight:300">'+v+'</div><div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.6px;margin-top:2px">'+l+'</div></div>').join('')
   +'</div></div>'
-  +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'
-  +'<div style="background:var(--sgl);border:1px solid rgba(74,122,98,.2);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;gap:10px">'
-  +'<div style="width:32px;height:32px;border-radius:7px;background:#4285F4;display:grid;place-items:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0">G</div>'
-  +'<div style="flex:1"><div style="font-size:12px;font-weight:700">Google Reserve</div><div style="font-size:10px;color:var(--ink3);margin-top:1px">4.9 ★ · Studio Beleza Pro · +3 agendamentos hoje</div></div>'
-  +'<div style="text-align:right"><div style="padding:3px 8px;background:var(--sgl);border:1px solid rgba(74,122,98,.3);border-radius:20px;font-size:9px;font-weight:700;color:var(--sg)">Conectado</div><button class="btn btgh xs" style="margin-top:4px;font-size:10px" onclick="openM(\'googleReserve\')">Configurar</button></div>'
-  +'</div>'
-  +'<div style="background:rgba(225,48,108,.06);border:1px solid rgba(225,48,108,.2);border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;gap:10px">'
-  +'<div style="width:32px;height:32px;border-radius:7px;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);display:grid;place-items:center;font-size:14px;color:#fff;flex-shrink:0">📸</div>'
-  +'<div style="flex:1"><div style="font-size:12px;font-weight:700">Instagram — Botão Reservar</div><div style="font-size:10px;color:var(--ink3);margin-top:1px">@studiobelezapro · +2 agendamentos hoje</div></div>'
-  +'<div style="text-align:right"><div style="padding:3px 8px;background:rgba(225,48,108,.1);border:1px solid rgba(225,48,108,.3);border-radius:20px;font-size:9px;font-weight:700;color:#cc2366">Ativo</div><button class="btn btgh xs" style="margin-top:4px;font-size:10px" onclick="Toast.show(\'Abrindo config do Instagram...\')">Configurar</button></div>'
-  +'</div>'
-  +'</div>'
-  +'<div style="overflow-x:auto;border-radius:var(--r)"><div class="acol-wrap" id="agendaGrid" style="min-width:'+(50+D.staff.length*155)+'px"></div></div></div>'
+  +'<div style="overflow-x:auto;border-radius:var(--r)"><div class="acol-wrap" id="agendaGrid" style="min-width:'+(50+Math.max(profissionais.length,1)*155)+'px"></div></div></div>'
   +'<div style="display:flex;flex-direction:column;gap:12px">'
-  +'<div class="card"><div class="cardh"><div class="cardt"><em>Cancelamentos</em></div><span class="cardlnk" onclick="openM(\'espera\')">Ver espera</span></div><div id="clist"></div></div>'
-  +'<div class="card"><div class="cardh"><div class="cardt">Clientes <em>Sumidas</em></div><span class="cardlnk" onclick="openM(\'reativ\')">Chamar</span></div><div id="chlist"></div></div>'
   +'<div class="card"><div class="cardh"><div class="cardt">Equipe <em>Hoje</em></div></div><div id="tlist"></div></div>'
-  +'<div class="fcast"><div style="font-size:9px;color:rgba(255,255,255,.3);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px">IA PREDITIVA</div><div style="font-family:var(--fd);font-size:14px;font-weight:300;color:var(--wh);margin-bottom:7px">Receita <em>prevista</em> 7 dias</div><div class="fv">R$ 8.340</div><div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:12px">Com base nos ciclos de retorno</div>'+D.preds.slice(0,4).map(p=>'<div class="fci"><div class="fcn">'+p.nm.split(' ')[0]+'</div><div class="fcd">em '+p.dias+'d</div><div class="fcval">'+R(p.vl)+'</div><span class="fcprob '+(p.prob==='alta'?'fchi':'fcme')+'">'+p.prob+'</span></div>').join('')+'</div></div></div>');
-  const dn=$('#dateNav');
-  dn.innerHTML='<div style="width:24px;height:24px;border-radius:5px;display:grid;place-items:center;font-size:12px;color:var(--ink3);cursor:pointer" onclick="Toast.show(\'Semana anterior\')">&lt;</div>';
-  days.forEach(d=>{dn.innerHTML+='<div style="padding:5px 9px;border-radius:6px;font-size:11px;font-weight:500;'+(d.td?'background:var(--ink);color:var(--wh)':'color:var(--ink3)')+';cursor:pointer;text-align:center;min-width:42px"><div style="font-size:9px;opacity:.65;margin-bottom:1px">'+d.l+'</div><div style="font-family:var(--fd);font-size:14px;font-weight:300">'+d.n+'</div></div>';});
-  dn.innerHTML+='<div style="width:24px;height:24px;border-radius:5px;display:grid;place-items:center;font-size:12px;color:var(--ink3);cursor:pointer" onclick="Toast.show(\'Proxima semana\')">&gt;</div>';
+  +'</div></div>');
   const grid=$('#agendaGrid');
-  grid.innerHTML='<div class="atcol"><div class="atch">Hora</div>'+times.map(t=>'<div class="atc">'+t+'</div>').join('')+'</div>';
-  D.staff.forEach((pro,pi)=>{
-    const pa=D.appts.filter(a=>a.pro===pi);
-    let col='<div class="apcol"><div class="apch"><div class="apav" style="background:'+pro.bg+';color:'+pro.c+'">'+pro.in+'</div><div><div class="apname">'+pro.nm.split(' ')[0]+'</div><div class="apcnt">'+pa.filter(a=>a.vl>0).length+' hoje - '+R(pa.reduce((s,a)=>s+a.vl,0))+'</div></div></div>';
-    times.forEach(time=>{
-      const a=pa.find(ap=>ap.t===time);
-      if(a&&a.st!=='empty'){
-        const bg=a.st==='ok'?'background:rgba(201,169,110,.18);border-left:3px solid '+a.ac:a.st==='pend'?'background:rgba(154,111,0,.12);border-left:3px solid var(--am)':'background:var(--cr2);border-left:3px solid var(--ink4)';
-        col+='<div class="apcell"><div class="appt" style="'+bg+'" onclick="Toast.show(\'Abrindo \'+a.cl)"><div class="apn">'+a.cl+'</div><div class="aps">'+a.sv+'</div>'+(a.vl>0?'<div class="app">'+R(a.vl)+'</div>':'')+'</div></div>';
-      }else{
-        col+='<div class="apcell" onclick="openM(\'agend\')"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><div style="width:18px;height:18px;border:1px dashed var(--cr3);border-radius:50%;display:grid;place-items:center;font-size:12px;color:var(--ink4)">+</div></div></div>';
-      }
+  if(!profissionais.length){
+    grid.innerHTML='<div style="padding:20px;color:var(--ink3);font-size:12px">Nenhuma profissional ativa cadastrada.</div>';
+  }else{
+    grid.innerHTML='<div class="atcol"><div class="atch">Hora</div>'+times.map(t=>'<div class="atc">'+t+'</div>').join('')+'</div>';
+    profissionais.forEach(pro=>{
+      const cor=corPara(pro.id);
+      const pa=validos.filter(a=>a.profissional_id===pro.id);
+      let col='<div class="apcol"><div class="apch"><div class="apav" style="background:'+cor.bg+';color:'+cor.c+'">'+iniciais(pro.nome)+'</div><div><div class="apname">'+pro.nome.split(' ')[0]+'</div><div class="apcnt">'+pa.length+' hoje</div></div></div>';
+      times.forEach(time=>{
+        const a=pa.find(ap=>horaLocal(ap.inicio)===time);
+        if(a){
+          const done=a.status==='concluido';
+          const bg=done?'background:var(--cr2);border-left:3px solid var(--ink4)':'background:rgba(201,169,110,.18);border-left:3px solid '+cor.c;
+          const preco=a.estabelecimento_atividades?.preco;
+          col+='<div class="apcell"><div class="appt" style="'+bg+'" onclick="abrirAgendamento(\''+a.id+'\')"><div class="apn">'+(a.clientes?.nome||'Cliente')+'</div><div class="aps">'+(a.estabelecimento_atividades?.nome||'')+'</div>'+(preco?'<div class="app">'+R(preco)+'</div>':'')+'</div></div>';
+        }else{
+          col+='<div class="apcell" onclick="abrirModalNovoAgendamento()"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><div style="width:18px;height:18px;border:1px dashed var(--cr3);border-radius:50%;display:grid;place-items:center;font-size:12px;color:var(--ink4)">+</div></div></div>';
+        }
+      });
+      col+='</div>';
+      grid.innerHTML+=col;
     });
-    col+='</div>';
-    grid.innerHTML+=col;
-  });
-  html($('#clist'),D.cancels.length?D.cancels.map(c=>'<div class="lr"><div class="av" style="background:var(--rsl);color:var(--rs)">'+c.cl.split(' ').map(w=>w[0]).join('').slice(0,2)+'</div><div><div class="lrn sit">'+c.cl+'</div><div class="lrm">'+c.sv+' - '+c.rs+'</div></div><div class="lrr"><div class="txs tm2">'+c.tm+'</div><div class="cardlnk mt4" onclick="Toast.show(\'Horario oferecido!\')">Oferecer</div></div></div>').join(''):'<div style="padding:13px 16px;font-size:12px;color:var(--ink3)">Nenhum cancelamento hoje</div>');
-  html($('#chlist'),D.churn.map(c=>'<div class="lr"><div class="av" style="background:'+c.bg+';color:'+c.c+'">'+c.in+'</div><div><div class="lrn sit">'+c.nm+'</div><div class="lrm">'+c.sv+' - '+c.ds+'d sem visita</div></div><div class="cardlnk" style="margin-left:auto" onclick="Toast.show(\'Mensagem enviada para \'+c.nm+\'!\')">Enviar oferta</div></div>').join(''));
-  html($('#tlist'),D.staff.map((f,fi)=>{const ap=D.appts.filter(a=>a.pro===fi&&a.vl>0);return'<div class="lr"><div class="av" style="background:'+f.bg+';color:'+f.c+'">'+f.in+'</div><div><div class="lrn">'+f.nm+'</div><div class="lrm">'+f.rl+'</div></div><div class="lrr"><div class="lrv">'+ap.length+' atend.</div><div class="lrs sg2">'+R(ap.reduce((s,a)=>s+a.vl,0))+'</div></div></div>';}).join(''));
+  }
+  html($('#tlist'),profissionais.length?profissionais.map(pro=>{const cor=corPara(pro.id);const ap=validos.filter(a=>a.profissional_id===pro.id);const receita=ap.reduce((s,a)=>s+(a.estabelecimento_atividades?.preco||0),0);return'<div class="lr"><div class="av" style="background:'+cor.bg+';color:'+cor.c+'">'+iniciais(pro.nome)+'</div><div><div class="lrn">'+pro.nome+'</div></div><div class="lrr"><div class="lrv">'+ap.length+' atend.</div><div class="lrs sg2">'+R(receita)+'</div></div></div>';}).join(''):'<div style="padding:13px 16px;font-size:12px;color:var(--ink3)">Nenhuma profissional ativa.</div>');
 },
 
-clientes(){
-  const sm={ok:['tsg','Ativo'],churn:['trs','Em risco'],risk:['tam','Atencao'],novo:['tsk','Novo'],vip:['tgd','VIP']};
-  html($('#page-clientes'),'<div class="sech"><div><div class="sct">Ficha de <em>Clientes</em></div><div class="scsub">Historico completo, formula e ficha tecnica editavel - clique para abrir</div></div><div class="scacts"><button class="btn btv sm" onclick="openM(\'qrportal\')">📲 Portal PWA</button><button class="btn btp sm" onclick="openM(\'novaFunc\')">+ Nova cliente</button></div></div>'
-  +'<div class="tw mb12"><div class="thead tc5c"><div>Cliente</div><div>Ultimo servico</div><div>Total gasto</div><div>Visitas</div><div>Status</div></div>'
-  +D.clients.map(c=>{const[tc,tt]=sm[c.st]||['tik','-'];const info=c.st==='novo'?'1a visita - '+c.ds+'d atras':c.st==='vip'?'Plano mensal ativo':c.ds<7?'Prox. em '+c.ds+'d':c.ds+' dias sem aparecer';
-  return'<div class="trow tc5c" onclick="clientDetail(D.clients.find(x=>x.nm===c.nm))"><div class="flex ic g10"><div class="av" style="background:'+c.bg+';color:'+c.c+'">'+c.in+'</div><div><div class="lrn">'+c.nm+'</div><div class="lrm">'+c.ph+' - '+info+'</div></div></div><div class="tm2">'+c.ls+'<br><span class="txs">'+c.ld+'</span></div><div class="fw6 gd2">'+R(c.ltv)+'</div><div>'+c.vt+' visitas</div><div><span class="tag '+tc+'">'+tt+'</span></div></div>';}).join('')+'</div>'
-  +'<div class="g2"><div class="card"><div class="cardh"><div class="cardt">Por <em>Status</em></div></div><div class="cardb">'
-  +[['VIP',D.clients.filter(c=>c.st==='vip').length,'gd2'],['Ativos',D.clients.filter(c=>c.st==='ok').length,'sg2'],['Em risco',D.clients.filter(c=>c.st==='churn'||c.st==='risk').length,'rs2'],['Novos',D.clients.filter(c=>c.st==='novo').length,'']].map(([l,n,col])=>'<div class="sr"><span class="srl">'+l+'</span><span class="srv '+col+'">'+n+' clientes</span></div>').join('')
-  +'</div></div><div class="card"><div class="cardh"><div class="cardt">LTV <em>Total da Base</em></div></div><div class="cardb"><div class="sr"><span class="srl">LTV acumulado</span><span class="srv gd">'+R(D.clients.reduce((a,c)=>a+c.ltv,0))+'</span></div><div class="sr"><span class="srl">LTV medio</span><span class="srv">'+R(Math.round(D.clients.reduce((a,c)=>a+c.ltv,0)/D.clients.length))+'</span></div><div class="sr"><span class="srl">Total de visitas</span><span class="srv">'+D.clients.reduce((a,c)=>a+c.vt,0)+'</span></div></div></div></div>');
+async clientes(){
+  const pg=$('#page-clientes');
+  html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando clientes...</div>');
+  let clientesReais=[];
+  try{clientesReais=await chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/clientes`);}
+  catch(erro){html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível carregar clientes: '+erro.message+'</div>');return;}
+  state.clientes=clientesReais;
+  html(pg,'<div class="sech"><div><div class="sct">Ficha de <em>Clientes</em></div><div class="scsub">'+clientesReais.length+' cliente(s) cadastrado(s) - clique para abrir</div></div></div>'
+  +'<div class="tw mb12"><div class="thead" style="grid-template-columns:2fr 1fr 1fr"><div>Cliente</div><div>Telefone</div><div>Cliente desde</div></div>'
+  +(clientesReais.length?clientesReais.map(c=>{
+    const cor=corPara(c.id);
+    const desde=c.created_at?new Date(c.created_at).toLocaleDateString('pt-BR'):'-';
+    return'<div class="trow" style="grid-template-columns:2fr 1fr 1fr" onclick="abrirClienteDetalhe(\''+c.id+'\')"><div class="flex ic g10"><div class="av" style="background:'+cor.bg+';color:'+cor.c+'">'+iniciais(c.nome||c.telefone)+'</div><div><div class="lrn">'+(c.nome||'Sem nome')+'</div><div class="lrm">'+(c.estado_onboarding==='completo'?'Cadastro completo':'Onboarding em andamento')+'</div></div></div><div class="tm2">'+(c.telefone||'-')+'</div><div class="tm2">'+desde+'</div></div>';
+  }).join(''):'<div style="padding:16px;font-size:12px;color:var(--ink3)">Nenhum cliente cadastrado ainda.</div>')
+  +'</div>');
 },
 
 comanda(){
-  const preco=180,insumos=[{nm:'Tinta Wella 8.1 (60g)',cu:14,qt:1},{nm:'Oxidante 30vol (120ml)',cu:3.6,qt:1},{nm:'Mascara pos-coloracao',cu:8,qt:1},{nm:'Leave-in finalizador',cu:4,qt:1},{nm:'Shampoo antirresiduo',cu:3.5,qt:1}];
-  window._ins=insumos.map(i=>({...i,used:false}));
-  const cli=D.clients[0];
-  html($('#page-comanda'),'<div class="sech"><div><div class="sct">Comanda <em>Digital ao Vivo</em></div><div class="scsub">Protocolo completo, insumos, margem real e notas da cliente</div></div>'
-  +'<div class="scacts"><button class="btn btgh sm" onclick="Toast.show(\'Antes/depois registrado!\',\'📸\')">📸 Foto antes/depois</button><button class="btn btg sm" onclick="openM(\'pagamento\')">💳 Processar pagamento</button></div></div>'
-
-  // Etapas do atendimento
-  +'<div style="display:flex;gap:0;background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);margin-bottom:13px">'
-  +[['1','Consulta','done'],['2','Aplicacao','curr'],['3','Finalizacao',''],['4','Pagamento','']].map(([n,l,s],i)=>'<div style="flex:1;padding:10px 13px;text-align:center;background:'+(s==='done'?'var(--sgl)':s==='curr'?'rgba(201,169,110,.1)':'var(--cr2)')+(i?';border-left:1px solid var(--bd)':'')+'">'+'<div style="font-family:var(--fd);font-size:16px;color:'+(s==='done'?'var(--sg)':s==='curr'?'var(--gdd)':'var(--ink4)'+'">'+(s==='done'?'&#10003;':n))+'</div><div style="font-size:10px;color:var(--ink3);margin-top:2px">'+l+'</div></div>').join('')
-  +'</div>'
-
-  // Header cliente com alerta de alergia
-  +'<div class="cmdh">'
-  +'<div class="cmdav" style="background:rgba(139,122,85,.18);color:#8B7A55">AS</div>'
-  +'<div style="flex:1"><div style="font-family:var(--fd);font-size:17px;font-style:italic">Ana Beatriz Silva</div><div style="font-size:11px;color:var(--ink3);margin-top:1px">Coloracao Completa - com Camila Souza</div>'
-  +'<div style="margin-top:5px;display:flex;gap:6px"><span style="font-size:10px;padding:2px 7px;background:var(--sgl);color:var(--sg);border-radius:12px;font-weight:600">Formula: Louro 8.1 + 30vol</span><span style="font-size:10px;padding:2px 7px;background:var(--sgl);color:var(--sg);border-radius:12px">Sem alergias</span></div></div>'
-  +'<div style="margin-left:8px"><button class="btn btgh sm" onclick="clientDetail(D.clients[0])">Ver ficha</button></div>'
-  +'<div class="cmdtimer"><div class="cmdtv" id="ctv">00:45:43</div><div class="cmdtl">EM ATENDIMENTO</div></div>'
-  +'</div>'
-
-  // Protocolo + insumos + upsell + totais
-  +'<div class="g2">'
-  +'<div>'
-
-  // Checklist protocolo
-  +'<div class="cardh" style="background:var(--wh);border:1px solid var(--bd);border-radius:var(--r) var(--r) 0 0"><div class="cardt">Protocolo <em>de Atendimento</em></div><span class="tag tsk">Passo a passo</span></div>'
-  +'<div style="background:var(--wh);border:1px solid var(--bd);border-top:none;border-radius:0 0 0 0;padding:10px 13px">'
-  +[['Anamnese e consulta realizada','done'],['Teste de mecha aprovado','done'],['Aplicacao do produto em andamento','curr'],['Tempo de acao: 45 min',''],['Lavagem e finalizacao',''],['Foto do resultado registrada','']].map(([t,s],i)=>'<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--bd);font-size:12.5px;color:'+(s==='done'?'var(--ink3)':s==='curr'?'var(--ink)':'var(--ink4)')+'">'+'<div style="width:18px;height:18px;border-radius:50%;background:'+(s==='done'?'var(--sg)':s==='curr'?'var(--gd)':'var(--cr3)')+';display:grid;place-items:center;font-size:10px;color:var(--wh);flex-shrink:0">'+(s==='done'?'&#10003;':s==='curr'?'&#9654;':'&#8226;')+'</div>'+t+'</div>').join('')
-  +'</div>'
-
-  // Insumos
-  +'<div class="cardh" style="background:var(--wh);border:1px solid var(--bd);border-top:none"><div class="cardt">Insumos <em>Usados</em></div><div class="txs tm2">Marque o que foi usado</div></div>'
-  +'<div style="background:var(--wh);border:1px solid var(--bd);border-top:none;border-radius:0 0 var(--r) var(--r);padding:12px" id="iList">'
-  +insumos.map((ins,i)=>'<div class="irow" id="ir'+i+'"><div class="ichk" id="ic'+i+'" onclick="tgIns('+i+')">&#10003;</div><div style="flex:1"><div class="iname">'+ins.nm+'</div><div class="icost">Custo: R$'+ins.cu+'/un.</div></div><div class="iqty"><div class="qbtn" onclick="chQty('+i+',-1)">-</div><div class="qval" id="qv'+i+'">1</div><div class="qbtn" onclick="chQty('+i+',1)">+</div></div></div>').join('')
-  +'</div>'
-
-  // Upsell
-  +'<div class="mt12"><div class="cardh" style="background:var(--wh);border:1px solid var(--bd);border-radius:var(--r) var(--r) 0 0"><div class="cardt">Upsell <em>Sugerido</em></div><span class="tag tgd">Oportunidade</span></div>'
-  +'<div style="background:rgba(201,169,110,.06);border:1px solid rgba(201,169,110,.2);border-top:none;border-radius:0 0 var(--r) var(--r);padding:12px">'
-  +'<div class="flex ic jb mb8"><div><div class="lrn">Hidratacao Profunda</div><div class="lrm">Ideal apos coloracao — cabelo da cliente e fino</div></div><div class="lrv gd2">+R$ 30</div></div>'
-  +'<div class="flex g8"><button class="btn btp sm wf" style="justify-content:center" onclick="Toast.show(\'Hidratacao adicionada! +R$ 30\')">Adicionar</button><button class="btn btgh sm" onclick="Toast.show(\'Recusa registrada.\')">Nao quis</button></div>'
-  +'</div></div>'
-
-  +'</div>'
-
-  // Totais
-  +'<div><div class="ctotal">'
-  +'<div style="font-family:var(--fd);font-size:11px;color:var(--ink3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px">RESUMO DA COMANDA</div>'
-  +'<div class="ctrow"><span class="ctl">Servico</span><span class="ctv">R$ 180</span></div>'
-  +'<div class="ctrow"><span class="ctl">Custo insumos</span><span class="ctv rs2" id="ccost">R$ 0</span></div>'
-  +'<div class="ctrow"><span class="ctl">Comissao (45%)</span><span class="ctv am2">R$ 81</span></div>'
-  +'<div class="ctrow" style="border-top:2px solid var(--bd2);margin-top:5px;padding-top:9px"><span class="ctl fw6">Margem bruta real</span><span class="cttot" id="cmarg">R$ 99</span></div>'
-  +'<div class="mt10"><div class="mbar"><div class="mbarf" id="cmbar" style="width:73%;background:var(--sg)"></div></div><div class="flex jb mt4"><span class="txs tm2">Margem</span><span class="txs fw6 sg2" id="cmpct">73%</span></div></div>'
-  +'<div class="divider"></div>'
-  +'<div class="ctrow" style="font-size:15px"><span class="ctl fw6">Total a cobrar</span><span class="cttot">R$ 180</span></div>'
-
-  // Obs da cliente
-  +'<div style="background:var(--cr2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-top:12px">'
-  +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:5px">Obs. da ficha tecnica</div>'
-  +'<div style="font-size:12px;color:var(--ink2);line-height:1.5">Prefere nao usar amonia. Cabelo fino, precisa de volume. Ultimo resultado: aprovado.</div>'
-  +'</div>'
-
-  // Obs do atendimento
-  +'<div style="margin-top:10px"><textarea class="fi" placeholder="Observacoes deste atendimento (formula usada, resultado, proxima visita)..." style="min-height:60px;font-size:12px"></textarea></div>'
-
-  +'<div class="flex g8 mt10"><button class="btn btp sm wf" style="justify-content:center" onclick="openM(\'pagamento\')">&#128179; Processar pagamento</button></div>'
-  +'<div class="flex g8 mt8"><button class="btn btgh sm wf" style="justify-content:center;font-size:11px" onclick="openM(\'nfe\')">&#128197; Emitir NF-e</button></div>'
-  +'</div></div></div>');
-
-  startTimer();
-  window.tgIns=function(i){const s=window._ins[i];s.used=!s.used;const chk=document.getElementById('ic'+i),row=document.getElementById('ir'+i);s.used?(chk.classList.add('on'),row.classList.add('used')):(chk.classList.remove('on'),row.classList.remove('used'));rcalc();};
-  window.chQty=function(i,d){const s=window._ins[i];s.qt=Math.max(1,(s.qt||1)+d);document.getElementById('qv'+i).textContent=s.qt;rcalc();};
-  function rcalc(){const cost=window._ins.reduce((sum,s)=>sum+(s.used?s.cu*(s.qt||1):0),0);const comm=Math.round(preco*.45);const marg=preco-cost-comm;const pct=Math.max(0,Math.round((marg/preco)*100));const col=pct>50?'var(--sg)':pct>30?'var(--am)':'var(--rs)';const cc=document.getElementById('ccost'),cm=document.getElementById('cmarg'),cp=document.getElementById('cmpct'),cb=document.getElementById('cmbar');if(cc)cc.textContent='R$ '+Math.round(cost*100)/100;if(cm){cm.textContent='R$ '+Math.round(marg);cm.style.color=marg>0?'var(--gdd)':'var(--rs)';}if(cp){cp.textContent=pct+'%';cp.style.color=col;}if(cb){cb.style.width=pct+'%';cb.style.background=col;}}
+  if(!comandaAtual){renderAbrirComanda();return;}
+  renderComandaAberta();
 },
 
-
 caixa(){
-  const te=D.caixa.ent.reduce((a,e)=>a+e.vl,0),ts=D.caixa.sai.reduce((a,s)=>a+s.vl,0),sl=te-ts,mp=Math.min(Math.round(te/D.caixa.meta*100),100);
-  const pf=D.caixa.ent.reduce((acc,e)=>{acc[e.fm]=(acc[e.fm]||0)+e.vl;return acc},{});
-  html($('#page-caixa'),'<div class="sech"><div><div class="sct">Caixa <em>do Dia</em></div><div class="scsub">Entradas, saidas, NF-e e fechamento</div></div><div class="scacts"><button class="btn btre sm" onclick="openM(\'despesa\')">+ Despesa</button><button class="btn btv sm" onclick="openM(\'nfe\')">NF-e</button><button class="btn btp sm" onclick="openM(\'fechamento\')">Fechar caixa</button></div></div>'
-  +'<div class="g4 mb12"><div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Entradas Hoje</div><div class="kcv sg2">'+R(te)+'</div><div class="kcd n">'+mp+'% da meta</div><div class="kcico">money</div></div><div class="kc"><div class="kcbar" style="background:var(--rs)"></div><div class="kclbl">Saidas e Despesas</div><div class="kcv rs2">'+R(ts)+'</div><div class="kcd n">'+D.caixa.sai.length+' lancamentos</div><div class="kcico">out</div></div><div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Saldo do Dia</div><div class="kcv gd2">'+R(sl)+'</div><div class="kcd up">'+mp+'% da meta</div><div class="kcico">chart</div></div><div class="kc"><div class="kcbar" style="background:var(--sk)"></div><div class="kclbl">Meta do Dia</div><div class="kcv">'+R(D.caixa.meta)+'</div><div class="kcd '+(mp>=100?'up':'n')+'">'+(mp>=100?'Meta atingida!':'Faltam '+R(D.caixa.meta-te))+'</div><div class="kcico">target</div></div></div>'
-  +'<div class="g64"><div><div class="card mb12"><div class="cardh"><div class="cardt">Entradas <em>de Hoje</em></div></div>'+D.caixa.ent.map(e=>'<div class="lr"><div style="font-size:10px;color:var(--ink3);width:36px;flex-shrink:0">'+e.hr+'</div><div style="flex:1"><div class="lrn">'+e.ds+'</div><div class="lrm">'+e.fm+'</div></div><div class="lrv sg2">'+R(e.vl)+'</div></div>').join('')+'<div style="display:flex;justify-content:space-between;padding:9px 16px;background:var(--cr);border-top:2px solid var(--bd2);font-size:13px"><span class="fw6">Total</span><span class="fw6 sg2">'+R(te)+'</span></div></div><div class="card"><div class="cardh"><div class="cardt">Saidas <em>e Despesas</em></div><button class="btn btre sm" onclick="openM(\'despesa\')">+ Despesa</button></div>'+D.caixa.sai.map(s=>'<div class="lr"><div style="font-size:10px;color:var(--ink3);width:36px;flex-shrink:0">'+s.hr+'</div><div style="flex:1"><div class="lrn">'+s.ds+'</div></div><div class="lrv rs2">'+R(s.vl)+'</div></div>').join('')+'<div style="display:flex;justify-content:space-between;padding:9px 16px;background:var(--cr);border-top:2px solid var(--bd2);font-size:13px"><span class="fw6">Total</span><span class="fw6 rs2">'+R(ts)+'</span></div></div></div>'
-  +'<div style="display:flex;flex-direction:column;gap:12px"><div class="card"><div class="cardh"><div class="cardt">Por <em>Forma de Pagamento</em></div></div><div class="cardb">'+Object.entries(pf).map(([f,v])=>'<div class="sr"><span class="srl">'+f+'</span><span class="srv">'+R(v)+'</span></div>').join('')+'</div></div><div class="card"><div class="cardh"><div class="cardt">Meta <em>do Dia</em></div></div><div class="cardb"><div style="font-family:var(--fd);font-size:28px;font-weight:300;color:var(--gdd)">'+mp+'%</div><div class="pbt mt8" style="height:7px"><div class="pbf" style="width:'+mp+'%;background:'+(mp>=100?'var(--sg)':'var(--gd)')+'"></div></div><div class="flex jb txs tm2 mt4"><span>'+R(te)+'</span><span>'+R(D.caixa.meta)+'</span></div><div class="divider"></div><button class="btn btv sm wf" style="justify-content:center;margin-bottom:7px" onclick="openM(\'pagamento\')">Terminal de Pagamento</button><button class="btn btp wf" style="justify-content:center" onclick="openM(\'fechamento\')">Fechar caixa</button></div></div></div></div>');
+  const pg=$('#page-caixa');
+  html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando caixa...</div>');
+  Promise.all([
+    chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/caixa`),
+    chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/caixa/resumo`),
+  ]).then(([extrato,resumo])=>{
+    renderCaixa(extrato,resumo);
+    assinarCaixaAoVivo();
+  }).catch(erro=>{
+    html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível carregar o caixa: '+erro.message+'</div>');
+  });
 },
 
 estoque(){
-  const baixo=D.estoque.filter(p=>p.qt<=p.mn);
-  const hoje=new Date('2026-08-19');
-  const diasAte=v=>Math.round((new Date(v)-hoje)/86400000);
-  const vencendo=D.estoque.filter(p=>p.val&&diasAte(p.val)<=60&&diasAte(p.val)>=0);
-  const vencido=D.estoque.filter(p=>p.val&&diasAte(p.val)<0);
-  html($('#page-estoque'),'<div class="sech"><div><div class="sct">Estoque <em>e Margem por Servico</em></div><div class="scsub">Insumos, revenda, lote e lucratividade real de cada procedimento</div></div><div class="scacts"><button class="btn btgh sm" onclick="openM(\'vendap\')">Vender produto</button><button class="btn btp sm" onclick="openM(\'estqin\')">+ Entrada</button></div></div>'
-  +(baixo.length?'<div style="background:var(--aml);border:1px solid rgba(154,111,0,.2);border-radius:var(--r);padding:10px 14px;margin-bottom:10px;font-size:13px;color:var(--am)">Atencao: '+baixo.length+' produto(s) abaixo do minimo: '+baixo.map(p=>p.nm).join(', ')+'.</div>':'')
-  +(vencido.length?'<div style="background:var(--rsl);border:1px solid rgba(192,80,74,.2);border-radius:var(--r);padding:10px 14px;margin-bottom:10px;font-size:13px;color:var(--rs)">Vencido: '+vencido.map(p=>p.nm+' (lote '+p.lote+')').join(', ')+' - retirar de uso imediatamente.</div>':'')
-  +(vencendo.length?'<div style="background:var(--aml);border:1px solid rgba(154,111,0,.2);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--am)">Vencimento proximo (60 dias): '+vencendo.map(p=>p.nm+' - '+diasAte(p.val)+'d').join(', ')+'.</div>':'')
-  +'<div class="g2 mb12">'
-  +'<div><div style="font-family:var(--fd);font-style:italic;font-size:18px;margin-bottom:10px;color:var(--gdd)">Produtos em Estoque</div><div class="tw"><div class="thead tc5e"><div>Produto</div><div>Qtd.</div><div>Lote / Validade</div><div>Tipo</div><div>Acao</div></div>'
-  +D.estoque.map(p=>{const dv=p.val?diasAte(p.val):null;const vCol=dv===null?'var(--ink3)':dv<0?'var(--rs)':dv<=60?'var(--am)':'var(--ink3)';const vTag=dv===null?'':dv<0?' <span class="tag trs">Vencido</span>':dv<=60?' <span class="tag tam">'+dv+'d</span>':'';return'<div class="trow tc5e" style="'+(p.qt<=p.mn||dv<0?'background:rgba(192,80,74,.03)':(dv!==null&&dv<=60)?'background:rgba(154,111,0,.04)':'')+'"><div><div class="fw6">'+p.nm+'</div><div class="txs tm2 mt4">'+p.ct+'</div></div><div><span style="font-family:var(--fd);font-size:16px;font-weight:300;'+(p.qt<=p.mn?'color:var(--rs)':'')+'">'+p.qt+'</span><span class="txs tm2"> '+p.un+(p.qt<=p.mn?' <span class="tag trs">Baixo</span>':'')+'</span></div><div><div class="txs fw6">Lote '+(p.lote||'-')+'</div><div class="txs" style="color:'+vCol+'">'+(p.val?new Date(p.val).toLocaleDateString('pt-BR'):'-')+vTag+'</div></div><div><span class="tag '+(p.tp==='venda'?'tgd':'tik')+'">'+(p.tp==='venda'?'Revenda':'Insumo')+'</span></div><div class="flex g6">'+(p.tp==='venda'?'<button class="btn btg xs" onclick="openM(\'vendap\')">Vender</button>':'')+'<button class="btn btgh xs" onclick="Toast.show(\'Editando...\')">+/-</button></div></div>';}).join('')
-  +'</div></div>'
-  +'<div>'
-  +'<div class="card mb12"><div class="cardh"><div class="cardt">Rastreabilidade <em>de Lote</em></div><span class="tag tvi">Conformidade ANVISA</span></div><div class="cardb"><p class="tsm tm2" style="line-height:1.5">Cada insumo tem lote e validade rastreados. Se um produto tiver problema de qualidade, o SalonOS mostra em quais atendimentos e clientes aquele lote foi usado - rastreabilidade que nenhum sistema de agenda tradicional oferece.</p></div></div>'
-  +'<div style="font-family:var(--fd);font-style:italic;font-size:18px;margin-bottom:10px;color:var(--gdd)">Margem Real por Servico</div><div class="card"><div class="cardh"><div class="cardt"><em>Diferencial SalonOS</em></div><span class="tag tvi">Nativo no fluxo de atendimento</span></div><div class="cardb"><p class="tsm tm2 mb10" style="line-height:1.5">Receita menos insumos menos comissao igual lucro real por procedimento.</p>'
-  +D.procs.filter(p=>p.id<=6).map(p=>{const comm=Math.round(p.price*p.comm/100);const marg=p.price-p.cost-comm;const pct=Math.round((marg/p.price)*100);const col=pct>60?'var(--sg)':pct>40?'var(--gd)':'var(--am)';return'<div style="margin-bottom:11px;padding-bottom:11px;border-bottom:1px solid var(--bd)"><div class="flex jb mb4"><div class="tsm fw6">'+p.nm+'</div><div class="flex g8"><span class="txs tm2">'+R(p.price)+'</span><span class="txs fw6" style="color:'+col+'">'+pct+'% margem</span></div></div><div class="flex g8 txs tm2 mb5"><span>Insumo: <strong style="color:var(--rs)">'+R(p.cost)+'</strong></span><span>Comis: <strong style="color:var(--am)">'+R(comm)+'</strong></span><span>Lucro: <strong style="color:var(--sg)">'+R(marg)+'</strong></span></div><div class="mbar"><div class="mbarf" style="width:'+pct+'%;background:'+col+'"></div></div></div>';}).join('')
-  +'<div class="divider"></div>'
-  +'<div style="background:var(--cr2);border-radius:8px;padding:13px">'
-  +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:10px">Calculadora de Custo</div>'
-  +'<div class="fg"><label class="flbl">Servico</label><select class="fi" id="calcProc" onchange="calcMargem()">'
-  +D.procs.map(p=>'<option value="'+p.id+'">'+p.nm+'</option>').join('')
-  +'</select></div>'
-  +'<div class="frow" style="margin-top:8px">'
-  +'<div class="fg"><label class="flbl">Preco cobrado (R$)</label><input class="fi" type="number" id="calcPreco" value="180" oninput="calcMargem()"></div>'
-  +'<div class="fg"><label class="flbl">Custo insumos (R$)</label><input class="fi" type="number" id="calcCusto" value="32" oninput="calcMargem()"></div>'
-  +'</div>'
-  +'<div class="frow" style="margin-top:0">'
-  +'<div class="fg"><label class="flbl">% Comissao</label><input class="fi" type="number" id="calcComm" value="45" oninput="calcMargem()"></div>'
-  +'<div class="fg"><label class="flbl">Lucro real</label><input class="fi" id="calcResult" readonly style="background:var(--sgl);color:var(--sg);font-weight:700"></div>'
-  +'</div>'
-  +'<div id="calcBar" style="margin-top:8px"><div style="height:6px;background:var(--cr3);border-radius:3px;overflow:hidden"><div id="calcFill" style="height:100%;border-radius:3px;background:var(--sg);transition:width 1s;width:65%"></div></div><div style="display:flex;justify-content:space-between;margin-top:4px"><span style="font-size:10px;color:var(--ink3)">Margem</span><span id="calcPct" style="font-size:10px;font-weight:700;color:var(--sg)">65%</span></div></div>'
-  +'</div>'
-  +'</div></div>'
-  +'</div>'
-  +'</div>');
-  window.calcMargem=function(){const p=parseFloat(document.getElementById('calcPreco')?.value)||0;const c2=parseFloat(document.getElementById('calcCusto')?.value)||0;const cm=parseFloat(document.getElementById('calcComm')?.value)||0;const comm=Math.round(p*cm/100);const lucro=p-c2-comm;const pct=Math.max(0,Math.round((lucro/p)*100));const col=pct>60?'var(--sg)':pct>40?'var(--gd)':'var(--rs)';const r=document.getElementById('calcResult');const f=document.getElementById('calcFill');const pp=document.getElementById('calcPct');if(r)r.value='R$ '+Math.round(lucro);if(f){f.style.width=pct+'%';f.style.background=col;}if(pp){pp.textContent=pct+'%';pp.style.color=col;}};
+  renderEmBreve('page-estoque','Estoque <em>e Margem por Serviço</em>','Ainda não há um cadastro de estoque no backend.');
 },
 
 avaliacoes(){
-  const med=(D.avals.reduce((a,e)=>a+e.st,0)/D.avals.length).toFixed(1);
-  html($('#page-avaliacoes'),'<div class="sech"><div><div class="sct">Avaliacoes <em>das Clientes</em></div><div class="scsub">O que elas estao falando sobre o seu salao</div></div></div>'
-  +'<div class="g64"><div>'+D.avals.map(e=>'<div class="evcard"><div class="evh"><div><div class="evname">'+e.nm+'</div><div class="txs tm2 mt4">'+e.sv+' com '+e.pr+'</div></div><div class="tr"><div class="evstars">'+'star'.repeat(e.st)+'empty'.repeat(5-e.st)+'</div><div class="txs tm2 mt4">'+e.dt+'</div></div></div><div class="evtxt">'+e.tx+'</div><div class="flex ic jb mt8"><span>'+(e.st===5?'<span class="tag tsg">5 estrelas</span>':e.st<=3?'<span class="tag trs">Atencao</span>':'<span class="tag tam">Boa</span>')+'</span>'+(e.rp?'<span class="txs sg2">Respondida</span>':'<button class="btn btgh xs" onclick="Toast.show(\'Abrindo resposta...\')">Responder</button>')+'</div></div>').join('')+'</div>'
-  +'<div style="display:flex;flex-direction:column;gap:12px"><div class="card"><div class="cardh"><div class="cardt">Nota <em>Geral</em></div></div><div class="cardb tc"><div style="font-family:var(--fd);font-size:48px;font-weight:300;color:var(--gdd);line-height:1">'+med+'</div><div style="color:var(--gd);font-size:17px;letter-spacing:2px;margin:4px 0">stars</div><div class="tsm tm2">'+D.avals.length+' avaliacoes</div><div class="divider"></div>'+[5,4,3,2,1].map(n=>{const cnt=D.avals.filter(e=>e.st===n).length;const pct=Math.round(cnt/D.avals.length*100);return'<div class="flex ic g8 mb8"><span class="txs" style="width:12px">'+n+'</span><span style="color:var(--gd);font-size:11px">*</span><div class="pbt" style="flex:1;height:4px"><div class="pbf" style="width:'+pct+'%;background:var(--gd)"></div></div><span class="txs tm2" style="width:22px">'+pct+'%</span></div>';}).join('')+'</div></div><div class="card"><div class="cardh"><div class="cardt">Por <em>Profissional</em></div></div><div class="cardb">'+D.staff.map(f=>{const evs=D.avals.filter(e=>e.pr===f.nm.split(' ')[0]);const avg=evs.length?(evs.reduce((a,e)=>a+e.st,0)/evs.length).toFixed(1):'-';return'<div class="sr"><div class="flex ic g8"><div class="av" style="background:'+f.bg+';color:'+f.c+';width:24px;height:24px;font-size:10px">'+f.in+'</div><span>'+f.nm.split(' ')[0]+'</span></div><span class="srv">'+avg+' star</span></div>';}).join('')+'</div></div></div></div>');
+  renderEmBreve('page-avaliacoes','Avaliações <em>das Clientes</em>','A listagem chega assim que o gatilho de avaliação pós-atendimento estiver ativo em produção.');
 },
 
 automacoes(){
-  const totalR=D.automacoes.reduce((a,x)=>a+x.receita,0);
-  const totalD=D.automacoes.reduce((a,x)=>a+x.disparos,0);
-  html($('#page-automacoes'),'<div class="sech"><div><div class="sct">Automacoes <em>e Fluxos</em></div><div class="scsub">Cada automacao ativa trabalha por voce enquanto voce atende</div></div><div class="scacts"><button class="btn btp sm" onclick="Toast.show(\'Abrindo editor de automacao...\')">+ Nova automacao</button></div></div>'
-  +'<div class="g4 mb14"><div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Receita gerada pelas automacoes</div><div class="kcv sg2">'+R(totalR)+'</div><div class="kcd up">este mes</div><div class="kcico">robot</div></div><div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Disparos totais no mes</div><div class="kcv gd2">'+totalD+'</div><div class="kcd n">mensagens enviadas</div><div class="kcico">send</div></div><div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Automacoes ativas</div><div class="kcv am2">'+D.automacoes.filter(a=>a.ativa).length+'</div><div class="kcd n">de '+D.automacoes.length+' configuradas</div><div class="kcico">bolt</div></div><div class="kc"><div class="kcbar" style="background:var(--vi)"></div><div class="kclbl">Taxa media de resposta</div><div class="kcv" style="color:var(--vi)">43%</div><div class="kcd up">acima da media do setor</div><div class="kcico">chart</div></div></div>'
-  +D.automacoes.map(a=>'<div class="auto-card" style="'+(a.ativa?'':'opacity:.6')+'"><div class="auto-icon" style="background:'+(a.ativa?'var(--sgl)':'var(--cr2)')+'">'+a.ico.slice(0,2)+'</div><div class="auto-body"><div class="flex ic jb"><div class="auto-name">'+a.nm+'</div><label class="tog"><input type="checkbox" '+(a.ativa?'checked':'')+' onchange="Toast.show(\'\'+a.nm+\' \'+(a.ativa?\'desativada\':\'ativada\')+\'!\')"><div class="togt"></div><div class="togk"></div></label></div><div class="auto-desc">'+a.desc+'</div><div class="auto-metrics"><span class="auto-metric"><strong>'+a.disparos+'</strong> disparos</span><span class="auto-metric"><strong>'+a.taxa+'%</strong> resposta</span>'+(a.receita>0?'<span class="auto-metric"><strong style="color:var(--gdd)">'+R(a.receita)+'</strong> gerados</span>':'')+'<span class="tag tik" style="font-size:9px">'+a.cat+'</span></div></div><button class="btn btgh sm" onclick="Toast.show(\'Editando \'+a.nm+\'...\')">Editar</button></div>').join(''));
+  const pg=$('#page-automacoes');
+  html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando automações...</div>');
+  chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/automacoes`).then(automacoes=>{
+    const info={
+      confirmacao_24h:{ico:'📱',nm:'Confirmação 24h antes',desc:'Lembrete de WhatsApp 24h antes do horário marcado.'},
+      reativacao_clientes:{ico:'🎯',nm:'Reativar Clientes Sumidos',desc:'Mensagem pra quem não volta há muito tempo (configurável).'},
+      aniversario:{ico:'🎂',nm:'Oferta de Aniversário',desc:'Mensagem especial no aniversário do cliente.'},
+      retorno_ciclo:{ico:'🔁',nm:'Retorno por Ciclo',desc:'Sugere reagendar um serviço quando o ciclo esperado dele passa (configure o ciclo em cada serviço).'},
+      upsell_agendamento:{ico:'✨',nm:'Upsell no Agendamento',desc:'Sugere um serviço extra assim que você agenda algo pro cliente.'},
+      lista_espera:{ico:'⏳',nm:'Lista de Espera Automática',desc:'Oferece o horário liberado pro primeiro da lista de espera quando um agendamento é cancelado.'},
+      avaliacao_pos_atendimento:{ico:'⭐',nm:'Avaliação Pós-Atendimento',desc:'Pede avaliação depois que a comanda é fechada. (já ativa, não desligue por engano)'},
+    };
+    const ordem=['confirmacao_24h','reativacao_clientes','aniversario','retorno_ciclo','upsell_agendamento','lista_espera','avaliacao_pos_atendimento'];
+    const porTipo={};
+    automacoes.forEach(a=>porTipo[a.tipo]=a);
+    html(pg,'<div class="sech"><div><div class="sct">Automações <em>e Fluxos</em></div><div class="scsub">Mensagens de WhatsApp disparadas automaticamente por gatilho</div></div></div>'
+      +ordem.map(tipo=>{
+        const a=porTipo[tipo];
+        const meta=info[tipo];
+        if(!a)return'';
+        return'<div class="auto-card"><div class="auto-icon" style="background:var(--cr2)">'+meta.ico+'</div>'
+          +'<div class="auto-body"><div class="auto-name">'+meta.nm+'</div><div class="auto-desc">'+meta.desc+'</div>'
+          +'<div class="auto-metrics"><div class="auto-metric"><strong>'+a.disparos_30d+'</strong> disparo(s) nos últimos 30 dias</div></div></div>'
+          +'<label class="tog"><input type="checkbox" '+(a.ativa?'checked':'')+' onchange="alternarAutomacao(\''+a.id+'\',this.checked)"><div class="togt"></div><div class="togk"></div></label>'
+          +'</div>';
+      }).join(''));
+  }).catch(erro=>{
+    html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível carregar automações: '+erro.message+'</div>');
+  });
 },
 
 whatsapp(){
-  html($('#page-whatsapp'),'<div class="sech"><div><div class="sct">WhatsApp <em>Flows</em></div><div class="scsub">Fluxos de mensagem automaticos - visualize e edite cada conversa</div></div><div class="scacts"><button class="btn btp sm" onclick="Toast.show(\'Abrindo editor de flow...\')">+ Novo flow</button></div></div>'
-  +'<div class="g2">'
-  +'<div>'
-  +[{nm:'Confirmacao 24h antes',trigger:'24h antes do agendamento',msgs:[{out:false,tx:'Oi [Nome]! Lembrando do seu horario amanha: [Servico] com [Profissional] as [Hora]. Voce confirma? Responda SIM ou NAO'},{out:true,tx:'SIM'},{out:false,tx:'Otimo! Te esperamos amanha. Se precisar reagendar, e so responder aqui.'}],ativa:true},
-  {nm:'Reativacao por Ciclo',trigger:'Quando ciclo de retorno vence',msgs:[{out:false,tx:'Oi [Nome]! Ja faz um tempinho que nao te vemos... Sua [Servico] ja deve estar pedindo uma renovacao! Temos horarios disponiveis essa semana.'},{out:true,tx:'Sim, quero marcar!'},{out:false,tx:'Que otimo! Clica no link para ver os horarios: [link]'}],ativa:true},
-  {nm:'Upsell no Agendamento',trigger:'Apos confirmar agendamento',msgs:[{out:false,tx:'Seu horario esta confirmado! Que tal aproveitar e adicionar uma hidratacao profunda? Por apenas +R$30, seu cabelo vai ficar ainda mais lindo.'},{out:true,tx:'Sim, quero a hidratacao!'},{out:false,tx:'Perfeito! Ja incluimos no seu horario.'}],ativa:true}].map(flow=>'<div class="card mb12"><div class="cardh"><div><div class="cardt">'+flow.nm+'</div><div class="txs tm2 mt4">Gatilho: '+flow.trigger+'</div></div><div class="flex ic g8"><span class="tag '+(flow.ativa?'tsg':'tik')+'">'+(flow.ativa?'Ativa':'Pausada')+'</span><button class="btn btgh xs" onclick="Toast.show(\'Editando automacao...\')">Editar</button></div></div><div class="cardb"><div style="background:#131a24;border-radius:var(--r);padding:12px">'+flow.msgs.map(msg=>'<div style="max-width:80%;margin-bottom:8px;padding:8px 11px;font-size:12px;line-height:1.6;border-radius:'+(msg.out?'10px 10px 2px 10px':'10px 10px 10px 2px')+';background:'+(msg.out?'#1a3a24':'#1e2a3a')+';'+(msg.out?'margin-left:auto;color:rgba(255,255,255,.9)':'color:rgba(255,255,255,.75)')+'">'+msg.tx+'</div>').join('')+'</div></div></div>').join('')
-  +'</div>'
-  +'<div style="display:flex;flex-direction:column;gap:12px">'
-  +'<div class="card"><div class="cardh"><div class="cardt">Estatisticas <em>do Mes</em></div></div><div class="cardb"><div class="sr"><span class="srl">Mensagens enviadas</span><span class="srv">348</span></div><div class="sr"><span class="srl">Taxa de abertura</span><span class="srv sg">94%</span></div><div class="sr"><span class="srl">Taxa de resposta</span><span class="srv gd">43%</span></div><div class="sr"><span class="srl">Agendamentos gerados</span><span class="srv">24</span></div><div class="sr"><span class="srl">Receita atribuida</span><span class="srv gd">R$ 7.440</span></div></div></div>'
-  +'<div class="card"><div class="cardh"><div class="cardt">Configuracao <em>do WhatsApp</em></div></div><div class="cardb"><div class="sr"><span class="srl">Numero conectado</span><span class="srv">(11) 9 8800-0000</span></div><div class="sr"><span class="srl">Status da API</span><span class="srv sg2">Online</span></div><div class="sr"><span class="srl">Mensagens restantes</span><span class="srv">1.652/2.000</span></div><div class="divider"></div><button class="btn btgh sm wf" style="justify-content:center" onclick="Toast.show(\'Abrindo config WhatsApp...\')">Gerenciar conexao</button></div></div>'
-  +'</div></div>');
+  renderEmBreve('page-whatsapp','WhatsApp <em>Flows</em>','A automação por gatilho já existe (aba Automações). Um editor visual de fluxo de conversa livre ainda não foi construído.');
 },
 
-relatorios(){
-  const pv=$('#relperiod')?.value||'mes';
-  const ml={hoje:.15,semana:.38,mes:1,trimestre:3.1};const m=ml[pv]||1;
-  const lb={hoje:'Hoje',semana:'Esta Semana',mes:'Este Mes',trimestre:'Trimestre'};
-  html($('#page-relatorios'),'<div class="sech"><div><div class="sct">Relatorios <em>e Resultados</em></div><div class="scsub">Desempenho com filtro de periodo</div></div><div class="scacts"><select class="fi" style="width:140px" id="relperiod" onchange="P.relatorios()"><option value="hoje">Hoje</option><option value="semana">Esta semana</option><option value="mes" selected>Este mes</option><option value="trimestre">Trimestre</option></select><button class="btn btgh sm">Exportar</button></div></div>'
-  +'<div class="g4 mb12">'+[['money',R(Math.round(18640*m)),'Receita total - '+lb[pv],'+ 23% vs anterior','gd2','up'],['cycle',R(4730),'Planos mensais MRR','43 clientes no plano','','up'],['calendar',String(Math.round(148*m)),'Clientes atendidas','media de 7.4 por dia','','up'],['up',R(Math.round(1280*m)),'Extras vendidos','34 clientes aceitaram','','up']].map(([ic,vl,lb2,dl,cl,dr])=>'<div class="kc"><div class="kclbl">'+lb2+'</div><div class="kcv '+(cl||'')+'">'+(vl)+'</div><div class="kcd '+dr+'">'+dl+'</div><div class="kcico">'+ic+'</div></div>').join('')+'</div>'
-  +'<div class="g2"><div class="card"><div class="cardh"><div class="cardt">Servicos <em>mais realizados</em></div></div><div class="cardb">'+[['Coloracao',38,'#8B7A55'],['Corte',31,'#4A7A62'],['Progressiva',20,'#7A5A8A'],['Manicure',17,'#9A6F00'],['Hidratacao',14,'#6A7A9A']].map(([s,n,c])=>'<div class="sr"><span class="srl">'+s+'</span><div class="pbrow" style="width:190px"><div class="pbt" style="flex:1;height:4px"><div class="pbf" style="width:'+Math.round(n/38*100)+'%;background:'+c+'"></div></div><span class="txs fw6" style="width:50px;text-align:right">'+Math.round(n*m)+'</span></div></div>').join('')+'</div></div>'
-  +'<div class="card"><div class="cardh"><div class="cardt">Receita <em>por semana</em></div></div><div class="cardb">'+[['Sem 1',3980],['Sem 2',4620],['Sem 3',5280],['Sem 4',4760]].map(([s,v],i)=>'<div style="margin-bottom:10px"><div class="flex jb tsm mb4"><span class="tm2">'+s+'</span><span class="fw6">'+R(Math.round(v*m))+'</span></div><div class="pbt" style="height:6px"><div class="pbf" style="width:'+Math.round(v/5280*100)+'%;background:'+(i===2?'var(--gd)':'var(--cr3)')+'"></div></div></div>').join('')+'<div class="divider"></div><div class="sr"><span class="srl">Ticket medio</span><span class="srv gd">R$ 118</span></div><div class="sr"><span class="srl">Taxa de retorno</span><span class="srv sg">68%</span></div><div class="sr"><span class="srl">Margem media</span><span class="srv vi2">62%</span></div></div></div></div>');
+async relatorios(){
+  const pg=$('#page-relatorios');
+  html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando relatórios...</div>');
+  let r;
+  try{
+    r=await chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/resumo-mensal`);
+  }catch(erro){
+    html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível carregar relatórios: '+erro.message+'</div>');
+    return;
+  }
+  const kpis=[
+    ['money',r.rec_mes!=null?R(r.rec_mes):'—','Receita do mês'],
+    ['cash',r.ticket_med!=null?R(r.ticket_med):'—','Ticket médio'],
+    ['calendar',r.agend_mes!=null?String(r.agend_mes):'—','Comandas fechadas no mês'],
+    ['up',r.margem_pct!=null?r.margem_pct+'%':'—','Margem média'],
+  ];
+  const topServicos=r.top_servicos||[];
+  const maxServ=Math.max(1,...topServicos.map(s=>s[1]));
+  const recSemanas=r.rec_semanas||[];
+  const maxSemana=Math.max(1,...recSemanas);
+  html(pg,'<div class="sech"><div><div class="sct">Relatorios <em>e Resultados</em></div><div class="scsub">Este mes</div></div><div class="scacts"><button class="btn btgh sm">Exportar</button></div></div>'
+  +'<div class="g4 mb12">'+kpis.map(([ic,vl,lb2])=>'<div class="kc"><div class="kclbl">'+lb2+'</div><div class="kcv">'+vl+'</div><div class="kcico">'+ic+'</div></div>').join('')+'</div>'
+  +'<div class="g2"><div class="card"><div class="cardh"><div class="cardt">Servicos <em>mais realizados</em></div></div><div class="cardb">'
+  +(topServicos.length?topServicos.map(([s,pct],i)=>'<div class="sr"><span class="srl">'+s+'</span><div class="pbrow" style="width:190px"><div class="pbt" style="flex:1;height:4px"><div class="pbf" style="width:'+Math.round(pct/maxServ*100)+'%;background:'+PALETA_STAFF[i%PALETA_STAFF.length].c+'"></div></div><span class="txs fw6" style="width:50px;text-align:right">'+pct+'%</span></div></div>').join(''):'<div style="padding:16px 0;color:var(--ink3);font-size:12px">Nenhuma comanda fechada este mes ainda.</div>')
+  +'</div></div>'
+  +'<div class="card"><div class="cardh"><div class="cardt">Receita <em>por semana</em></div></div><div class="cardb">'
+  +(recSemanas.length?recSemanas.map((v,i)=>'<div style="margin-bottom:10px"><div class="flex jb tsm mb4"><span class="tm2">Sem '+(i+1)+'</span><span class="fw6">'+R(v)+'</span></div><div class="pbt" style="height:6px"><div class="pbf" style="width:'+Math.round(v/maxSemana*100)+'%;background:var(--cr3)"></div></div></div>').join(''):'<div style="padding:16px 0;color:var(--ink3);font-size:12px">Sem dado de receita semanal ainda.</div>')
+  +'<div class="divider"></div><div class="sr"><span class="srl">Taxa de retorno</span><span class="srv sg">'+(r.tax_retorno!=null?r.tax_retorno+'%':'—')+'</span></div><div class="sr"><span class="srl">Avaliacao media</span><span class="srv vi2">'+(r.rating!=null?r.rating.toFixed(1)+' star':'—')+'</span></div></div></div></div>');
 },
 
-equipe(){
-  const tR=D.staff.reduce((a,f)=>a+f.re,0),tC=D.staff.reduce((a,f)=>a+f.cv,0);
-  html($('#page-equipe'),'<div class="sech"><div><div class="sct">Equipe <em>e Comissoes</em></div><div class="scsub">Metas, performance e comissoes do mes</div></div><div class="scacts"><button class="btn btp sm" onclick="openM(\'novaFunc\')">+ Cadastrar</button></div></div>'
-  +'<div class="g4 mb12"><div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Profissionais</div><div class="kcv">'+D.staff.length+'</div><div class="kcd n">todas ativas</div><div class="kcico">team</div></div><div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Receita da Equipe</div><div class="kcv gd2">'+R(tR)+'</div><div class="kcd up">+ 23%</div><div class="kcico">money</div></div><div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Comissoes a Pagar</div><div class="kcv am2">'+R(tC)+'</div><div class="kcd n">'+Math.round(tC/tR*100)+'% medio</div><div class="kcico">cash</div></div><div class="kc"><div class="kcbar" style="background:var(--sk)"></div><div class="kclbl">Avaliacao Media</div><div class="kcv" style="color:var(--sk)">'+(D.staff.reduce((a,f)=>a+f.rt,0)/D.staff.length).toFixed(1)+' star</div><div class="kcd up">Excelente</div><div class="kcico">star</div></div></div>'
-  +'<div class="card mb12"><div class="cardh"><div class="cardt">Metas <em>de Receita - Abril</em></div><div class="txs tm2">Progresso em tempo real</div></div><div class="cardb">'+D.staff.map(f=>{const pct=Math.min(Math.round(f.re/f.mt*100),100);const col=pct>=100?'var(--sg)':pct>=70?'var(--gd)':'var(--rs)';const tr=pct>=100?'trophy':pct>=70?'silver':'target';return'<div class="mb12"><div class="flex ic jb mb8"><div class="flex ic g10"><div class="av" style="background:'+f.bg+';color:'+f.c+'">'+f.in+'</div><div><div class="lrn">'+f.nm+' '+tr+'</div><div class="lrm">'+f.rl+' - '+f.at+' atend.</div></div></div><div class="tr"><div class="fw6" style="color:'+col+'">'+pct+'%</div><div class="txs tm2">'+R(f.re)+' / '+R(f.mt)+'</div></div></div><div class="pbt" style="height:6px"><div class="pbf" style="width:'+pct+'%;background:'+col+'"></div></div></div>';}).join('')+'</div></div>'
-  +'<div class="tw"><div class="thead tc6s"><div>Funcionaria</div><div>Cargo</div><div>Atend.</div><div>Receita</div><div>Comissao</div><div>Pagar</div></div>'+D.staff.map(f=>'<div class="trow tc6s"><div class="flex ic g10"><div class="av" style="background:'+f.bg+';color:'+f.c+'">'+f.in+'</div><div><div class="lrn">'+f.nm+'</div><div class="lrm">'+f.rt+' star - '+f.tl+'</div></div></div><div class="tm2">'+f.rl+'</div><div>'+f.at+' clientes</div><div class="fw6">'+R(f.re)+'</div><div style="font-family:var(--fd);font-size:16px;font-weight:300;color:var(--gdd)">'+R(f.cv)+'</div><div><button class="btn btg xs" onclick="Toast.show(\'Comissao de \'+f.nm+\' paga!\')">Pagar</button></div></div>').join('')+'<div class="trow tc6s ttotal"><div style="grid-column:1/4">TOTAL DO MES</div><div></div><div>'+R(tR)+'</div><div style="font-family:var(--fd);font-size:17px;color:var(--gdd)">'+R(tC)+'</div><div><button class="btn btp xs" onclick="Toast.show(\'Todas as comissoes pagas!\')">Pagar todas</button></div></div></div>');
+async equipe(){
+  const pg=$('#page-equipe');
+  html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando equipe...</div>');
+  let profissionais=[],resumo=null;
+  try{
+    [profissionais,resumo]=await Promise.all([
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/profissionais`),
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/resumo-mensal`).catch(()=>null),
+    ]);
+  }catch(erro){
+    html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível carregar a equipe: '+erro.message+'</div>');
+    return;
+  }
+  const ativos=profissionais.filter(p=>p.ativo!==false);
+  const staffList=resumo?.staff_list||[];
+  const porNome={};
+  staffList.forEach(s=>{porNome[s.nome]=s;});
+  const linhas=ativos.map(p=>{
+    const s=porNome[p.nome];
+    const receita=s?.receita_mes||0;
+    const comPct=p.comissao_padrao_percentual||0;
+    const comissao=receita*comPct/100;
+    return{p,receita,comPct,comissao};
+  });
+  const tR=linhas.reduce((a,l)=>a+l.receita,0),tC=linhas.reduce((a,l)=>a+l.comissao,0);
+  html(pg,'<div class="sech"><div><div class="sct">Equipe <em>e Comissoes</em></div><div class="scsub">'+(resumo?.meta_mes!=null?'Meta do mes: '+R(resumo.meta_mes):'Performance e comissoes do mes')+'</div></div><div class="scacts"><button class="btn btp sm" onclick="abrirModalNovoProfissional()">+ Cadastrar</button></div></div>'
+  +'<div class="g4 mb12"><div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Profissionais</div><div class="kcv">'+ativos.length+'</div><div class="kcd n">ativas</div><div class="kcico">team</div></div><div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Receita da Equipe</div><div class="kcv gd2">'+R(tR)+'</div><div class="kcico">money</div></div><div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Comissoes a Pagar</div><div class="kcv am2">'+R(tC)+'</div><div class="kcico">cash</div></div><div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Meta do Mes</div><div class="kcv">'+(resumo?.meta_mes!=null?R(resumo.meta_mes):'—')+'</div><div class="kcico">target</div></div></div>'
+  +'<div class="tw"><div class="thead" style="grid-template-columns:2fr 1fr 1fr 1fr"><div>Profissional</div><div>Comissao %</div><div>Receita</div><div>Comissao a pagar</div></div>'
+  +(linhas.length?linhas.map(({p,receita,comPct,comissao})=>{const cor=corPara(p.id);return'<div class="trow" style="grid-template-columns:2fr 1fr 1fr 1fr"><div class="flex ic g10"><div class="av" style="background:'+cor.bg+';color:'+cor.c+'">'+iniciais(p.nome)+'</div><div><div class="lrn">'+p.nome+'</div></div></div><div class="tm2">'+comPct+'%</div><div class="fw6">'+R(receita)+'</div><div style="font-family:var(--fd);font-size:16px;font-weight:300;color:var(--gdd)">'+R(comissao)+'</div></div>';}).join('')+'<div class="trow ttotal" style="grid-template-columns:2fr 1fr 1fr 1fr"><div>TOTAL DO MES</div><div></div><div>'+R(tR)+'</div><div style="font-family:var(--fd);font-size:17px;color:var(--gdd)">'+R(tC)+'</div></div>':'<div style="padding:16px;color:var(--ink3);font-size:12px">Nenhuma profissional ativa cadastrada ainda.</div>')
+  +'</div>');
 },
 
 previsao(){
-  const total=D.preds.reduce((a,p)=>a+p.vl,0);
-  const alta=D.preds.filter(p=>p.prob==='alta');
-  const chart=Array.from({length:30},(_,i)=>({d:i+1,v:Math.round(500+Math.sin(i*.4)*200+Math.random()*150),pred:i>14}));
-  const maxV=Math.max(...chart.map(d=>d.v));
-  html($('#page-previsao'),'<div class="sech"><div><div class="sct">IA Preditiva <em>de Receita</em></div><div class="scsub">Preve quando cada cliente vai voltar e quanto vai entrar - exclusividade SalonOS</div></div></div>'
-  +'<div class="aibanner mb12" style="cursor:default"><div style="font-size:18px">brain</div><div style="flex:1;font-size:13px;line-height:1.6"><div class="aitag">NATIVO NO SALONOS</div><br>O sistema calcula o ciclo de retorno de cada servico por cliente. Coloracao volta em 45 dias, progressiva em 90 dias. Isso gera uma <strong style="color:var(--gdd)">previsao de receita real</strong> - direto na sua agenda, sem contratar ou integrar nenhuma ferramenta separada.</div></div>'
-  +'<div class="g3 mb12"><div class="fcast"><div style="font-size:9px;color:rgba(255,255,255,.3);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px">PREVISAO TOTAL - 30 DIAS</div><div style="font-family:var(--fd);font-size:14px;font-weight:300;color:var(--wh);margin-bottom:7px">Receita <em>prevista</em></div><div class="fv">'+R(total)+'</div><div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:12px">'+D.preds.length+' clientes com retorno previsto</div><div class="mt10 flex g8" style="flex-wrap:wrap"><span style="font-size:10px;padding:3px 8px;border-radius:12px;background:rgba(74,122,98,.25);color:var(--sg)">'+alta.length+' alta prob.</span><span style="font-size:10px;padding:3px 8px;border-radius:12px;background:rgba(154,111,0,.25);color:var(--am)">'+D.preds.filter(p=>p.prob==='media').length+' media</span></div></div>'
-  +'<div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Alta probabilidade</div><div class="kcv sg2">'+alta.length+'</div><div class="kcd up">Retorno quase certo</div><div class="kcico">target</div></div>'
-  +'<div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Receita garantida alta</div><div class="kcv gd2">'+R(alta.reduce((a,p)=>a+p.vl,0))+'</div><div class="kcd up">Sem acao necessaria</div><div class="kcico">money</div></div></div>'
-  +'<div class="card mb12"><div class="cardh"><div class="cardt">Receita <em>Prevista - 30 Dias</em></div><div class="flex g8"><div class="flex ic g6 txs tm2"><div style="width:9px;height:9px;border-radius:2px;background:var(--gd)"></div>Historico</div><div class="flex ic g6 txs tm2"><div style="width:9px;height:9px;border-radius:2px;background:var(--gd);opacity:.45"></div>Previsto IA</div></div></div><div class="cardb"><div style="display:flex;align-items:flex-end;gap:2px;height:90px">'+chart.map(d=>{const h=Math.round((d.v/maxV)*86);const bg=d.pred?'var(--gd)':'var(--gdd)';const extra=d.pred?'opacity:.5;background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(255,255,255,.3) 3px,rgba(255,255,255,.3) 4px)':'';return'<div style="flex:1;height:'+h+'px;border-radius:2px 2px 0 0;background:'+bg+';'+extra+';cursor:pointer;min-height:3px" title="Dia '+d.d+': '+R(d.v)+'"></div>';}).join('')+'</div><div class="flex jb mt8 txs tm2"><span>Hoje</span><span>+15 dias</span><span>+30 dias</span></div></div></div>'
-  +'<div class="g2"><div class="card"><div class="cardh"><div class="cardt">Clientes com <em>Retorno Previsto</em></div></div>'+D.preds.sort((a,b)=>a.dias-b.dias).map(p=>'<div class="lr"><div class="av" style="background:'+(p.prob==="alta"?'var(--sgl)':p.prob==="media"?'var(--aml)':'var(--cr2)')+';color:'+(p.prob==="alta"?'var(--sg)':p.prob==="media"?'var(--am)':'var(--ink3)')+'">o</div><div style="flex:1"><div class="lrn">'+p.nm+'</div><div class="lrm">'+p.sv+' - retorno em <strong>'+p.dias+' dias</strong></div></div><div class="lrr"><div class="lrv gd2">'+R(p.vl)+'</div><span class="tag '+(p.prob==="alta"?'tsg':p.prob==="media"?'tam':'tik')+'">'+p.prob+'</span></div></div>').join('')+'</div>'
-  +'<div style="display:flex;flex-direction:column;gap:12px"><div class="card"><div class="cardh"><div class="cardt">Como a IA <em>Calcula</em></div></div><div class="cardb"><div class="sr"><span class="srl">Coloracao</span><span class="srv">ciclo medio 45 dias</span></div><div class="sr"><span class="srl">Progressiva</span><span class="srv">ciclo medio 90 dias</span></div><div class="sr"><span class="srl">Corte</span><span class="srv">ciclo medio 30 dias</span></div><div class="sr"><span class="srl">Manicure</span><span class="srv">ciclo medio 15 dias</span></div><div class="divider"></div><div class="tsm tm2" style="line-height:1.5">O sistema aprende o ciclo individual de cada cliente pelo historico real de visitas.</div></div></div><div class="card"><div class="cardh"><div class="cardt">Acao <em>Automatica</em></div></div><div class="cardb"><p class="tsm tm2 mb10" style="line-height:1.5">WhatsApp automatico enviado 5 dias antes do ciclo previsto.</p><div class="flex ic g8 mb10"><label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label><span class="tsm">Envio automatico ativado</span></div><button class="btn btp sm wf" style="justify-content:center" onclick="Toast.show(\'Lembretes enviados para todas!\')">Enviar para todas agora</button></div></div></div></div>');
+  renderEmBreve('page-previsao','IA Preditiva <em>de Receita</em>','Ainda não há modelo de previsão calculado a partir de dado real.');
 },
 
 marketplace(){
-  const saloes=[
-    {nm:'Studio Beleza Pro',bairro:'Jardins',nota:4.9,av:127,dist:'Seu salão',dest:true,servicos:['Coloração','Mechas','Progressiva'],preco:'R$ 80–280',foto:'💆'},
-    {nm:'Salão Glamour',bairro:'Moema',nota:4.6,av:84,dist:'2.3 km',dest:false,servicos:['Corte','Escova','Manicure'],preco:'R$ 50–150',foto:'💇'},
-    {nm:'Beauty Space',bairro:'Itaim Bibi',nota:4.7,av:203,dist:'3.1 km',dest:false,servicos:['Coloração','Limpeza de Pele'],preco:'R$ 90–220',foto:'✨'},
-    {nm:'Studio Essence',bairro:'Pinheiros',nota:4.5,av:61,dist:'4.2 km',dest:false,servicos:['Mechas','Progressiva','Escova'],preco:'R$ 70–250',foto:'🌟'},
-    {nm:'Top Nail Studio',bairro:'Vila Madalena',nota:4.8,av:312,dist:'5.0 km',dest:false,servicos:['Manicure','Nail Art','Pedicure'],preco:'R$ 35–90',foto:'💅'},
-  ];
-  html($('#page-marketplace'),`<div class="sech"><div><div class="sct">Marketplace <em>de Clientes</em></div><div class="scsub">Seu salão visível para novos clientes buscando serviços na sua região</div></div>
-    <div class="scacts"><button class="btn btgh sm" onclick="Toast.show(\'Abrindo config de destaque...\')">Gerenciar posição</button><button class="btn btg sm" onclick="Toast.show(\'Plano Destaque ativado! +40% visibilidade.\')">⬆ Destacar salão</button></div></div>
-
-  <div class="aibanner mb14" style="cursor:default">
-    <div style="font-size:18px">🛍</div>
-    <div style="flex:1;font-size:13px;line-height:1.6"><div class="aitag">Marketplace SalonOS</div><br>
-    <strong style="color:var(--gdd)">+28 clientes novos este mês</strong> encontraram o Studio Beleza Pro pelo marketplace. Você aparece em <strong style="color:var(--gdd)">#1</strong> na busca por coloração em Jardins.</div>
-    <div style="text-align:right;flex-shrink:0"><div style="font-family:var(--fd);font-size:22px;color:var(--gd)">R$ 4.920</div><div style="font-size:10px;color:rgba(255,255,255,.4)">Receita via marketplace</div></div>
-  </div>
-
-  <div class="g4 mb14">
-    <div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Visualizações do perfil</div><div class="kcv gd2">1.240</div><div class="kcd up">▲ este mês</div><div class="kcico">👁</div></div>
-    <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Clientes novos captados</div><div class="kcv sg2">28</div><div class="kcd up">▲ via marketplace</div><div class="kcico">👤</div></div>
-    <div class="kc"><div class="kcbar" style="background:var(--vi)"></div><div class="kclbl">Taxa de conversão</div><div class="kcv" style="color:var(--vi)">2.3%</div><div class="kcd up">▲ acima da media</div><div class="kcico">📊</div></div>
-    <div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Posição na busca</div><div class="kcv am2">#1</div><div class="kcd up">Coloração · Jardins</div><div class="kcico">🏆</div></div>
-  </div>
-
-  <div class="g64">
-    <div>
-      <div class="sct mb12" style="font-size:18px">Salões <em>na sua região</em></div>
-      ${saloes.map(s=>`<div style="background:var(--wh);border:${s.dest?'2px solid var(--gd)':'1px solid var(--bd)'};border-radius:var(--r);padding:16px;margin-bottom:10px;box-shadow:var(--sh);position:relative;transition:transform .15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-        ${s.dest?'<div style="position:absolute;top:-10px;left:16px;background:var(--gd);color:var(--ink);font-size:9px;font-weight:800;padding:2px 9px;border-radius:20px;letter-spacing:.5px">SEU SALÃO</div>':''}
-        <div style="display:flex;align-items:center;gap:12px">
-          <div style="width:44px;height:44px;border-radius:10px;background:${s.dest?'rgba(201,169,110,.15)':'var(--cr2)'};display:grid;place-items:center;font-size:22px;flex-shrink:0">${s.foto}</div>
-          <div style="flex:1">
-            <div style="font-size:14px;font-weight:700;margin-bottom:2px">${s.nm}</div>
-            <div style="font-size:11px;color:var(--ink3)">${s.bairro} · ${s.dist}</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${s.servicos.map(sv=>'<span style="font-size:10px;padding:2px 7px;background:var(--cr2);border:1px solid var(--bd);border-radius:12px;color:var(--ink3)">'+sv+'</span>').join('')}</div>
-          </div>
-          <div style="text-align:right;flex-shrink:0">
-            <div style="font-family:var(--fd);font-size:16px;font-weight:300;color:var(--gdd)">${s.preco}</div>
-            <div style="font-size:11px;color:var(--ink3);margin-top:3px">${s.nota} ★ (${s.av})</div>
-            ${s.dest?'<button class="btn btg xs" style="margin-top:6px" onclick="Toast.show(\'Editando perfil do marketplace...\')">Editar perfil</button>':'<button class="btn btgh xs" style="margin-top:6px" onclick="Toast.show(\'Analisando concorrente...\')">Analisar</button>'}
-          </div>
-        </div>
-      </div>`).join('')}
-    </div>
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div class="card"><div class="cardh"><div class="cardt">Seu <em>Perfil Público</em></div><button class="btn btgh sm" onclick="Toast.show(\'Editando perfil do marketplace...\')">Editar</button></div>
-        <div class="cardb">
-          <div style="background:var(--cr2);border-radius:8px;padding:12px;margin-bottom:12px;text-align:center">
-            <div style="font-size:28px;margin-bottom:6px">💆</div>
-            <div style="font-family:var(--fd);font-size:16px;font-style:italic;margin-bottom:2px">Studio Beleza Pro</div>
-            <div style="font-size:11px;color:var(--ink3)">Jardins, São Paulo · 4.9 ★</div>
-          </div>
-          <div class="sr"><span class="srl">Foto do salão</span><span class="srv sg2">✓ Cadastrada</span></div>
-          <div class="sr"><span class="srl">Serviços listados</span><span class="srv">10 serviços</span></div>
-          <div class="sr"><span class="srl">Galeria de fotos</span><span class="srv am2">⚠ 2/8 fotos</span></div>
-          <div class="sr"><span class="srl">Descrição</span><span class="srv sg2">✓ Completa</span></div>
-          <div class="divider"></div>
-          <button class="btn btp sm wf" style="justify-content:center" onclick="Toast.show(\'Abrindo perfil publico...\')">👁 Ver perfil público</button>
-        </div>
-      </div>
-      <div class="card"><div class="cardh"><div class="cardt">Plano <em>Destaque</em></div></div>
-        <div class="cardb">
-          <div style="font-family:var(--fd);font-size:28px;font-weight:300;color:var(--gdd);margin-bottom:4px">+40%</div>
-          <div style="font-size:12px;color:var(--ink3);margin-bottom:12px;line-height:1.5">de visibilidade com o plano Destaque. Apareça no topo das buscas da sua região por R$ 49/mês.</div>
-          <button class="btn btg sm wf" style="justify-content:center" onclick="Toast.show(\'Ativando plano Destaque...\',\'⬆\')">Ativar destaque — R$ 49/mês</button>
-        </div>
-      </div>
-    </div>
-  </div>`);
+  renderEmBreve('page-marketplace','Marketplace <em>de Clientes</em>','Ainda não existe diretório público de salões nem rastreio de origem de cliente no backend.');
 },
 
 planos(){
@@ -952,64 +1085,22 @@ planos(){
 },
 
 config(){
+  const e=estabelecimentoAtivo||{};
   const secs=[
-    {t:'Informacoes do Salao',rs:[{l:'Nome do salao',d:'Como aparece para as clientes',ct:'<input class="fi" style="width:200px" value="Studio Beleza Pro">'},{l:'WhatsApp',d:'Numero principal',ct:'<input class="fi" style="width:200px" value="(11) 9 8800-0000">'},{l:'CNPJ',d:'Para NF-e automatica',ct:'<input class="fi" style="width:200px" placeholder="00.000.000/0001-00">'},{l:'Endereco',d:'Usado nos lembretes',ct:'<input class="fi" style="width:200px" placeholder="Rua das Flores, 123">'}]},
-    {t:'Google Reserve e Instagram',rs:[{l:'Google Reserve',d:'Clientes agendam pelo Google Maps',ct:'<div class="flex ic g8"><div style="padding:4px 10px;background:var(--sgl);color:var(--sg);border-radius:20px;font-size:10px;font-weight:700">Conectado</div><button class="btn btgh sm" onclick="Toast.show(\'Abrindo config Instagram...\')">Gerenciar</button></div>'},{l:'Instagram',d:'Link Reservar no perfil',ct:'<div class="flex ic g8"><div style="padding:4px 10px;background:var(--sgl);color:var(--sg);border-radius:20px;font-size:10px;font-weight:700">Ativo</div><input class="fi" style="width:160px" value="@studiobelezapro"></div>'}]},
-    {t:'Automacoes',rs:[{l:'Confirmacao 24h antes',d:'WhatsApp automatico de confirmacao',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'IA de Retorno por Ciclo',d:'Mensagem no momento exato de retorno',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Upsell automatico',d:'Oferece servico complementar',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Buscar clientes sumidas',d:'Oferta para quem nao vem ha 45+ dias',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Oferta de aniversario',d:'Mensagem especial no aniversario',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Avaliacao pos-atendimento',d:'30 minutos depois do servico',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'}]},
-    {t:'Notificacoes',rs:[{l:'Cancelamento de cliente',d:'Notificacao imediata',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Avaliacao com nota baixa',d:'Notas 1 a 3 estrelas',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Relatorio diario no WhatsApp',d:'Resumo enviado as 20h',ct:'<label class="tog"><input type="checkbox"><div class="togt"></div><div class="togk"></div></label>'},{l:'Alerta de estoque minimo',d:'Quando produto atingir o minimo',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'}]},
-    {t:'Horario de Funcionamento',rs:[{l:'Abertura',d:'Primeiro horario disponivel',ct:'<input class="fi" style="width:110px" type="time" value="09:00">'},{l:'Fechamento',d:'Ultimo horario disponivel',ct:'<input class="fi" style="width:110px" type="time" value="19:00">'},{l:'Funciona aos sabados',d:'',ct:'<label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label>'},{l:'Funciona aos domingos',d:'',ct:'<label class="tog"><input type="checkbox"><div class="togt"></div><div class="togk"></div></label>'}]},
+    {t:'Informacoes do Salao',rs:[
+      {l:'Nome do salao',d:'Como aparece para as clientes',ct:'<input class="fi" style="width:200px" id="cfgNome" value="'+(e.nome||'')+'">'},
+      {l:'WhatsApp',d:'Numero principal',ct:'<input class="fi" style="width:200px" id="cfgWhatsapp" value="'+(e.whatsapp||'')+'">'},
+      {l:'CNPJ',d:'Para NF-e automatica',ct:'<input class="fi" style="width:200px" id="cfgCnpj" value="'+(e.cnpj||'')+'" placeholder="00.000.000/0001-00">'},
+      {l:'Endereco',d:'Usado nos lembretes',ct:'<input class="fi" style="width:200px" id="cfgEndereco" value="'+(e.endereco||'')+'" placeholder="Rua das Flores, 123">'},
+    ]},
+    {t:'Horario de Funcionamento',rs:[
+      {l:'Abertura',d:'Primeiro horario disponivel',ct:'<input class="fi" style="width:110px" type="time" id="cfgAbertura" value="'+(e.horario_abertura||'').slice(0,5)+'">'},
+      {l:'Fechamento',d:'Ultimo horario disponivel',ct:'<input class="fi" style="width:110px" type="time" id="cfgFechamento" value="'+(e.horario_fechamento||'').slice(0,5)+'">'},
+    ]},
   ];
-  html($('#page-config'),secs.map(s=>'<div class="cfsec"><div class="cfh">'+s.t+'</div>'+s.rs.map(r=>'<div class="cfrow"><div><div class="cflbl">'+r.l+'</div>'+(r.d?'<div class="cfdesc">'+r.d+'</div>':'')+'</div>'+r.ct+'</div>').join('')+'</div>').join('')+'<div class="flex jb mt4 ic"><span class="tsm tm2">SalonOS v6 - Build 2025.05</span><button class="btn btp" onclick="Toast.show(\'Configuracoes salvas!\')">Salvar configuracoes</button></div>');
+  html($('#page-config'),secs.map(s=>'<div class="cfsec"><div class="cfh">'+s.t+'</div>'+s.rs.map(r=>'<div class="cfrow"><div><div class="cflbl">'+r.l+'</div>'+(r.d?'<div class="cfdesc">'+r.d+'</div>':'')+'</div>'+r.ct+'</div>').join('')+'</div>').join('')+'<div class="flex jb mt4 ic"><span class="tsm tm2">SalonOS v6</span><button class="btn btp" id="cfgSalvarBtn" onclick="salvarConfigSalao()">Salvar configuracoes</button></div>');
 }
 };
-
-function agendaView(mode){
-  const grid = document.getElementById('agendaGrid');
-  const btnCol = document.getElementById('btnCol');
-  const btnLst = document.getElementById('btnLst');
-  if(!grid) return;
-  if(mode==='col'){
-    btnCol.className='btn btp xs'; btnCol.style.cssText='padding:4px 9px;font-size:11px';
-    btnLst.className='btn btgh xs'; btnLst.style.cssText='padding:4px 9px;font-size:11px;border:none';
-    grid.style.display='flex';
-  } else {
-    btnLst.className='btn btp xs'; btnLst.style.cssText='padding:4px 9px;font-size:11px';
-    btnCol.className='btn btgh xs'; btnCol.style.cssText='padding:4px 9px;font-size:11px;border:none';
-    grid.style.display='none';
-    const listWrap = document.getElementById('agendaList');
-    if(listWrap){ listWrap.style.display='block'; return; }
-    const lw = document.createElement('div');
-    lw.id='agendaList';
-    lw.style.cssText='background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)';
-    const times=['09:00','09:30','10:00','10:30','11:00','13:00','14:00','15:00','16:00','17:00'];
-    const stColors={ok:'var(--sgl)',pend:'var(--aml)',done:'var(--cr2)',empty:'transparent'};
-    const stLabels={ok:'Confirmado',pend:'Aguardando',done:'Concluído',empty:'Livre'};
-    let html='';
-    times.forEach(time=>{
-      const appts=D.appts.filter(a=>a.t===time&&a.st!=='empty'&&a.vl>0);
-      if(appts.length){
-        appts.forEach(a=>{
-          const pro=D.staff[a.pro];
-          html+=`<div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .15s" onmouseover="this.style.background='var(--cr)'" onmouseout="this.style.background='transparent'" onclick="Toast.show('Abrindo ${a.cl}')">
-            <div style="font-family:var(--fd);font-size:15px;font-weight:300;color:var(--ink3);width:46px;flex-shrink:0">${time}</div>
-            <div style="width:4px;height:36px;border-radius:2px;background:${a.ac};flex-shrink:0"></div>
-            <div style="width:26px;height:26px;border-radius:50%;background:${pro?.bg};color:${pro?.c};display:grid;place-items:center;font-size:10px;font-weight:700;flex-shrink:0">${pro?.in}</div>
-            <div style="flex:1"><div style="font-size:13px;font-weight:600">${a.cl}</div><div style="font-size:11px;color:var(--ink3);margin-top:1px">${a.sv} · ${pro?.nm?.split(' ')[0]}</div></div>
-            <div style="text-align:right"><div style="font-family:var(--fd);font-size:16px;font-weight:300;color:var(--gdd)">${R(a.vl)}</div><div style="font-size:9px;margin-top:2px;padding:2px 6px;border-radius:20px;background:${stColors[a.st]};color:var(--ink3)">${stLabels[a.st]}</div></div>
-          </div>`;
-        });
-      } else {
-        html+=`<div style="display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--bd);opacity:.4;cursor:pointer" onclick="openM('agend')">
-          <div style="font-family:var(--fd);font-size:15px;font-weight:300;color:var(--ink4);width:46px;flex-shrink:0">${time}</div>
-          <div style="flex:1;font-size:12px;color:var(--ink4)">Horário disponível — clique para agendar</div>
-          <div style="width:20px;height:20px;border:1px dashed var(--cr3);border-radius:50%;display:grid;place-items:center;font-size:13px;color:var(--ink4)">+</div>
-        </div>`;
-      }
-    });
-    lw.innerHTML=html;
-    grid.parentNode.insertBefore(lw, grid.nextSibling);
-  }
-}
 
 // PWA install prompt
 let _deferredPrompt = null;
@@ -1031,13 +1122,16 @@ function installPWA() {
 function init(){
   $('#dchip').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short'});
   $$('.nb[data-page]').forEach(b=>b.addEventListener('click',()=>Router.go(b.dataset.page)));
-  $('#exitBtn').addEventListener('click',()=>{$('#topbar').style.display='none';$('#heroBar').style.display='none';$('#mainWrap').style.display='none';$('#lw').style.display='flex';$('#lw').classList.remove('hide');Toast.show('Sessao encerrada. Ate logo!');});
+  $('#exitBtn').addEventListener('click',async()=>{
+    if(caixaChannel){sb.removeChannel(caixaChannel);caixaChannel=null;}
+    await sb.auth.signOut();
+    estabelecimentoAtivo=null;comandaAtual=null;
+    $('#topbar').style.display='none';$('#heroBar').style.display='none';$('#mainWrap').style.display='none';$('#lw').style.display='flex';$('#lw').classList.remove('hide');Toast.show('Sessao encerrada. Ate logo!');
+  });
   $('#mclose').addEventListener('click',Modal.close);
   $('#mbd').addEventListener('click',e=>{if(e.target===$('#mbd'))Modal.close();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')Modal.close();});
-  let hj=2840;
-  setInterval(()=>{hj+=Math.floor(Math.random()*60+20);const el=$('#hk1');if(el){el.style.transition='color .4s';el.style.color='var(--wh)';setTimeout(()=>{el.style.color='var(--gd)';el.textContent='R$ '+hj.toLocaleString('pt-BR');},400);}},10000);
-  P.agenda();
+  P.agenda().then(atualizarHero);
 }
 document.addEventListener('DOMContentLoaded',()=>{
   $('#mclose').addEventListener('click',Modal.close);

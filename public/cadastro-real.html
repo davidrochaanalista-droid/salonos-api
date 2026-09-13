@@ -111,7 +111,7 @@ function render() {
 function renderAuth() {
   const isLogin = estado.modoAuth === 'login';
   app.innerHTML = `
-    <div class="step-title">Bem-vindo${isLogin ? ' de volta' : ''} <em>ao SalonOS</em></div>
+    <div class="step-title">Bem-vindo(a)${isLogin ? ' de volta' : ''} <em>ao SalonOS</em></div>
     <div class="step-sub">${isLogin ? 'Entre para gerenciar seu estabelecimento.' : 'Crie sua conta para cadastrar seu estabelecimento.'}</div>
     <div class="toggle">
       <button class="${isLogin ? 'active' : ''}" onclick="mudarModoAuth('login')">Já tenho conta</button>
@@ -323,7 +323,10 @@ function renderCompleto() {
       <div class="step-sub">${estado.estabelecimento.nome} está cadastrado no SalonOS.</div>
     </div>
     ${estado.atividades.length ? `
-      <div class="bl" style="margin-bottom:10px">${estado.atividades.length} serviços cadastrados</div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <div class="bl">${estado.atividades.length} serviços cadastrados</div>
+        <div class="bl">Preço (a partir de)</div>
+      </div>
       ${estado.atividades.slice(0, 6).map(a => `
         <div class="ativ-row">
           <div class="ativ-nome">${a.nome}</div>
