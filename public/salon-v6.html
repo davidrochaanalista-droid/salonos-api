@@ -851,6 +851,179 @@ window.salvarConfigSalao=async function(){
   }
 };
 
+// ============================================================
+// ESTOQUE — produtos, foto/OCR (só sugere, nunca salva sozinho) e
+// receita por serviço (usada pelo backend pra baixa automática ao
+// fechar comanda -- ver fechar_comanda em database/16-...sql).
+// ============================================================
+function renderEstoque(){
+  const pg=$('#page-estoque');
+  const produtos=state.produtos||[];
+  const atividadesEstoque=state.atividadesEstoque||[];
+  const linhasProduto=produtos.length?produtos.map(p=>{
+    const baixo=(p.estoque_minimo||0)>0&&p.quantidade_em_estoque<=p.estoque_minimo;
+    const validade=p.validade?new Date(p.validade+'T00:00:00').toLocaleDateString('pt-BR'):'-';
+    return '<div class="trow" style="grid-template-columns:2fr 1.2fr 1fr 1fr 1fr 1fr" onclick="abrirModalEditarProduto(\''+p.id+'\')">'
+      +'<div><div class="lrn">'+(p.nome||'-')+'</div><div class="lrm">'+(p.categoria||'')+'</div></div>'
+      +'<div class="tm2">'+(p.marca||'-')+'</div>'
+      +'<div class="tm2" style="'+(baixo?'color:var(--rs);font-weight:600':'')+'">'+p.quantidade_em_estoque+' '+p.unidade+'</div>'
+      +'<div class="tm2">'+(p.estoque_minimo||0)+' '+p.unidade+'</div>'
+      +'<div class="tm2">'+validade+'</div>'
+      +'<div class="tm2">'+R(p.custo_unitario||0)+'</div>'
+      +'</div>';
+  }).join(''):'<div style="padding:16px;font-size:12px;color:var(--ink3)">Nenhum produto cadastrado ainda.</div>';
+
+  const linhasReceita=atividadesEstoque.length?atividadesEstoque.map(a=>{
+    const nomeSeguro=(a.nome||'').replace(/'/g,"\\'");
+    return '<div class="lr"><div><div class="lrn">'+(a.nome||'Serviço')+'</div><div class="lrm">'+R(a.preco||0)+'</div></div><button class="btn btgh sm" onclick="abrirReceitaAtividade(\''+a.id+'\',\''+nomeSeguro+'\')">Receita</button></div>';
+  }).join(''):'<div style="padding:16px;font-size:12px;color:var(--ink3)">Nenhum serviço cadastrado ainda.</div>';
+
+  html(pg,'<div class="sech"><div><div class="sct">Estoque <em>de Produtos</em></div><div class="scsub">'+produtos.length+' produto(s) cadastrado(s)</div></div>'
+    +'<div class="scacts"><button class="btn btp sm" onclick="abrirModalNovoProduto()">+ Produto</button></div></div>'
+    +'<div class="tw mb12"><div class="thead" style="grid-template-columns:2fr 1.2fr 1fr 1fr 1fr 1fr"><div>Produto</div><div>Marca</div><div>Estoque</div><div>Mínimo</div><div>Validade</div><div>Custo un.</div></div>'
+    +linhasProduto+'</div>'
+    +'<div class="card"><div class="cardh"><div class="cardt">Receita <em>por Serviço</em></div></div><div>'
+    +linhasReceita+'</div></div>');
+}
+
+window.abrirModalNovoProduto=function(){
+  Modal.open('Cadastrar Produto','<div class="mb2">'
+    +'<div class="fg"><label class="flbl">Foto do produto (opcional)</label><br>'
+    +'<input type="file" accept="image/*" capture="environment" id="novoProdutoFoto" style="display:none" onchange="identificarFotoProduto(this)">'
+    +'<button class="btn btgh sm" type="button" onclick="document.getElementById(\'novoProdutoFoto\').click()">📷 Tirar foto</button>'
+    +'<span id="novoProdutoFotoStatus" class="tsm tm2" style="margin-left:8px"></span></div>'
+    +'<div class="fg"><label class="flbl">Nome</label><input class="fi" id="novoProdutoNome" placeholder="Ex: Shampoo Reconstrução 1L"></div>'
+    +'<div class="frow"><div class="fg"><label class="flbl">Marca</label><input class="fi" id="novoProdutoMarca"></div><div class="fg"><label class="flbl">Categoria</label><input class="fi" id="novoProdutoCategoria"></div></div>'
+    +'<div class="frow"><div class="fg"><label class="flbl">Unidade</label><input class="fi" id="novoProdutoUnidade" value="un" placeholder="ml, g, un..."></div><div class="fg"><label class="flbl">Custo unitário</label><input class="fi" id="novoProdutoCusto" type="number" step="0.01" value="0"></div></div>'
+    +'<div class="frow"><div class="fg"><label class="flbl">Quantidade inicial</label><input class="fi" id="novoProdutoQuantidade" type="number" step="0.01" value="0"></div><div class="fg"><label class="flbl">Estoque mínimo</label><input class="fi" id="novoProdutoMinimo" type="number" step="0.01" value="0"></div></div>'
+    +'<div class="fg"><label class="flbl">Validade</label><input class="fi" id="novoProdutoValidade" type="date"></div>'
+    +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarNovoProduto()">Salvar produto</button></div>');
+};
+
+window.identificarFotoProduto=function(input){
+  const arquivo=input.files&&input.files[0];
+  if(!arquivo)return;
+  const status=$('#novoProdutoFotoStatus');
+  if(status)status.textContent='Identificando...';
+  const leitor=new FileReader();
+  leitor.onload=async function(){
+    try{
+      const sugestao=await chamarAPI('POST',`/estabelecimentos/${estabelecimentoAtivo.id}/produtos/identificar-foto`,{imagem_base64:leitor.result});
+      if(sugestao.marca&&$('#novoProdutoMarca'))$('#novoProdutoMarca').value=sugestao.marca;
+      if(sugestao.descricao&&$('#novoProdutoNome')&&!$('#novoProdutoNome').value)$('#novoProdutoNome').value=sugestao.descricao;
+      if(sugestao.validade&&$('#novoProdutoValidade'))$('#novoProdutoValidade').value=sugestao.validade;
+      if(status)status.textContent=(sugestao.marca||sugestao.descricao||sugestao.validade)?'Campos preenchidos — confira antes de salvar':'Não foi possível identificar automaticamente, preencha manualmente.';
+    }catch(erro){
+      if(status)status.textContent='Falha ao identificar a foto, preencha manualmente.';
+    }
+  };
+  leitor.readAsDataURL(arquivo);
+};
+
+window.confirmarNovoProduto=async function(){
+  const nome=$('#novoProdutoNome')?.value.trim();
+  if(!nome){Toast.show('Informe o nome do produto','⚠');return;}
+  const corpo={
+    nome,
+    marca:$('#novoProdutoMarca')?.value.trim()||null,
+    categoria:$('#novoProdutoCategoria')?.value.trim()||null,
+    unidade:$('#novoProdutoUnidade')?.value.trim()||'un',
+    custo_unitario:Number($('#novoProdutoCusto')?.value||0),
+    quantidade_em_estoque:Number($('#novoProdutoQuantidade')?.value||0),
+    estoque_minimo:Number($('#novoProdutoMinimo')?.value||0),
+    validade:$('#novoProdutoValidade')?.value||null,
+  };
+  try{
+    await chamarAPI('POST',`/estabelecimentos/${estabelecimentoAtivo.id}/produtos`,corpo);
+    Modal.close();
+    Toast.show('Produto cadastrado!');
+    P.estoque();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
+window.abrirModalEditarProduto=function(id){
+  const p=(state.produtos||[]).find(x=>x.id===id);
+  if(!p)return;
+  const esc=v=>(v==null?'':String(v)).replace(/"/g,'&quot;');
+  Modal.open('Editar Produto','<div class="mb2">'
+    +'<div class="fg"><label class="flbl">Nome</label><input class="fi" id="editProdutoNome" value="'+esc(p.nome)+'"></div>'
+    +'<div class="frow"><div class="fg"><label class="flbl">Marca</label><input class="fi" id="editProdutoMarca" value="'+esc(p.marca)+'"></div><div class="fg"><label class="flbl">Categoria</label><input class="fi" id="editProdutoCategoria" value="'+esc(p.categoria)+'"></div></div>'
+    +'<div class="frow"><div class="fg"><label class="flbl">Unidade</label><input class="fi" id="editProdutoUnidade" value="'+esc(p.unidade||'un')+'"></div><div class="fg"><label class="flbl">Custo unitário</label><input class="fi" id="editProdutoCusto" type="number" step="0.01" value="'+(p.custo_unitario||0)+'"></div></div>'
+    +'<div class="frow"><div class="fg"><label class="flbl">Quantidade em estoque</label><input class="fi" id="editProdutoQuantidade" type="number" step="0.01" value="'+(p.quantidade_em_estoque||0)+'"></div><div class="fg"><label class="flbl">Estoque mínimo</label><input class="fi" id="editProdutoMinimo" type="number" step="0.01" value="'+(p.estoque_minimo||0)+'"></div></div>'
+    +'<div class="fg"><label class="flbl">Validade</label><input class="fi" id="editProdutoValidade" type="date" value="'+esc(p.validade)+'"></div>'
+    +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarEditarProduto(\''+p.id+'\')">Salvar alterações</button></div>');
+};
+
+window.confirmarEditarProduto=async function(id){
+  const corpo={
+    nome:$('#editProdutoNome')?.value.trim(),
+    marca:$('#editProdutoMarca')?.value.trim()||null,
+    categoria:$('#editProdutoCategoria')?.value.trim()||null,
+    unidade:$('#editProdutoUnidade')?.value.trim()||'un',
+    custo_unitario:Number($('#editProdutoCusto')?.value||0),
+    quantidade_em_estoque:Number($('#editProdutoQuantidade')?.value||0),
+    estoque_minimo:Number($('#editProdutoMinimo')?.value||0),
+    validade:$('#editProdutoValidade')?.value||null,
+  };
+  try{
+    await chamarAPI('PATCH',`/produtos/${id}`,corpo);
+    Modal.close();
+    Toast.show('Produto atualizado!');
+    P.estoque();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
+let receitaAtual=[];
+let receitaContexto={id:null,nome:''};
+
+window.abrirReceitaAtividade=async function(atividadeId,nomeAtividade){
+  receitaContexto={id:atividadeId,nome:nomeAtividade};
+  Modal.open('Receita — '+nomeAtividade,'<div class="mb2">Carregando...</div>');
+  try{
+    receitaAtual=await chamarAPI('GET',`/atividades/${atividadeId}/receita`);
+  }catch(erro){
+    Modal.open('Receita — '+nomeAtividade,'<div class="mb2" style="color:var(--rs)">Não foi possível carregar: '+erro.message+'</div>');
+    return;
+  }
+  renderModalReceita();
+};
+
+function renderModalReceita(){
+  const produtos=state.produtos||[];
+  const linhas=receitaAtual.length?receitaAtual.map((r,i)=>'<div class="lr"><div style="flex:1"><div class="lrn">'+(r.produtos?.nome||'Produto')+'</div><div class="lrm">'+r.quantidade_usada+' '+(r.produtos?.unidade||'')+' por atendimento</div></div><button class="btn btre xs" onclick="removerItemReceita('+i+')">Remover</button></div>').join('')
+    :'<div style="padding:12px;font-size:12px;color:var(--ink3)">Nenhum produto vinculado a este serviço ainda.</div>';
+  const opcoesProduto=produtos.length?produtos.map(p=>'<option value="'+p.id+'">'+p.nome+' ('+p.unidade+')</option>').join(''):'<option value="">Nenhum produto cadastrado</option>';
+  Modal.open('Receita — '+receitaContexto.nome,'<div class="mb2">'
+    +'<div>'+linhas+'</div>'
+    +'<div class="frow mt12"><div class="fg" style="flex:2"><label class="flbl">Produto</label><select class="fi" id="receitaProduto">'+opcoesProduto+'</select></div><div class="fg"><label class="flbl">Qtd. por atendimento</label><input class="fi" id="receitaQuantidade" type="number" step="0.01" placeholder="0"></div></div>'
+    +'<button class="btn btgh sm wf" style="justify-content:center;margin-top:8px" type="button" onclick="adicionarItemReceitaLocal()">+ Adicionar produto à receita</button>'
+    +'</div>'
+    +'<div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="salvarReceitaAtividade()">Salvar receita</button></div>');
+}
+
+window.adicionarItemReceitaLocal=function(){
+  const produtoId=$('#receitaProduto')?.value;
+  const quantidade=Number($('#receitaQuantidade')?.value||0);
+  if(!produtoId||!quantidade){Toast.show('Escolha o produto e a quantidade','⚠');return;}
+  if(receitaAtual.some(r=>r.produto_id===produtoId)){Toast.show('Esse produto já está na receita','⚠');return;}
+  const produto=(state.produtos||[]).find(p=>p.id===produtoId);
+  receitaAtual.push({produto_id:produtoId,quantidade_usada:quantidade,produtos:{nome:produto?.nome,unidade:produto?.unidade}});
+  renderModalReceita();
+};
+
+window.removerItemReceita=function(indice){
+  receitaAtual.splice(indice,1);
+  renderModalReceita();
+};
+
+window.salvarReceitaAtividade=async function(){
+  try{
+    await chamarAPI('PUT',`/atividades/${receitaContexto.id}/receita`,receitaAtual.map(r=>({produto_id:r.produto_id,quantidade_usada:r.quantidade_usada})));
+    Modal.close();
+    Toast.show('Receita salva!');
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
 const Router={
   go(pg){
     $$('.page').forEach(p=>p.classList.remove('active'));
@@ -959,8 +1132,22 @@ caixa(){
   });
 },
 
-estoque(){
-  renderEmBreve('page-estoque','Estoque <em>e Margem por Serviço</em>','Ainda não há um cadastro de estoque no backend.');
+async estoque(){
+  const pg=$('#page-estoque');
+  html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando estoque...</div>');
+  let produtos=[],atividadesEstoque=[];
+  try{
+    [produtos,atividadesEstoque]=await Promise.all([
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/produtos`),
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/atividades`),
+    ]);
+  }catch(erro){
+    html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível carregar o estoque: '+erro.message+'</div>');
+    return;
+  }
+  state.produtos=produtos;
+  state.atividadesEstoque=atividadesEstoque;
+  renderEstoque();
 },
 
 avaliacoes(){

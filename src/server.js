@@ -30,6 +30,7 @@ const rotasMetas = require('./routes/metas');
 const rotasProprietarios = require('./routes/proprietarios');
 const rotasAutomacoes = require('./routes/automacoes');
 const rotasListaEspera = require('./routes/lista-espera');
+const rotasProdutos = require('./routes/produtos');
 const { iniciarScheduler } = require('./lib/automacoes/scheduler');
 const rotaWhatsapp = require('./routes/whatsapp'); // wrapper do 02-whatsapp-ia-servico.js — ver nota no final deste arquivo
 const rotaAvaliacoes = require('./routes/avaliacoes'); // pública -- cliente sem login avalia via link
@@ -109,6 +110,7 @@ app.use('/', rotasMetas);      // já inclui o prefixo /estabelecimentos/:id/met
 app.use('/', rotasProprietarios); // GET /proprietarios/me
 app.use('/', rotasAutomacoes);    // já inclui o prefixo /estabelecimentos/:id/automacoes e /automacoes/:id internamente
 app.use('/', rotasListaEspera);   // já inclui o prefixo /estabelecimentos/:id/lista-espera internamente
+app.use('/', rotasProdutos);      // já inclui o prefixo /estabelecimentos/:id/produtos e /atividades/:id/receita internamente
 
 // ── Tratamento de erro genérico ──
 app.use((err, req, res, next) => {
