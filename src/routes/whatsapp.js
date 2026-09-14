@@ -36,7 +36,7 @@ const SESSAO_GAP_HORAS = 4;
 // ============================================================
 function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instrucaoExtra }) {
   const listaAtividades = atividades
-    .map(a => `- ${a.nome}${a.preco ? ` (a partir de R$ ${a.preco})` : ''}${a.duracao_min ? `, ${a.duracao_min}min` : ''}`)
+    .map(a => `- ${a.nome}${a.preco ? ` (${a.preco_variavel ? 'a partir de ' : ''}R$ ${a.preco})` : ''}${a.duracao_min ? `, ${a.duracao_min}min` : ''}`)
     .join('\n');
 
   return `Você é a assistente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}".
@@ -86,7 +86,7 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
 
     const { data: atividades } = await supabase
       .from('estabelecimento_atividades')
-      .select('id, nome, preco, duracao_min')
+      .select('id, nome, preco, preco_variavel, duracao_min')
       .eq('estabelecimento_id', estabelecimentoId)
       .eq('ativo', true);
 

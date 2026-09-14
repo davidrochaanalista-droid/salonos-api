@@ -252,7 +252,10 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
 // ============================================================
 const SUPABASE_URL = 'https://shekztrtkaknyudvzttf.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_WGAnLGQxexd89d0dOJhpTg_KoIGWVaX';
-const API_BASE_URL = 'http://localhost:3001';
+// Vazio de propósito: server.js sempre serve este HTML e a API na mesma
+// origem (express.static + rotas no mesmo Express) -- caminho relativo
+// funciona igual local e em produção, sem precisar trocar por ambiente.
+const API_BASE_URL = '';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let estabelecimentoAtivo = null;
@@ -715,7 +718,7 @@ function renderComandaAberta(){
   chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/atividades`).then(atividadesDisp=>{
     atividadesCache=atividadesDisp;
     const total=(comandaAtual.itens||[]).reduce((s,i)=>s+i.preco_unitario*i.quantidade,0);
-    const atividadeOpts=atividadesDisp.filter(a=>a.ativo!==false).map(a=>`<option value="${a.id}">${a.nome} — ${R(a.preco)}</option>`).join('');
+    const atividadeOpts=atividadesDisp.filter(a=>a.ativo!==false).map(a=>`<option value="${a.id}">${a.nome} — ${a.preco_variavel?'a partir de ':''}${R(a.preco)}</option>`).join('');
     html(pg,'<div class="sech"><div><div class="sct">Comanda <em>Aberta</em></div><div class="scsub">Adicione os serviços realizados</div></div>'
     +'<div class="scacts"><button class="btn btgh sm" onclick="cancelarComandaLocal()">Fechar sem salvar</button></div></div>'
     +'<div class="g2"><div>'
@@ -723,7 +726,8 @@ function renderComandaAberta(){
     +((comandaAtual.itens||[]).length?comandaAtual.itens.map(item=>'<div class="lr"><div style="flex:1"><div class="lrn">'+(item.nome||'Serviço')+'</div><div class="lrm">'+item.quantidade+'x '+R(item.preco_unitario)+'</div></div><div class="lrv">'+R(item.preco_unitario*item.quantidade)+'</div><button class="btn btre xs" style="margin-left:8px" onclick="removerItemComanda(\''+item.id+'\')">Remover</button></div>').join(''):'<div style="padding:16px;color:var(--ink3);font-size:12px">Nenhum item ainda.</div>')
     +'</div></div>'
     +'<div class="card mt12"><div class="cardb">'
-    +'<div class="fg"><label class="flbl">Adicionar serviço</label><select class="fi" id="comandaAtividade">'+atividadeOpts+'</select></div>'
+    +'<div class="fg"><label class="flbl">Adicionar serviço</label><select class="fi" id="comandaAtividade" onchange="atualizarPrecoComandaItem()">'+atividadeOpts+'</select></div>'
+    +'<div class="fg mt10" id="comandaPrecoRealWrap" style="display:none"><label class="flbl">Valor real cobrado (preço variável)</label><input class="fi" id="comandaPrecoReal" type="number" step="0.01"></div>'
     +'<button class="btn btgh sm wf" style="justify-content:center;margin-top:8px" onclick="adicionarItemComanda()">+ Adicionar item</button>'
     +'</div></div>'
     +'</div>'
@@ -735,12 +739,29 @@ function renderComandaAberta(){
     +'</div>');
   }).catch(erro=>{html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">'+erro.message+'</div>');});
 }
+window.atualizarPrecoComandaItem=function(){
+  const atividadeId=$('#comandaAtividade')?.value;
+  const atividade=atividadesCache.find(a=>a.id===atividadeId);
+  const wrap=$('#comandaPrecoRealWrap');
+  if(!wrap)return;
+  if(atividade?.preco_variavel){
+    wrap.style.display='block';
+    $('#comandaPrecoReal').value=atividade.preco||0;
+  }else{
+    wrap.style.display='none';
+  }
+};
 window.adicionarItemComanda=async function(){
   const atividadeId=$('#comandaAtividade')?.value;
   if(!atividadeId)return;
+  const atividade=atividadesCache.find(a=>a.id===atividadeId);
+  const corpo={estabelecimento_atividade_id:atividadeId};
+  if(atividade?.preco_variavel){
+    const precoReal=$('#comandaPrecoReal')?.value;
+    if(precoReal)corpo.preco_unitario=Number(precoReal);
+  }
   try{
-    const item=await chamarAPI('POST',`/comandas/${comandaAtual.id}/itens`,{estabelecimento_atividade_id:atividadeId});
-    const atividade=atividadesCache.find(a=>a.id===atividadeId);
+    const item=await chamarAPI('POST',`/comandas/${comandaAtual.id}/itens`,corpo);
     item.nome=atividade?.nome;
     comandaAtual.itens=comandaAtual.itens||[];
     comandaAtual.itens.push(item);
@@ -1115,7 +1136,8 @@ window.abrirModalEditarAtividade=function(id){
     +'<div class="fg"><label class="flbl">Nome</label><input class="fi" id="editAtvNome" value="'+esc(a.nome)+'"></div>'
     +'<div class="frow"><div class="fg"><label class="flbl">Preço</label><input class="fi" id="editAtvPreco" type="number" step="0.01" value="'+(a.preco||0)+'"></div><div class="fg"><label class="flbl">Duração (min)</label><input class="fi" id="editAtvDuracao" type="number" value="'+(a.duracao_min||'')+'"></div></div>'
     +'<div class="fg"><label class="flbl">Ciclo de retorno (dias)</label><input class="fi" id="editAtvCiclo" type="number" value="'+(a.ciclo_recompra_dias||'')+'" placeholder="Ex: 30 — de quanto em quanto tempo a cliente costuma repetir este serviço"></div>'
-    +'<label class="tsm tm2" style="display:flex;align-items:center;gap:8px;margin-top:12px;cursor:pointer"><input type="checkbox" id="editAtvAtivo" '+(a.ativo!==false?'checked':'')+'> Serviço ativo (some da agenda se desmarcado)</label>'
+    +'<label class="tsm tm2" style="display:flex;align-items:center;gap:8px;margin-top:12px;cursor:pointer"><input type="checkbox" id="editAtvPrecoVariavel" '+(a.preco_variavel?'checked':'')+'> Preço variável (mostra "a partir de" — ex: progressiva, que varia com o tamanho do cabelo)</label>'
+    +'<label class="tsm tm2" style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer"><input type="checkbox" id="editAtvAtivo" '+(a.ativo!==false?'checked':'')+'> Serviço ativo (some da agenda se desmarcado)</label>'
     +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarEditarAtividade(\''+a.id+'\')">Salvar alterações</button></div>');
 };
 
@@ -1125,6 +1147,7 @@ window.confirmarEditarAtividade=async function(id){
     preco:Number($('#editAtvPreco')?.value||0),
     duracao_min:$('#editAtvDuracao')?.value?Number($('#editAtvDuracao').value):null,
     ciclo_recompra_dias:$('#editAtvCiclo')?.value?Number($('#editAtvCiclo').value):null,
+    preco_variavel:$('#editAtvPrecoVariavel')?.checked,
     ativo:$('#editAtvAtivo')?.checked,
   };
   try{
@@ -1400,7 +1423,7 @@ async servicos(){
     const inativo=a.ativo===false;
     return '<div class="trow" style="grid-template-columns:2fr 1fr 1fr 1.4fr 1fr" onclick="abrirModalEditarAtividade(\''+a.id+'\')">'
       +'<div><div class="lrn">'+(a.nome||'-')+(inativo?' <span class="tsm tm2">(inativo)</span>':'')+'</div></div>'
-      +'<div class="tm2">'+R(a.preco)+'</div>'
+      +'<div class="tm2">'+(a.preco_variavel?'A partir de '+R(a.preco):R(a.preco))+'</div>'
       +'<div class="tm2">'+(a.duracao_min?a.duracao_min+'min':'—')+'</div>'
       +'<div class="tm2">'+(a.ciclo_recompra_dias?'a cada '+a.ciclo_recompra_dias+' dias':'sem ciclo definido')+'</div>'
       +'<div class="tm2">'+(inativo?'Inativo':'Ativo')+'</div>'

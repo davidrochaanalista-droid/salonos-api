@@ -437,7 +437,8 @@ function recalcTotals() {
 /* ── AUTH + CARGA DE DADO REAL ── */
 const SUPABASE_URL = 'https://shekztrtkaknyudvzttf.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_WGAnLGQxexd89d0dOJhpTg_KoIGWVaX';
-const API_BASE_URL = 'http://localhost:3001';
+// Vazio de propósito -- ver mesma nota em salon-v6.html.
+const API_BASE_URL = '';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function chamarAPI(metodo, caminho, corpo) {

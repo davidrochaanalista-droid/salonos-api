@@ -8,9 +8,9 @@
  * evento "connection.update"), e importar contatos salvos no celular
  * como clientes, sob revisão manual do dono (nunca automático).
  *
- * ⚠️ NÃO TESTADO contra uma instância real -- Evolution API ainda não
- * está deployada (Railway em standby). Fica pronto pra ligar assim que
- * o deploy existir.
+ * Evolution API deployada em produção (Railway, 13/09/2026) -- endpoints
+ * usados aqui confirmados contra a instância real (ver evolution-api.js).
+ * Falta só testar o pareamento de QR de ponta a ponta com um celular real.
  */
 
 const express = require('express');

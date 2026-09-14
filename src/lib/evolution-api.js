@@ -5,11 +5,12 @@
  * (nome determinístico "salon_{estabelecimento_id}") -- não é mais um único
  * número fixo pra toda a SalonOS (ver EVOLUTION_INSTANCE, agora obsoleta).
  *
- * ⚠️ NÃO VERIFICADO contra uma instância real do Evolution API: o deploy no
- * Railway ainda está em standby (pendência de billing, ver CLAUDE.md). Os
- * endpoints e formatos de payload abaixo seguem a documentação da Evolution
- * API v2 (Baileys) de memória -- confirmar e ajustar assim que houver uma
- * instância real pra testar contra.
+ * Verificado contra a instância real em produção (Railway, 13/09/2026):
+ * /instance/create, /instance/connectionState/:id e /chat/findContacts/:id
+ * batem exatamente com o formato assumido aqui. ⚠️ Ainda não testado: o
+ * ciclo completo de pareamento por QR (exige escanear com um celular de
+ * verdade) e o payload exato do webhook de "connection.update" quando o
+ * estado muda pra "open" (ver tratarAtualizacaoConexao em routes/whatsapp.js).
  */
 
 function nomeInstancia(estabelecimentoId) {
