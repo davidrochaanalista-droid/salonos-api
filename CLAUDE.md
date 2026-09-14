@@ -198,6 +198,42 @@ sugestão de prompt externa que pedia esconder -- rejeitada por causa do
 incidente acima). Cadastro continua exigindo nome + endereço (não só
 nome) -- decisão consciente de manter como estava.
 
+### Saudação por horário + aviso de fechado + solicitação de agendamento (13/09/2026)
+
+Três melhorias em sequência no agente do WhatsApp:
+
+1. **Saudação por horário** (`saudacaoPorHorario()`, fuso de Brasília
+   sempre, independe de onde o Railway roda) -- "Bom dia"/"Boa
+   tarde"/"Boa noite" na mensagem fixa de boas-vindas do onboarding e
+   disponível no prompt pra conversa livre. Se o cliente já é cadastrado,
+   `nomeCliente` chega no prompt (antes só existia em
+   `memoriaCliente.resumo` ou no histórico de 10 mensagens, que pode não
+   ter o nome numa conversa antiga) -- a IA cumprimenta pelo primeiro
+   nome.
+2. **Aviso de horário fechado** (`estaAberto()`, checa
+   `dias_funcionamento`/`horario_abertura`/`horario_fechamento`) -- avisa
+   uma vez, sem soar como bloqueio, e nunca para de atender.
+3. **Solicitação de agendamento de verdade** (migração 19,
+   `solicitacoes_agendamento` + `src/routes/solicitacoes-agendamento.js`):
+   fecha o loop do item 2 -- antes a IA só *conversava* sobre o pedido
+   fora do horário sem salvar nada em lugar nenhum que o painel pudesse
+   ver. Agora: IA registra via ferramenta
+   `registrar_solicitacao_agendamento` (nunca diz "confirmado", só que a
+   equipe vai confirmar) → aba Agenda mostra um bloco "Solicitações Fora
+   do Horário" com as pendentes → dona/funcionária **aceita como pedido**
+   (cria `agendamentos` de verdade + confirma por WhatsApp) ou **propõe
+   outro horário** (WhatsApp gerado pela IA, nunca "responda sim ou não"
+   -- ver `gerarMensagemPropostaHorario`) → resposta do cliente à
+   proposta é interpretada por uma chamada de IA dedicada com tool
+   calling (`FERRAMENTA_RESPOSTA_PROPOSTA`/`tratarRespostaPropostaHorario`,
+   sempre linguagem natural) → aceitar cria o agendamento, recusar volta
+   pra pendente com a nova preferência anotada.
+
+Nenhuma das três testada dentro do webhook real ainda (mesmo motivo do
+tool calling acima -- evitado de propósito depois do incidente com
+contato pessoal). Testado: cálculo de saudação/horário aberto
+isoladamente (casos reais batendo), sintaxe, 17/17 testes.
+
 ### Conta de teste
 
 Existe um estabelecimento de teste ("Studio Teste QA") no Supabase de
