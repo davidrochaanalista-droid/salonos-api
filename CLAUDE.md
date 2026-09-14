@@ -229,10 +229,27 @@ Três melhorias em sequência no agente do WhatsApp:
    sempre linguagem natural) → aceitar cria o agendamento, recusar volta
    pra pendente com a nova preferência anotada.
 
-Nenhuma das três testada dentro do webhook real ainda (mesmo motivo do
-tool calling acima -- evitado de propósito depois do incidente com
-contato pessoal). Testado: cálculo de saudação/horário aberto
-isoladamente (casos reais batendo), sintaxe, 17/17 testes.
+Migração 19 confirmada rodada em produção. Testado no navegador em
+produção (dado fake inserido direto no banco, não via WhatsApp real):
+bloco de solicitações aparece na Agenda, "Propor horário" muda o status
+pra `horario_proposto` e persiste certo. Ainda não testado dentro do
+webhook real (mesmo motivo do tool calling acima -- evitado de propósito
+depois do incidente com contato pessoal).
+
+**⚠️ Achado real testando `tratarRespostaPropostaHorario` isolado contra
+a Groq**: `tool_choice: 'required'` (e também `'auto'` com instrução
+forte) falha uma fração relevante das vezes (~30-50% em teste com a frase
+"só depois das 18h") -- às vezes o modelo não chama a ferramenta, às
+vezes gera JSON malformado pro argumento (padrão observado: quebra perto
+de palavra acentuada tipo "após"). Não é bug de como a ferramenta foi
+implementada, é instabilidade do modelo (`openai/gpt-oss-120b` via Groq)
+nesse cenário específico. Mitigado com até 2 tentativas + fallback seguro
+("vou confirmar com a equipe", sem mudar o status da solicitação) --
+nunca deixa o cliente sem resposta nem assume "recusou" sem ter certeza.
+Mesmo com o mitigador, uma fração das respostas do cliente ainda cai no
+fallback genérico em vez de interpretação instantânea -- se isso incomodar
+na prática, considerar trocar `MODELO_IA`/`GROQ_MODEL` nesse tipo de
+chamada especificamente, ou revisitar o prompt.
 
 ### Conta de teste
 

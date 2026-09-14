@@ -462,28 +462,41 @@ const FERRAMENTA_RESPOSTA_PROPOSTA = [
 async function tratarRespostaPropostaHorario({ solicitacaoPendente, mensagem, cliente, estabelecimentoId }) {
   const dataFormatada = new Date(solicitacaoPendente.data_hora_proposta).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 
-  const resposta = await groq.chat.completions.create({
-    model: MODELO_IA,
-    messages: [
-      { role: 'system', content: `Você está avaliando a resposta de um cliente a uma proposta de horário alternativo pro serviço "${solicitacaoPendente.estabelecimento_atividades?.nome || 'atendimento'}", proposto pra ${dataFormatada}. Use a ferramenta responder_proposta_horario pra registrar se ele aceitou ou não, com base na mensagem dele -- que pode vir em qualquer forma natural (nunca exija "sim"/"não" literal).` },
-      { role: 'user', content: mensagem },
-    ],
-    tools: FERRAMENTA_RESPOSTA_PROPOSTA,
-    tool_choice: 'required',
-    temperature: 0.2,
-    max_tokens: 150,
-  });
-
-  const chamada = resposta.choices[0].message.tool_calls?.[0];
-  let aceitou = false;
+  // A Groq com tool_choice:'required' já se mostrou instável em teste real
+  // (às vezes gera JSON malformado, às vezes não chama a ferramenta) -- se
+  // isso falhar, NUNCA travamos o cliente sem resposta nem assumimos
+  // "recusou" sem saber: respondemos com honestidade que a equipe vai
+  // confirmar, e deixamos a solicitação como está (horario_proposto) pra
+  // alguém revisar manualmente a conversa.
+  let aceitou = null;
   let novoPedido = '';
-  try {
-    const argumentos = JSON.parse(chamada?.function?.arguments || '{}');
-    aceitou = !!argumentos.aceitou;
-    novoPedido = argumentos.novo_pedido || '';
-  } catch { /* segue com aceitou=false se a IA não respondeu no formato esperado */ }
+  for (let tentativa = 0; tentativa < 2 && aceitou === null; tentativa++) {
+    try {
+      const resposta = await groq.chat.completions.create({
+        model: MODELO_IA,
+        messages: [
+          { role: 'system', content: `Você está avaliando a resposta de um cliente a uma proposta de horário alternativo pro serviço "${solicitacaoPendente.estabelecimento_atividades?.nome || 'atendimento'}", proposto pra ${dataFormatada}. Use a ferramenta responder_proposta_horario pra registrar se ele aceitou ou não, com base na mensagem dele -- que pode vir em qualquer forma natural (nunca exija "sim"/"não" literal).` },
+          { role: 'user', content: mensagem },
+        ],
+        tools: FERRAMENTA_RESPOSTA_PROPOSTA,
+        tool_choice: 'required',
+        temperature: 0.2,
+        max_tokens: 150,
+      });
+      const chamada = resposta.choices[0].message.tool_calls?.[0];
+      const argumentos = JSON.parse(chamada.function.arguments);
+      aceitou = !!argumentos.aceitou;
+      novoPedido = argumentos.novo_pedido || '';
+    } catch (erro) {
+      console.error(`Falha ao interpretar resposta de proposta de horário (tentativa ${tentativa + 1}):`, erro.message);
+    }
+  }
 
   const primeiroNome = cliente.nome?.split(' ')[0] || '';
+
+  if (aceitou === null) {
+    return `Entendi${primeiroNome ? ', ' + primeiroNome : ''}! Vou confirmar isso com a equipe e já te retorno por aqui.`;
+  }
 
   if (aceitou) {
     const duracaoMin = solicitacaoPendente.estabelecimento_atividades?.duracao_min || 60;
