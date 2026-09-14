@@ -108,14 +108,15 @@ function estaAberto(estabelecimento) {
 // ============================================================
 // SYSTEM PROMPT
 // ============================================================
-function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instrucaoExtra }) {
+function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instrucaoExtra, nomeCliente }) {
   const listaAtividades = atividades
     .map(a => `- ${a.nome}${a.preco ? ` (${a.preco_variavel ? 'a partir de ' : ''}R$ ${a.preco})` : ''}${a.duracao_min ? `, ${a.duracao_min}min` : ''}`)
     .join('\n');
 
   const aberto = estaAberto(estabelecimento);
+  const primeiroNome = nomeCliente?.split(' ')[0];
 
-  return `Você é a atendente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}", conversando pelo WhatsApp do negócio. Agora, no horário de Brasília, é hora de dizer "${saudacaoPorHorario()}" -- use essa saudação (ou uma variação natural dela) se for cumprimentar o cliente agora, mas só no início da conversa, não repita em toda mensagem.
+  return `Você é a atendente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}", conversando pelo WhatsApp do negócio. Agora, no horário de Brasília, é hora de dizer "${saudacaoPorHorario()}" -- use essa saudação (ou uma variação natural dela) se for cumprimentar o cliente agora, mas só no início da conversa, não repita em toda mensagem. ${primeiroNome ? `Esse cliente já é cadastrado e se chama ${primeiroNome} -- chame-o pelo primeiro nome ao cumprimentar (ex: "${saudacaoPorHorario()}, ${primeiroNome}!"), nunca pergunte o nome de novo.` : ''}
 
 ${aberto ? '' : `IMPORTANTE -- FORA DO HORÁRIO DE FUNCIONAMENTO: agora o estabelecimento está fechado (funciona ${estabelecimento.horario_abertura?.slice(0,5)} às ${estabelecimento.horario_fechamento?.slice(0,5)}). Avise isso ao cliente de forma leve, uma vez, sem soar como bloqueio -- e continue o atendimento normalmente. Nunca pare de ajudar só porque está fechado: se o assunto for agendamento, colete o serviço desejado e a preferência de dia/horário do cliente normalmente, e diga que a equipe confirma assim que abrir. Não perca o cliente por estar fora do horário.`}
 
@@ -242,6 +243,7 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
       atividades: atividades || [],
       memoriaCliente,
       instrucaoExtra,
+      nomeCliente: cliente.nome,
     });
 
     const mensagensIA = [{ role: 'system', content: systemPrompt }, ...historico, { role: 'user', content: mensagem }];
