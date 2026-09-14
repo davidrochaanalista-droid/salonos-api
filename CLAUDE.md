@@ -90,6 +90,19 @@ nome/preço/duração/ciclo de retorno (dias)/ativo, salva via `PATCH
 configura `ciclo_recompra_dias`, usado pela automação "Retorno por Ciclo".
 Testado no navegador (editar Corte Feminino, ciclo 45 dias, persistiu).
 
+### IA Preditiva de Receita (`GET /estabelecimentos/:id/previsao-receita`)
+
+Substituiu o placeholder "em breve" — decisão de 13/09 foi rodar o cálculo
+**desde o primeiro dia com dado real**, em vez de bloquear até acumular
+meses de histórico. Método simples e declarado como tal na UI (não é
+modelo estatístico sofisticado): média diária da janela recente (até 30
+dias corridos) × 30. Selo de confiança sobe com o volume de histórico
+(`insuficiente` <3 dias, `baixa` 3-13, `moderada` 14-59, `boa` 60+), mas o
+número aparece desde que haja pelo menos 3 dias de comanda fechada — nunca
+fica bloqueado esperando um prazo arbitrário. Testado no navegador: com 1
+comanda fechada (histórico <3 dias), mostra corretamente o estado vazio em
+vez de inventar uma projeção.
+
 ### Conta de teste
 
 Existe um estabelecimento de teste ("Studio Teste QA") no Supabase de
@@ -132,11 +145,9 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
    pessoal do dono com cliente real do salão. Nomes de endpoint/payload da
    Evolution API v2 foram escritos de memória (não verificados) — primeira
    coisa a conferir/ajustar assim que existir uma instância real pra testar.
-3. **IA Preditiva de Receita / Marketplace de Clientes** — placeholders "em
-   breve" por decisão consciente (13/09): IA Preditiva precisa de meses de
-   receita real acumulada pra um modelo ser honesto (ainda não existe);
-   Marketplace (diretório público + rastreio de origem) é decisão de canal
-   de aquisição, não prioridade agora. Reavaliar quando fizer sentido.
+3. **Marketplace de Clientes** — placeholder "em breve", decisão consciente
+   (13/09): diretório público + rastreio de origem é decisão de canal de
+   aquisição, não prioridade agora. Reavaliar quando fizer sentido.
    (**WhatsApp Flows/editor visual de conversa** saiu da lista — nunca foi
    uma aba própria, era só o texto do placeholder que morava dentro da aba
    "WhatsApp", já substituído pelo motor de conexão real, ver item 2. Além
