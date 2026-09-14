@@ -132,9 +132,16 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
    pessoal do dono com cliente real do salão. Nomes de endpoint/payload da
    Evolution API v2 foram escritos de memória (não verificados) — primeira
    coisa a conferir/ajustar assim que existir uma instância real pra testar.
-3. **IA Preditiva / Marketplace / WhatsApp Flows (editor visual de
-   conversa)** — placeholders "em breve", cada um exigiria decisão de
-   produto própria antes de construir (não é só "religar fio").
+3. **IA Preditiva de Receita / Marketplace de Clientes** — placeholders "em
+   breve" por decisão consciente (13/09): IA Preditiva precisa de meses de
+   receita real acumulada pra um modelo ser honesto (ainda não existe);
+   Marketplace (diretório público + rastreio de origem) é decisão de canal
+   de aquisição, não prioridade agora. Reavaliar quando fizer sentido.
+   (**WhatsApp Flows/editor visual de conversa** saiu da lista — nunca foi
+   uma aba própria, era só o texto do placeholder que morava dentro da aba
+   "WhatsApp", já substituído pelo motor de conexão real, ver item 2. Além
+   disso contradiz o Eixo 5 da estratégia, que já decidiu não reconstruir
+   WhatsApp do zero.)
 4. **Rastreabilidade de lote de insumo** (Eixo 3, clínica de estética
    pequena) — não implementado.
 5. **`painel-admin.html`** — continua fora de escopo (console interno da
@@ -148,5 +155,5 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
 2. Testar WhatsApp ponta a ponta com número real (conexão QR, importação
    de contatos, gatilho de avaliação, as 4 automações do scheduler e os 2
    gatilhos inline)
-3. Decidir se IA Preditiva/Marketplace entram no roadmap ou saem de vez do
-   menu
+3. Escopar rastreabilidade de lote de insumo (Eixo 3) — próxima pendência
+   real que não depende do Railway
