@@ -103,6 +103,57 @@ fica bloqueado esperando um prazo arbitrário. Testado no navegador: com 1
 comanda fechada (histórico <3 dias), mostra corretamente o estado vazio em
 vez de inventar uma projeção.
 
+### Deploy em produção (Railway) — 13/09/2026
+
+`salonos-api` e Evolution API deployados de verdade no Railway, projeto
+`salonos-api` (workspace `davidrocha.coitinho@gmail.com` — **⚠️ atenção**:
+o CLI já logou sozinho na conta errada, `davidrocha.analista@gmail.com`,
+várias vezes nesta sessão porque o navegador tinha uma sessão Railway em
+cache; usar `railway login --browserless` e confirmar o e-mail no output
+se isso acontecer de novo). URLs:
+`https://salonos-api-production-7d28.up.railway.app` (backend) e
+`https://evolution-api-production-4560.up.railway.app` (Evolution API,
+template `evolution-api-4`, vem com Postgres+Redis próprios pra sessão do
+WhatsApp — schema separado do banco do SalonOS).
+
+**Dois bugs reais achados só ao testar em produção** (nenhum dos dois
+aparecia local, por isso passaram despercebidos a sessão toda):
+
+1. **`API_BASE_URL` fixa em `http://localhost:3001`** em `salon-v6.html`,
+   `painel-proprietario.html` e `cadastro-real.html` -- todo `chamarAPI()`
+   tentava bater no localhost da máquina do usuário e falhava com "Failed
+   to fetch" assim que servido de um domínio de verdade. Corrigido pra
+   string vazia (caminho relativo -- funciona em qualquer ambiente, já
+   que o Express sempre serve HTML e API na mesma origem).
+2. **Node 18 no Railway não tem WebSocket nativo**, e o Realtime do
+   `@supabase/supabase-js` exige isso -- processo crashava no boot.
+   `package.json` engines bumped pra `>=22`.
+
+**Motor de WhatsApp testado ponta a ponta com número real**: QR code
+pareou de verdade (⚠️ QR expira rápido -- em segundos, não minutos; se
+demorar pra escanear, gerar um novo). Achado nesse teste: a instância de
+teste tinha sido criada manualmente via curl antes do deploy (pra validar
+os endpoints), sem webhook configurado -- por isso o pareamento aconteceu
+mas nosso banco nunca soube (`whatsapp_status` ficou preso em
+"conectando"). Corrigido rodando `POST /webhook/set/:instance` na
+instância existente; daqui pra frente toda instância nova já nasce com
+webhook configurado (fluxo normal do app, isso só foi necessário pra essa
+instância de teste específica).
+
+**Bug real de verdade no `buscarContatosSalvos`** (`src/lib/evolution-api.js`):
+o código usava `c.id` como telefone, mas `id` é o id interno do registro
+no banco da Evolution (tipo `cmu0l6epl08mjkq5r99jh6zot`), não o número.
+O campo certo é `remoteJid`. Sem esse fix, a importação de contatos
+trazia **2345 "contatos"** que eram na maioria grupos do WhatsApp (`@g.us`)
+com nome de grupo virando "nome de cliente" e um ID aleatório virando
+"telefone". Corrigido: filtra `isGroup`, exclui sufixo `@lid` (contato com
+identidade vinculada, sem número real exposto -- não tem como extrair
+telefone daí) e a conta de sistema `0@s.whatsapp.net`. Com o fix, sobraram
+~2087 contatos reais (número de teste era um WhatsApp pessoal de verdade,
+não um número virgem -- por isso o volume alto; a tela de revisão com
+checkbox existe exatamente pra esse cenário, pra não importar tudo como
+cliente sem o dono revisar).
+
 ### Conta de teste
 
 Existe um estabelecimento de teste ("Studio Teste QA") no Supabase de

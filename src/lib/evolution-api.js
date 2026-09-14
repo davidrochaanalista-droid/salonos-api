@@ -103,11 +103,17 @@ async function buscarContatosSalvos(estabelecimentoId) {
     body: JSON.stringify({}),
   });
 
+  // O identificador de telefone de verdade é remoteJid, não id (id é o id
+  // interno do registro no banco da Evolution -- confirmado testando contra
+  // a instância real em produção, 13/09/2026: o campo errado devolvia IDs
+  // internos em vez de número de telefone). Exclui grupos (isGroup/@g.us),
+  // contatos "@lid" (identidade vinculada sem número real exposto -- não dá
+  // pra extrair telefone daí) e a conta de sistema "0@s.whatsapp.net".
   return (Array.isArray(dados) ? dados : [])
-    .filter(c => c.id && !c.id.endsWith('@g.us') && !c.id.startsWith('status@'))
+    .filter(c => !c.isGroup && c.remoteJid?.endsWith('@s.whatsapp.net') && c.remoteJid !== '0@s.whatsapp.net')
     .map(c => ({
       nome: c.pushName || c.name || null,
-      telefone: c.id.replace('@s.whatsapp.net', ''),
+      telefone: c.remoteJid.replace('@s.whatsapp.net', ''),
     }))
     .filter(c => c.telefone);
 }
