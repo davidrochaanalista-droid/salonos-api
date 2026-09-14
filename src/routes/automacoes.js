@@ -1,7 +1,7 @@
 /**
  * SalonOS API — Rotas de Automações
  * ===================================
- * As 7 linhas (uma por tipo) são garantidas sob demanda no GET -- assim
+ * As 8 linhas (uma por tipo) são garantidas sob demanda no GET -- assim
  * não precisa de seed manual toda vez que um estabelecimento novo é
  * criado. Todas nascem `ativa=false` exceto avaliacao_pos_atendimento
  * (o gatilho já roda de verdade desde fechar_comanda, então já é
@@ -13,6 +13,7 @@ const router = express.Router();
 
 const TIPOS_AUTOMACAO = [
   'confirmacao_24h',
+  'lembrete_2h',
   'reativacao_clientes',
   'aniversario',
   'retorno_ciclo',

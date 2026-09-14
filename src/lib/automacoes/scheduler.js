@@ -91,6 +91,36 @@ async function verificarConfirmacao24h() {
   }
 }
 
+// ── 1.5 Lembrete 2h antes (segundo lembrete, mais perto do horário --
+// reduz falta sem aviso além do que a confirmação 24h já cobre) ──
+async function verificarLembrete2h() {
+  const automacoes = await automacoesAtivasPorTipo('lembrete_2h');
+  if (!automacoes.length) return;
+
+  const agora = new Date();
+  const de = new Date(agora.getTime() + 105 * 60 * 1000); // 1h45
+  const ate = new Date(agora.getTime() + 135 * 60 * 1000); // 2h15
+
+  for (const automacao of automacoes) {
+    const { data: agendamentos } = await supabase
+      .from('agendamentos')
+      .select('id, inicio, cliente_id, clientes(nome, telefone), estabelecimento_atividades(nome)')
+      .eq('estabelecimento_id', automacao.estabelecimento_id)
+      .in('status', ['agendado', 'confirmado'])
+      .gte('inicio', de.toISOString())
+      .lte('inicio', ate.toISOString());
+
+    for (const ag of agendamentos || []) {
+      if (await jaDisparou(automacao.id, ag.cliente_id, ag.id)) continue;
+      const telefone = ag.clientes?.telefone;
+      const hora = new Date(ag.inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const servico = ag.estabelecimento_atividades?.nome || 'seu atendimento';
+      const texto = `Oi, ${ag.clientes?.nome || 'tudo bem'}? Seu horário de ${servico} é hoje às ${hora}, daqui a pouquinho. Te esperamos!`;
+      await enviar({ automacaoId: automacao.id, estabelecimentoId: automacao.estabelecimento_id, clienteId: ag.cliente_id, referenciaId: ag.id, telefone, texto });
+    }
+  }
+}
+
 // ── 2. Reativar clientes sumidos ──
 async function verificarReativacao() {
   const automacoes = await automacoesAtivasPorTipo('reativacao_clientes');
@@ -197,6 +227,7 @@ async function verificarRetornoCiclo() {
 
 async function rodarTodasAutomacoes() {
   await verificarConfirmacao24h().catch(erro => console.error('Falha em verificarConfirmacao24h:', erro));
+  await verificarLembrete2h().catch(erro => console.error('Falha em verificarLembrete2h:', erro));
   await verificarReativacao().catch(erro => console.error('Falha em verificarReativacao:', erro));
   await verificarAniversario().catch(erro => console.error('Falha em verificarAniversario:', erro));
   await verificarRetornoCiclo().catch(erro => console.error('Falha em verificarRetornoCiclo:', erro));
@@ -210,6 +241,7 @@ module.exports = {
   iniciarScheduler,
   rodarTodasAutomacoes,
   verificarConfirmacao24h,
+  verificarLembrete2h,
   verificarReativacao,
   verificarAniversario,
   verificarRetornoCiclo,

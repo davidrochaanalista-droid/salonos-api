@@ -11,13 +11,14 @@
 
 const express = require('express');
 const { enviarMensagemWhatsApp, gerarMensagemPropostaHorario } = require('./whatsapp');
+const { buscarConflitoAgendamento } = require('../lib/disponibilidade');
 const router = express.Router();
 
 // GET /estabelecimentos/:id/solicitacoes-agendamento?status=pendente
 router.get('/estabelecimentos/:id/solicitacoes-agendamento', async (req, res) => {
   let consulta = req.supabase
     .from('solicitacoes_agendamento')
-    .select('*, clientes(nome, telefone), estabelecimento_atividades(nome, duracao_min)')
+    .select('*, clientes(nome, telefone), estabelecimento_atividades(nome, duracao_min), profissionais(nome)')
     .eq('estabelecimento_id', req.params.id)
     .order('created_at', { ascending: false });
 
@@ -33,7 +34,7 @@ router.get('/estabelecimentos/:id/solicitacoes-agendamento', async (req, res) =>
 router.post('/solicitacoes-agendamento/:id/aceitar', async (req, res) => {
   const { data: solicitacao, error: errBusca } = await req.supabase
     .from('solicitacoes_agendamento')
-    .select('*, clientes(nome, telefone), estabelecimento_atividades(nome, duracao_min)')
+    .select('*, clientes(nome, telefone), estabelecimento_atividades(nome, duracao_min), profissionais(nome)')
     .eq('id', req.params.id)
     .single();
   if (errBusca || !solicitacao) return res.status(404).json({ erro: 'Solicitação não encontrada.' });
@@ -48,11 +49,19 @@ router.post('/solicitacoes-agendamento/:id/aceitar', async (req, res) => {
   const inicio = new Date(solicitacao.data_hora_solicitada);
   const fim = new Date(inicio.getTime() + duracaoMin * 60000);
 
+  if (solicitacao.profissional_id) {
+    const conflito = await buscarConflitoAgendamento(req.supabase, { profissionalId: solicitacao.profissional_id, inicio: inicio.toISOString(), fim: fim.toISOString() });
+    if (conflito) {
+      return res.status(409).json({ erro: `${solicitacao.profissionais?.nome || 'A profissional'} já tem um atendimento nesse horário (com ${conflito.clientes?.nome || 'outra cliente'}). Escolha "Propor outro horário" em vez de aceitar direto.` });
+    }
+  }
+
   const { data: agendamento, error: errAgendamento } = await req.supabase
     .from('agendamentos')
     .insert({
       estabelecimento_id: req.params.id,
       cliente_id: solicitacao.cliente_id,
+      profissional_id: solicitacao.profissional_id,
       estabelecimento_atividade_id: solicitacao.estabelecimento_atividade_id,
       inicio: inicio.toISOString(),
       fim: fim.toISOString(),
@@ -84,20 +93,31 @@ router.post('/solicitacoes-agendamento/:id/aceitar', async (req, res) => {
 // sugerido, em linguagem natural, e fica aguardando a resposta do
 // cliente (tratada pela IA no webhook, ver aguardandoRespostaProposta).
 router.post('/solicitacoes-agendamento/:id/propor-horario', async (req, res) => {
-  const { data_hora_proposta } = req.body;
+  const { data_hora_proposta, profissional_id } = req.body;
   if (!data_hora_proposta) return res.status(400).json({ erro: 'data_hora_proposta é obrigatório.' });
 
   const { data: solicitacao, error: errBusca } = await req.supabase
     .from('solicitacoes_agendamento')
-    .select('*, clientes(nome, telefone), estabelecimento_atividades(nome)')
+    .select('*, clientes(nome, telefone), estabelecimento_atividades(nome, duracao_min)')
     .eq('id', req.params.id)
     .single();
   if (errBusca || !solicitacao) return res.status(404).json({ erro: 'Solicitação não encontrada.' });
   if (solicitacao.status === 'confirmado') return res.status(400).json({ erro: 'Essa solicitação já foi confirmada.' });
 
+  const profissionalEscolhido = profissional_id || solicitacao.profissional_id;
+  if (profissionalEscolhido) {
+    const duracaoMin = solicitacao.estabelecimento_atividades?.duracao_min || 60;
+    const inicio = new Date(data_hora_proposta);
+    const fim = new Date(inicio.getTime() + duracaoMin * 60000);
+    const conflito = await buscarConflitoAgendamento(req.supabase, { profissionalId: profissionalEscolhido, inicio: inicio.toISOString(), fim: fim.toISOString() });
+    if (conflito) {
+      return res.status(409).json({ erro: `Esse profissional já tem um atendimento nesse horário (com ${conflito.clientes?.nome || 'outra cliente'}). Escolha outro horário ou profissional.` });
+    }
+  }
+
   const { error: errUpdate } = await req.supabase
     .from('solicitacoes_agendamento')
-    .update({ status: 'horario_proposto', data_hora_proposta })
+    .update({ status: 'horario_proposto', data_hora_proposta, profissional_id: profissionalEscolhido || null })
     .eq('id', req.params.id);
   if (errUpdate) return res.status(500).json({ erro: errUpdate.message });
 

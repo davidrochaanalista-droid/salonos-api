@@ -1169,17 +1169,20 @@ window.aceitarSolicitacaoAgendamento=async function(id){
 window.abrirPropostaHorario=function(id){
   const s=(state.solicitacoesAgendamento||[]).find(x=>x.id===id);
   if(!s)return;
+  const opcoesProfissional='<option value="">Sem preferência / qualquer uma</option>'+(state.profissionaisAtivos||[]).map(p=>'<option value="'+p.id+'" '+(p.id===s.profissional_id?'selected':'')+'>'+p.nome+'</option>').join('');
   Modal.open('Propor outro horário','<div class="mb2">'
     +'<p class="tsm tm2" style="margin-bottom:12px">O cliente pediu: "'+s.pedido_cliente+'". Escolha o horário que você pode oferecer.</p>'
     +'<div class="fg"><label class="flbl">Data e hora propostas</label><input class="fi" id="propostaDataHora" type="datetime-local"></div>'
+    +'<div class="fg mt10"><label class="flbl">Profissional</label><select class="fi" id="propostaProfissional">'+opcoesProfissional+'</select></div>'
     +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarPropostaHorario(\''+id+'\')">Enviar proposta por WhatsApp</button></div>');
 };
 
 window.confirmarPropostaHorario=async function(id){
   const valor=$('#propostaDataHora')?.value;
   if(!valor){Toast.show('Escolha uma data e hora','⚠');return;}
+  const profissionalId=$('#propostaProfissional')?.value||null;
   try{
-    await chamarAPI('POST',`/solicitacoes-agendamento/${id}/propor-horario`,{data_hora_proposta:new Date(valor).toISOString()});
+    await chamarAPI('POST',`/solicitacoes-agendamento/${id}/propor-horario`,{data_hora_proposta:new Date(valor).toISOString(),profissional_id:profissionalId});
     Modal.close();
     Toast.show('Proposta enviada por WhatsApp! Aguardando resposta da cliente.');
     P.agenda();
@@ -1217,6 +1220,7 @@ async agenda(){
   state.solicitacoesAgendamento=solicitacoes;
   const solicitacoesAbertas=solicitacoes.filter(s=>s.status==='pendente'||s.status==='horario_proposto');
   profissionais=profissionais.filter(p=>p.ativo!==false);
+  state.profissionaisAtivos=profissionais;
   state.agendamentosHoje=agendamentos;
   const validos=agendamentos.filter(a=>a.status!=='cancelado'&&a.status!=='nao_compareceu');
   const confirmados=validos.filter(a=>a.status==='confirmado'||a.status==='em_atendimento'||a.status==='concluido');
@@ -1230,10 +1234,11 @@ async agenda(){
     +solicitacoesAbertas.map(s=>{
       const nomeCliente=s.clientes?.nome||s.clientes?.telefone||'Cliente';
       const nomeServico=s.estabelecimento_atividades?.nome||'Serviço';
+      const comProfissional=s.profissionais?.nome?' com '+s.profissionais.nome:'';
       if(s.status==='horario_proposto'){
-        return '<div class="lr"><div style="flex:1"><div class="lrn">'+nomeCliente+'</div><div class="lrm">'+nomeServico+' — pediu: "'+s.pedido_cliente+'"</div><div class="lrm" style="color:var(--am)">Aguardando resposta sobre '+fmtDataHora(s.data_hora_proposta)+'</div></div></div>';
+        return '<div class="lr"><div style="flex:1"><div class="lrn">'+nomeCliente+'</div><div class="lrm">'+nomeServico+comProfissional+' — pediu: "'+s.pedido_cliente+'"</div><div class="lrm" style="color:var(--am)">Aguardando resposta sobre '+fmtDataHora(s.data_hora_proposta)+'</div></div></div>';
       }
-      return '<div class="lr"><div style="flex:1"><div class="lrn">'+nomeCliente+'</div><div class="lrm">'+nomeServico+' — pediu: "'+s.pedido_cliente+'"'+(s.data_hora_solicitada?' ('+fmtDataHora(s.data_hora_solicitada)+')':'')+'</div></div>'
+      return '<div class="lr"><div style="flex:1"><div class="lrn">'+nomeCliente+'</div><div class="lrm">'+nomeServico+comProfissional+' — pediu: "'+s.pedido_cliente+'"'+(s.data_hora_solicitada?' ('+fmtDataHora(s.data_hora_solicitada)+')':'')+'</div></div>'
         +'<div style="display:flex;gap:6px;flex-shrink:0">'
         +(s.data_hora_solicitada?'<button class="btn btp xs" onclick="aceitarSolicitacaoAgendamento(\''+s.id+'\')">Aceitar</button>':'')
         +'<button class="btn btgh xs" onclick="abrirPropostaHorario(\''+s.id+'\')">Propor horário</button>'
@@ -1339,6 +1344,7 @@ automacoes(){
   chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/automacoes`).then(automacoes=>{
     const info={
       confirmacao_24h:{ico:'📱',nm:'Confirmação 24h antes',desc:'Lembrete de WhatsApp 24h antes do horário marcado.'},
+      lembrete_2h:{ico:'⏰',nm:'Lembrete 2h antes',desc:'Segundo lembrete, mais perto do horário — reduz falta sem aviso.'},
       reativacao_clientes:{ico:'🎯',nm:'Reativar Clientes Sumidos',desc:'Mensagem pra quem não volta há muito tempo (configurável).'},
       aniversario:{ico:'🎂',nm:'Oferta de Aniversário',desc:'Mensagem especial no aniversário do cliente.'},
       retorno_ciclo:{ico:'🔁',nm:'Retorno por Ciclo',desc:'Sugere reagendar um serviço quando o ciclo esperado dele passa (configure o ciclo em cada serviço).'},
@@ -1346,7 +1352,7 @@ automacoes(){
       lista_espera:{ico:'⏳',nm:'Lista de Espera Automática',desc:'Oferece o horário liberado pro primeiro da lista de espera quando um agendamento é cancelado.'},
       avaliacao_pos_atendimento:{ico:'⭐',nm:'Avaliação Pós-Atendimento',desc:'Pede avaliação depois que a comanda é fechada. (já ativa, não desligue por engano)'},
     };
-    const ordem=['confirmacao_24h','reativacao_clientes','aniversario','retorno_ciclo','upsell_agendamento','lista_espera','avaliacao_pos_atendimento'];
+    const ordem=['confirmacao_24h','lembrete_2h','reativacao_clientes','aniversario','retorno_ciclo','upsell_agendamento','lista_espera','avaliacao_pos_atendimento'];
     const porTipo={};
     automacoes.forEach(a=>porTipo[a.tipo]=a);
     html(pg,'<div class="sech"><div><div class="sct">Automações <em>e Fluxos</em></div><div class="scsub">Mensagens de WhatsApp disparadas automaticamente por gatilho</div></div></div>'

@@ -17,6 +17,7 @@ const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const Groq = require('groq-sdk');
 const evolution = require('../lib/evolution-api');
+const { buscarConflitoAgendamento } = require('../lib/disponibilidade');
 
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -57,13 +58,14 @@ const FERRAMENTAS_IA = [
     type: 'function',
     function: {
       name: 'registrar_solicitacao_agendamento',
-      description: 'Registra um pedido de agendamento feito com o estabelecimento fechado (fora do horário de funcionamento), pra equipe confirmar assim que abrir. Só chame depois de já saber qual serviço o cliente quer e a preferência de dia/horário dele.',
+      description: 'Registra um pedido de agendamento feito com o estabelecimento fechado (fora do horário de funcionamento), pra equipe confirmar assim que abrir. Só chame depois de já saber qual serviço o cliente quer e a preferência de dia/horário dele -- e depois de perguntar naturalmente se ele tem preferência de profissional ou se tanto faz.',
       parameters: {
         type: 'object',
         properties: {
           nome_servico: { type: 'string', description: 'Nome do serviço desejado, o mais próximo possível de um dos serviços oferecidos.' },
           pedido_cliente: { type: 'string', description: 'O que o cliente pediu, em texto natural (ex: "sábado de manhã", "quinta às 15h").' },
           data_hora_solicitada: { type: 'string', description: 'Se der pra entender uma data/hora exata do pedido do cliente, formato ISO 8601 (YYYY-MM-DDTHH:MM:SS), considerando o fuso de Brasília. Deixe vazio se não for possível saber uma data/hora exata (ex: cliente só disse "qualquer dia da semana que vem").' },
+          nome_profissional: { type: 'string', description: 'Nome da profissional que o cliente prefere, só se ele mencionou uma preferência específica. Deixe vazio se ele disse que tanto faz ou não mencionou.' },
         },
         required: ['pedido_cliente'],
       },
@@ -98,10 +100,16 @@ async function executarFerramentaIA(chamada, contexto) {
     const atividade = (contexto.atividades || []).find(a => a.nome.toLowerCase() === (argumentos.nome_servico || '').toLowerCase())
       || (contexto.atividades || []).find(a => a.nome.toLowerCase().includes((argumentos.nome_servico || '').toLowerCase()));
 
+    const nomeProfissionalBuscado = (argumentos.nome_profissional || '').toLowerCase();
+    const profissional = nomeProfissionalBuscado
+      ? (contexto.profissionais || []).find(p => p.nome.toLowerCase().includes(nomeProfissionalBuscado))
+      : null;
+
     const { error } = await supabase.from('solicitacoes_agendamento').insert({
       estabelecimento_id: contexto.estabelecimentoId,
       cliente_id: contexto.cliente.id,
       estabelecimento_atividade_id: atividade?.id || null,
+      profissional_id: profissional?.id || null,
       pedido_cliente: argumentos.pedido_cliente,
       data_hora_solicitada: argumentos.data_hora_solicitada || null,
     });
@@ -151,7 +159,7 @@ function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instr
 
   return `Você é a atendente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}", conversando pelo WhatsApp do negócio. Agora, no horário de Brasília, é hora de dizer "${saudacaoPorHorario()}" -- use essa saudação (ou uma variação natural dela) se for cumprimentar o cliente agora, mas só no início da conversa, não repita em toda mensagem. ${primeiroNome ? `Esse cliente já é cadastrado e se chama ${primeiroNome} -- chame-o pelo primeiro nome ao cumprimentar (ex: "${saudacaoPorHorario()}, ${primeiroNome}!"), nunca pergunte o nome de novo.` : ''}
 
-${aberto ? '' : `IMPORTANTE -- FORA DO HORÁRIO DE FUNCIONAMENTO: agora o estabelecimento está fechado (funciona ${estabelecimento.horario_abertura?.slice(0,5)} às ${estabelecimento.horario_fechamento?.slice(0,5)}). Avise isso ao cliente de forma leve, uma vez, sem soar como bloqueio -- e continue o atendimento normalmente. Nunca pare de ajudar só porque está fechado: se o assunto for agendamento, colete o serviço desejado e a preferência de dia/horário do cliente naturalmente na conversa, e assim que tiver essas duas informações, chame a ferramenta registrar_solicitacao_agendamento (nunca diga que "já agendou" ou "está confirmado" -- diga que a equipe confirma assim que abrir). Não perca o cliente por estar fora do horário.`}
+${aberto ? '' : `IMPORTANTE -- FORA DO HORÁRIO DE FUNCIONAMENTO: agora o estabelecimento está fechado (funciona ${estabelecimento.horario_abertura?.slice(0,5)} às ${estabelecimento.horario_fechamento?.slice(0,5)}). Avise isso ao cliente de forma leve, uma vez, sem soar como bloqueio -- e continue o atendimento normalmente. Nunca pare de ajudar só porque está fechado: se o assunto for agendamento, colete o serviço desejado, a preferência de dia/horário, e pergunte naturalmente se tem preferência de profissional ou se tanto faz -- e assim que tiver essas informações, chame a ferramenta registrar_solicitacao_agendamento (nunca diga que "já agendou" ou "está confirmado" -- diga que a equipe confirma assim que abrir). Não perca o cliente por estar fora do horário.`}
 
 REGRAS DE TOM (sempre):
 - Português do Brasil, cordial e caloroso, mas objetivo — nada de resposta robótica nem parágrafo longo. Pode usar "oi", "tudo bem?" naturalmente, mas sem gíria regional pesada (nunca "oxe", "bah", "mano", "cê").
@@ -204,6 +212,12 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
     const { data: atividades } = await supabase
       .from('estabelecimento_atividades')
       .select('id, nome, preco, preco_variavel, duracao_min')
+      .eq('estabelecimento_id', estabelecimentoId)
+      .eq('ativo', true);
+
+    const { data: profissionais } = await supabase
+      .from('profissionais')
+      .select('id, nome')
       .eq('estabelecimento_id', estabelecimentoId)
       .eq('ativo', true);
 
@@ -318,7 +332,7 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
     if (mensagemResposta.tool_calls?.length) {
       mensagensIA.push(mensagemResposta);
       for (const chamada of mensagemResposta.tool_calls) {
-        const resultado = await executarFerramentaIA(chamada, { cliente, atividades: atividades || [], estabelecimentoId });
+        const resultado = await executarFerramentaIA(chamada, { cliente, atividades: atividades || [], profissionais: profissionais || [], estabelecimentoId });
         mensagensIA.push({ role: 'tool', tool_call_id: chamada.id, content: JSON.stringify(resultado) });
       }
       resposta = await groq.chat.completions.create({
@@ -503,11 +517,21 @@ async function tratarRespostaPropostaHorario({ solicitacaoPendente, mensagem, cl
     const inicio = new Date(solicitacaoPendente.data_hora_proposta);
     const fim = new Date(inicio.getTime() + duracaoMin * 60000);
 
+    // Confere de novo (a equipe já checou ao propor, mas outro agendamento
+    // pode ter entrado nesse meio-tempo) -- nunca cria em cima de conflito.
+    if (solicitacaoPendente.profissional_id) {
+      const conflito = await buscarConflitoAgendamento(supabase, { profissionalId: solicitacaoPendente.profissional_id, inicio: inicio.toISOString(), fim: fim.toISOString() });
+      if (conflito) {
+        return `${primeiroNome ? primeiroNome + ', esse' : 'Esse'} horário acabou de ser ocupado aqui do nosso lado. Vou pedir pra equipe te chamar com uma nova opção, combinado?`;
+      }
+    }
+
     const { data: agendamento, error: errAgendamento } = await supabase
       .from('agendamentos')
       .insert({
         estabelecimento_id: estabelecimentoId,
         cliente_id: cliente.id,
+        profissional_id: solicitacaoPendente.profissional_id,
         estabelecimento_atividade_id: solicitacaoPendente.estabelecimento_atividade_id,
         inicio: inicio.toISOString(),
         fim: fim.toISOString(),
