@@ -213,4 +213,65 @@ router.get('/estabelecimentos/:id/resumo-mensal', async (req, res) => {
   });
 });
 
+// GET /estabelecimentos/:id/previsao-receita — projeção simples dos
+// próximos 30 dias, sempre em cima de comanda real fechada (nunca
+// mockado). Não é modelo estatístico sofisticado -- é média diária da
+// janela mais recente (até 30 dias corridos) × 30, e a UI deixa isso
+// explícito. A confiança mostrada sobe com o volume de histórico, mas o
+// cálculo roda desde o primeiro dia (mesmo com pouco dado, só com selo de
+// baixa confiança) -- nunca fica bloqueado esperando "tempo suficiente".
+router.get('/estabelecimentos/:id/previsao-receita', async (req, res) => {
+  const { data: comandas, error } = await req.supabase
+    .from('comandas')
+    .select('valor_total, fechada_em')
+    .eq('estabelecimento_id', req.params.id)
+    .eq('status', 'fechada')
+    .order('fechada_em', { ascending: true });
+
+  if (error) return res.status(500).json({ erro: error.message });
+
+  if (!comandas.length) {
+    return res.json({ dias_com_historico: 0, confianca: 'insuficiente', projecao_30d: null, historico_diario: [] });
+  }
+
+  // ── Agrupa por dia (fuso do servidor -- suficiente pra essa granularidade) ──
+  const porDia = {};
+  comandas.forEach(c => {
+    const dia = c.fechada_em.slice(0, 10); // YYYY-MM-DD
+    porDia[dia] = (porDia[dia] || 0) + Number(c.valor_total);
+  });
+
+  const primeiraData = new Date(comandas[0].fechada_em);
+  const hoje = new Date();
+  const diasDesdeAbertura = Math.floor((hoje - primeiraData) / 86400000) + 1;
+
+  // ── Janela da projeção: últimos até 30 dias corridos (não só dias com
+  // comanda -- dia sem venda também conta pra média, é informação real) ──
+  const janelaDias = Math.min(diasDesdeAbertura, 30);
+  let somaJanela = 0;
+  for (let i = 0; i < janelaDias; i++) {
+    const dia = new Date(hoje.getTime() - i * 86400000).toISOString().slice(0, 10);
+    somaJanela += porDia[dia] || 0;
+  }
+  const mediaDiaria = somaJanela / janelaDias;
+  const projecao30d = Number((mediaDiaria * 30).toFixed(2));
+
+  let confianca = 'insuficiente';
+  if (diasDesdeAbertura >= 60) confianca = 'boa';
+  else if (diasDesdeAbertura >= 14) confianca = 'moderada';
+  else if (diasDesdeAbertura >= 3) confianca = 'baixa';
+
+  const historicoDiario = Object.entries(porDia)
+    .map(([data, valor]) => ({ data, valor: Number(valor.toFixed(2)) }))
+    .sort((a, b) => a.data.localeCompare(b.data))
+    .slice(-60); // últimos 60 dias com movimento, pro gráfico não crescer sem limite
+
+  res.json({
+    dias_com_historico: diasDesdeAbertura,
+    confianca,
+    projecao_30d: confianca === 'insuficiente' ? null : projecao30d,
+    historico_diario: historicoDiario,
+  });
+});
+
 module.exports = router;

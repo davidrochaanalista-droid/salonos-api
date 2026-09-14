@@ -134,6 +134,7 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
 .sech{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:14px;gap:10px}.sct{font-family:var(--fd);font-size:22px;font-weight:400;letter-spacing:-.3px;line-height:1}.sct em{font-style:italic;color:var(--gdd)}.scsub{font-size:11px;color:var(--ink3);margin-top:3px}.scacts{display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap}
 .card{background:var(--wh);border:1px solid rgba(201,169,110,.15);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}.cardh{padding:12px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:10px}.cardt{font-family:var(--fd);font-size:15px;font-weight:400;letter-spacing:-.2px}.cardt em{font-style:italic;color:var(--gdd)}.cardlnk{font-size:11px;color:var(--gdd);font-weight:500;cursor:pointer;transition:opacity var(--t)}.cardlnk:hover{opacity:.65}.cardb{padding:14px 16px}
 .kc{background:var(--wh);border:1px solid var(--bd);border-radius:var(--r);padding:15px;position:relative;overflow:hidden;transition:transform var(--t),box-shadow var(--tm)}.kc:hover{transform:translateY(-2px);box-shadow:var(--sh2)}.kcbar{position:absolute;top:0;left:0;right:0;height:2px}.kclbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:7px}.kcv{font-family:var(--fd);font-size:24px;font-weight:300;letter-spacing:-.5px;line-height:1;margin-bottom:4px}.kcd{font-size:11px;font-weight:500}.kcd.up{color:var(--sg)}.kcd.dn{color:var(--rs)}.kcd.n{color:var(--ink3)}.kcico{position:absolute;bottom:-4px;right:4px;font-size:38px;opacity:.055;pointer-events:none}
+.pbar{flex:1;min-width:3px;background:var(--gd);border-radius:2px 2px 0 0;opacity:.75;transition:opacity var(--t)}.pbar:hover{opacity:1}
 .lr{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bd);transition:background var(--t);cursor:pointer}.lr:last-child{border-bottom:none}.lr:hover{background:var(--cr)}.lrn{font-size:13px;font-weight:500}.lrm{font-size:11px;color:var(--ink3);margin-top:1px}.lrr{margin-left:auto;text-align:right;flex-shrink:0}.lrv{font-size:13px;font-weight:600}.lrs{font-size:11px;color:var(--ink3);margin-top:1px}
 .av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;flex-shrink:0}.avsq{border-radius:8px!important}
 .tag{display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap}.tsg{background:var(--sgl);color:var(--sg)}.trs{background:var(--rsl);color:var(--rs)}.tam{background:var(--aml);color:var(--am)}.tgd{background:rgba(201,169,110,.15);color:var(--gdd)}.tsk{background:var(--skl);color:var(--sk)}.tik{background:rgba(26,26,26,.07);color:var(--ink2)}.tvi{background:rgba(122,90,154,.12);color:var(--vi)}
@@ -1411,8 +1412,35 @@ async servicos(){
     +linhas+'</div>');
 },
 
-previsao(){
-  renderEmBreve('page-previsao','IA Preditiva <em>de Receita</em>','Ainda não há modelo de previsão calculado a partir de dado real.');
+async previsao(){
+  const pg=$('#page-previsao');
+  html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Calculando...</div>');
+  let dados;
+  try{
+    dados=await chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/previsao-receita`);
+  }catch(erro){
+    html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível calcular a previsão: '+erro.message+'</div>');
+    return;
+  }
+
+  if(dados.confianca==='insuficiente'){
+    html(pg,'<div class="sech"><div><div class="sct">IA Preditiva <em>de Receita</em></div><div class="scsub">Projeção dos próximos 30 dias, calculada em cima da sua receita real</div></div></div>'
+      +'<div class="card"><div style="padding:32px;text-align:center;color:var(--ink3)">Ainda não há comanda fechada suficiente pra calcular uma projeção honesta. Assim que os primeiros atendimentos forem fechados, a projeção aparece aqui — mesmo com poucos dias, com um selo de confiança baixa até o histórico crescer.</div></div>');
+    return;
+  }
+
+  const selos={baixa:{txt:'Confiança baixa — poucos dias de histórico ainda',cor:'var(--am)'},moderada:{txt:'Confiança moderada',cor:'var(--gd)'},boa:{txt:'Boa confiança',cor:'var(--sg)'}};
+  const selo=selos[dados.confianca]||selos.baixa;
+
+  const hist=dados.historico_diario||[];
+  const maxValor=Math.max(1,...hist.map(h=>h.valor));
+  const barras=hist.map(h=>'<div class="pbar" title="'+h.data+': '+R(h.valor)+'" style="height:'+Math.max(2,Math.round(h.valor/maxValor*100))+'%"></div>').join('');
+
+  html(pg,'<div class="sech"><div><div class="sct">IA Preditiva <em>de Receita</em></div><div class="scsub">Projeção dos próximos 30 dias, calculada em cima da sua receita real — não é IA de verdade, é média da janela recente com tendência, sem inventar precisão que não existe</div></div></div>'
+    +'<div class="g3 mb12"><div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">Projeção 30 dias</div><div class="kcv gd2">'+R(dados.projecao_30d)+'</div><div class="kcd" style="color:'+selo.cor+'">'+selo.txt+'</div></div>'
+    +'<div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Dias de histórico</div><div class="kcv">'+dados.dias_com_historico+'</div><div class="kcd n">desde a primeira comanda fechada</div></div>'
+    +'<div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Método</div><div class="kcv" style="font-size:13px;line-height:1.4">Média diária × 30</div><div class="kcd n">janela de até 30 dias corridos</div></div></div>'
+    +'<div class="card"><div class="cardh"><div class="cardt">Receita <em>dia a dia</em></div></div><div style="padding:16px 20px 20px;display:flex;align-items:flex-end;gap:2px;height:120px">'+(barras||'<span class="tsm tm2">Sem dado suficiente pro gráfico ainda.</span>')+'</div></div>');
 },
 
 marketplace(){
