@@ -88,6 +88,23 @@ function saudacaoPorHorario() {
   return 'Boa noite';
 }
 
+const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+
+// Estabelecimento está aberto agora? Sempre no fuso de Brasília. Não
+// bloqueia o atendimento se fechado -- só informa isso pra IA usar no
+// tom da resposta (ver instrução em montarSystemPrompt), pra nunca perder
+// o cliente que manda mensagem fora do horário.
+function estaAberto(estabelecimento) {
+  const agoraSP = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const diaHoje = DIAS_SEMANA[agoraSP.getDay()];
+  if (!estabelecimento.dias_funcionamento?.includes(diaHoje)) return false;
+
+  const horaAtual = agoraSP.getHours() * 60 + agoraSP.getMinutes();
+  const [horaAbre, minAbre] = (estabelecimento.horario_abertura || '00:00').split(':').map(Number);
+  const [horaFecha, minFecha] = (estabelecimento.horario_fechamento || '23:59').split(':').map(Number);
+  return horaAtual >= horaAbre * 60 + minAbre && horaAtual < horaFecha * 60 + minFecha;
+}
+
 // ============================================================
 // SYSTEM PROMPT
 // ============================================================
@@ -96,7 +113,11 @@ function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instr
     .map(a => `- ${a.nome}${a.preco ? ` (${a.preco_variavel ? 'a partir de ' : ''}R$ ${a.preco})` : ''}${a.duracao_min ? `, ${a.duracao_min}min` : ''}`)
     .join('\n');
 
+  const aberto = estaAberto(estabelecimento);
+
   return `Você é a atendente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}", conversando pelo WhatsApp do negócio. Agora, no horário de Brasília, é hora de dizer "${saudacaoPorHorario()}" -- use essa saudação (ou uma variação natural dela) se for cumprimentar o cliente agora, mas só no início da conversa, não repita em toda mensagem.
+
+${aberto ? '' : `IMPORTANTE -- FORA DO HORÁRIO DE FUNCIONAMENTO: agora o estabelecimento está fechado (funciona ${estabelecimento.horario_abertura?.slice(0,5)} às ${estabelecimento.horario_fechamento?.slice(0,5)}). Avise isso ao cliente de forma leve, uma vez, sem soar como bloqueio -- e continue o atendimento normalmente. Nunca pare de ajudar só porque está fechado: se o assunto for agendamento, colete o serviço desejado e a preferência de dia/horário do cliente normalmente, e diga que a equipe confirma assim que abrir. Não perca o cliente por estar fora do horário.`}
 
 REGRAS DE TOM (sempre):
 - Português do Brasil, cordial e caloroso, mas objetivo — nada de resposta robótica nem parágrafo longo. Pode usar "oi", "tudo bem?" naturalmente, mas sem gíria regional pesada (nunca "oxe", "bah", "mano", "cê").
