@@ -884,11 +884,16 @@ function renderEstoque(){
   const pg=$('#page-estoque');
   const produtos=state.produtos||[];
   const atividadesEstoque=state.atividadesEstoque||[];
+  const lotesVencendo=state.lotesVencendo||[];
+  const vencendoPorProduto={};
+  lotesVencendo.forEach(l=>{ if(!vencendoPorProduto[l.produto_id]) vencendoPorProduto[l.produto_id]=l; });
   const linhasProduto=produtos.length?produtos.map(p=>{
     const baixo=(p.estoque_minimo||0)>0&&p.quantidade_em_estoque<=p.estoque_minimo;
     const validade=p.validade?new Date(p.validade+'T00:00:00').toLocaleDateString('pt-BR'):'-';
+    const loteVencendo=vencendoPorProduto[p.id];
+    const badgeVencendo=loteVencendo?' <span class="tag tam" style="margin-left:6px">vence '+new Date(loteVencendo.validade+'T00:00:00').toLocaleDateString('pt-BR')+'</span>':'';
     return '<div class="trow" style="grid-template-columns:2fr 1.2fr 1fr 1fr 1fr 1fr" onclick="abrirModalEditarProduto(\''+p.id+'\')">'
-      +'<div><div class="lrn">'+(p.nome||'-')+'</div><div class="lrm">'+(p.categoria||'')+'</div></div>'
+      +'<div><div class="lrn">'+(p.nome||'-')+badgeVencendo+'</div><div class="lrm">'+(p.categoria||'')+'</div></div>'
       +'<div class="tm2">'+(p.marca||'-')+'</div>'
       +'<div class="tm2" style="'+(baixo?'color:var(--rs);font-weight:600':'')+'">'+p.quantidade_em_estoque+' '+p.unidade+'</div>'
       +'<div class="tm2">'+(p.estoque_minimo||0)+' '+p.unidade+'</div>'
@@ -969,13 +974,60 @@ window.abrirModalEditarProduto=function(id){
   const p=(state.produtos||[]).find(x=>x.id===id);
   if(!p)return;
   const esc=v=>(v==null?'':String(v)).replace(/"/g,'&quot;');
+  const nomeSeguro=(p.nome||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   Modal.open('Editar Produto','<div class="mb2">'
     +'<div class="fg"><label class="flbl">Nome</label><input class="fi" id="editProdutoNome" value="'+esc(p.nome)+'"></div>'
     +'<div class="frow"><div class="fg"><label class="flbl">Marca</label><input class="fi" id="editProdutoMarca" value="'+esc(p.marca)+'"></div><div class="fg"><label class="flbl">Categoria</label><input class="fi" id="editProdutoCategoria" value="'+esc(p.categoria)+'"></div></div>'
     +'<div class="frow"><div class="fg"><label class="flbl">Unidade</label><input class="fi" id="editProdutoUnidade" value="'+esc(p.unidade||'un')+'"></div><div class="fg"><label class="flbl">Custo unitário</label><input class="fi" id="editProdutoCusto" type="number" step="0.01" value="'+(p.custo_unitario||0)+'"></div></div>'
     +'<div class="frow"><div class="fg"><label class="flbl">Quantidade em estoque</label><input class="fi" id="editProdutoQuantidade" type="number" step="0.01" value="'+(p.quantidade_em_estoque||0)+'"></div><div class="fg"><label class="flbl">Estoque mínimo</label><input class="fi" id="editProdutoMinimo" type="number" step="0.01" value="'+(p.estoque_minimo||0)+'"></div></div>'
     +'<div class="fg"><label class="flbl">Validade</label><input class="fi" id="editProdutoValidade" type="date" value="'+esc(p.validade)+'"></div>'
-    +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarEditarProduto(\''+p.id+'\')">Salvar alterações</button></div>');
+    +'</div><div class="mf"><button class="btn btgh sm" onclick="abrirModalLotesProduto(\''+p.id+'\',\''+nomeSeguro+'\')">Gerenciar lotes</button><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarEditarProduto(\''+p.id+'\')">Salvar alterações</button></div>');
+};
+
+let lotesContexto={id:null,nome:''};
+let lotesAtual=[];
+
+window.abrirModalLotesProduto=async function(produtoId,produtoNome){
+  lotesContexto={id:produtoId,nome:produtoNome};
+  Modal.open('Lotes — '+produtoNome,'<div class="mb2">Carregando...</div>');
+  try{
+    lotesAtual=await chamarAPI('GET',`/produtos/${produtoId}/lotes`);
+  }catch(erro){
+    Modal.open('Lotes — '+produtoNome,'<div class="mb2" style="color:var(--rs)">Não foi possível carregar: '+erro.message+'</div>');
+    return;
+  }
+  renderModalLotes();
+};
+
+function renderModalLotes(){
+  const linhas=lotesAtual.length?lotesAtual.map(l=>{
+    const validade=l.validade?new Date(l.validade+'T00:00:00').toLocaleDateString('pt-BR'):'sem validade';
+    return '<div class="lr"><div style="flex:1"><div class="lrn">'+(l.numero_lote||'Sem número')+'</div><div class="lrm">'+l.quantidade_atual+' de '+l.quantidade_inicial+' · vence '+validade+' · entrou '+new Date(l.data_entrada+'T00:00:00').toLocaleDateString('pt-BR')+'</div></div></div>';
+  }).join(''):'<div style="padding:12px;font-size:12px;color:var(--ink3)">Nenhum lote cadastrado ainda — a quantidade em estoque acima é editada direto até o primeiro lote entrar.</div>';
+  Modal.open('Lotes — '+lotesContexto.nome,'<div class="mb2">'
+    +'<div>'+linhas+'</div>'
+    +'<div class="frow mt12"><div class="fg"><label class="flbl">Número do lote</label><input class="fi" id="novoLoteNumero" placeholder="Opcional"></div><div class="fg"><label class="flbl">Quantidade</label><input class="fi" id="novoLoteQuantidade" type="number" step="0.01" placeholder="0"></div></div>'
+    +'<div class="frow"><div class="fg"><label class="flbl">Validade</label><input class="fi" id="novoLoteValidade" type="date"></div><div class="fg"><label class="flbl">Data de entrada</label><input class="fi" id="novoLoteEntrada" type="date" value="'+new Date().toISOString().slice(0,10)+'"></div></div>'
+    +'<button class="btn btgh sm wf" style="justify-content:center;margin-top:8px" type="button" onclick="adicionarLoteProduto()">+ Registrar entrada de lote</button>'
+    +'</div>'
+    +'<div class="mf"><button class="btn btgh sm" onclick="Modal.close();P.estoque()">Fechar</button></div>');
+}
+
+window.adicionarLoteProduto=async function(){
+  const quantidade=Number($('#novoLoteQuantidade')?.value||0);
+  if(!quantidade){Toast.show('Informe a quantidade do lote','⚠');return;}
+  const corpo={
+    numero_lote:$('#novoLoteNumero')?.value.trim()||null,
+    quantidade_inicial:quantidade,
+    validade:$('#novoLoteValidade')?.value||null,
+    data_entrada:$('#novoLoteEntrada')?.value||undefined,
+  };
+  try{
+    await chamarAPI('POST',`/produtos/${lotesContexto.id}/lotes`,corpo);
+    Toast.show('Lote registrado!');
+    lotesAtual=await chamarAPI('GET',`/produtos/${lotesContexto.id}/lotes`);
+    renderModalLotes();
+  }catch(erro){Toast.show(erro.message,'⚠');}
 };
 
 window.confirmarEditarProduto=async function(id){
@@ -1319,7 +1371,7 @@ caixa(){
 async estoque(){
   const pg=$('#page-estoque');
   html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando estoque...</div>');
-  let produtos=[],atividadesEstoque=[];
+  let produtos=[],atividadesEstoque=[],lotesVencendo=[];
   try{
     [produtos,atividadesEstoque]=await Promise.all([
       chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/produtos`),
@@ -1329,8 +1381,14 @@ async estoque(){
     html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível carregar o estoque: '+erro.message+'</div>');
     return;
   }
+  try{
+    lotesVencendo=await chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/lotes-vencendo?dias=30`);
+  }catch(erro){
+    lotesVencendo=[]; // badge de vencimento é acessório -- não bloqueia a tela de estoque se falhar
+  }
   state.produtos=produtos;
   state.atividadesEstoque=atividadesEstoque;
+  state.lotesVencendo=lotesVencendo;
   renderEstoque();
 },
 

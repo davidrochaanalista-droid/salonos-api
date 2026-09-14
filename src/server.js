@@ -18,6 +18,7 @@ const rateLimit = require('express-rate-limit');
 const pinoHttp = require('pino-http');
 
 const { autenticar } = require('./middleware/auth');
+const { exigirAdmin } = require('./middleware/exigirAdmin');
 const rotasEstabelecimentos = require('./routes/estabelecimentos');
 const rotasAtividades = require('./routes/atividades');
 const rotasClientes = require('./routes/clientes');
@@ -33,6 +34,7 @@ const rotasListaEspera = require('./routes/lista-espera');
 const rotasProdutos = require('./routes/produtos');
 const rotasWhatsappConexao = require('./routes/whatsapp-conexao');
 const rotasSolicitacoesAgendamento = require('./routes/solicitacoes-agendamento');
+const rotasAdmin = require('./routes/admin'); // painel-admin.html — ver exigirAdmin abaixo
 const { iniciarScheduler } = require('./lib/automacoes/scheduler');
 const rotaWhatsapp = require('./routes/whatsapp'); // wrapper do 02-whatsapp-ia-servico.js — ver nota no final deste arquivo
 const rotaAvaliacoes = require('./routes/avaliacoes'); // pública -- cliente sem login avalia via link
@@ -115,6 +117,14 @@ app.use('/', rotasListaEspera);   // já inclui o prefixo /estabelecimentos/:id/
 app.use('/', rotasProdutos);      // já inclui o prefixo /estabelecimentos/:id/produtos e /atividades/:id/receita internamente
 app.use('/', rotasWhatsappConexao); // já inclui o prefixo /estabelecimentos/:id/whatsapp/* internamente
 app.use('/', rotasSolicitacoesAgendamento); // já inclui os prefixos /estabelecimentos/:id/... e /solicitacoes-agendamento/:id/... internamente
+
+// ── Painel admin interno -- exige, além do token válido, estar na
+// tabela `admins` (ver src/middleware/exigirAdmin.js). exigirAdmin fica
+// escopado ao prefixo /admin (mesmo padrão do rate limit de /webhook e
+// /avaliacoes acima); rotasAdmin já define os caminhos completos
+// /admin/... internamente, por isso é montado na raiz. ──
+app.use('/admin', exigirAdmin);
+app.use('/', rotasAdmin);
 
 // ── Tratamento de erro genérico ──
 app.use((err, req, res, next) => {

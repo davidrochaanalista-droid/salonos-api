@@ -6,6 +6,7 @@
 <title>SalonOS Ops — Painel Administrativo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{
   /* Base: dark console, not the warm nude of the customer panels — this is the operator's cockpit */
@@ -117,6 +118,15 @@ input,select{font-family:inherit;font-size:13px;outline:none;border:none;color:v
 .audit-detail{color:var(--tx2)}
 .audit-actor{color:var(--tx3);text-align:right}
 
+.lerro{background:var(--rsl);color:var(--rs);border-radius:6px;padding:9px 11px;font-size:12px;margin-top:10px}
+.emb{padding:44px 20px;text-align:center;color:var(--tx3);font-size:12.5px;line-height:1.7}
+.emb strong{color:var(--tx2)}
+
+.twrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--tx);color:var(--bg);border-radius:8px;padding:12px 16px;font-size:13px;display:flex;align-items:center;gap:9px;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,.35);pointer-events:all;animation:tIn .22s var(--ez) both;transition:opacity .3s,transform .3s}
+@keyframes tIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.toast.out{opacity:0;transform:translateY(6px)}
+
 .divider{height:1px;background:var(--ln);margin:14px 0}
 .mbd{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);z-index:900;display:none;align-items:center;justify-content:center;padding:20px}
 .mbd.open{display:flex}
@@ -133,12 +143,15 @@ input,select{font-family:inherit;font-size:13px;outline:none;border:none;color:v
   <div class="lb">
     <div class="llogo"><div class="lmark">OS</div><div class="lbrand">Salon<em>OS</em></div></div>
     <div class="ltag">Painel Administrativo · Acesso Restrito</div>
-    <div class="lf"><label>E-mail</label><input type="email" placeholder="voce@salonos.app"></div>
-    <div class="lf"><label>Senha</label><input type="password" placeholder="Digite sua senha"></div>
-    <button class="lbtn" onclick="doLogin()">Entrar no painel</button>
-    <div class="lnote">Este painel é interno — mostra todas as contas, faturamento e dados de acesso da plataforma. Nunca deve ser exposto a clientes do SalonOS.</div>
+    <div class="lf"><label>E-mail</label><input type="email" id="admEmail" placeholder="voce@salonos.app"></div>
+    <div class="lf"><label>Senha</label><input type="password" id="admSenha" placeholder="Digite sua senha"></div>
+    <button class="lbtn" id="admBtn" onclick="doLogin()">Entrar no painel</button>
+    <div id="admErro"></div>
+    <div class="lnote">Este painel é interno — mostra as contas e a assinatura da plataforma. Acesso restrito a quem está cadastrado como admin; nunca deve ser exposto a clientes do SalonOS.</div>
   </div>
 </div>
+
+<div class="twrap" id="twrap"></div>
 
 <header class="topbar" id="topbar" style="display:none">
   <div class="brand">
@@ -171,44 +184,71 @@ input,select{font-family:inherit;font-size:13px;outline:none;border:none;color:v
 
 <script>
 'use strict';
-const D = {
-  contas: [
-    {id:'RD-0001',nome:'Roberta Bezerra',rede:'Studio Beleza Pro (rede)',unidades:3,plano:'Escala',mrr:1041,desde:'Mar 2023',status:'ativo',saude:92,ultimoUso:'há 4 min'},
-    {id:'RD-0014',nome:'Camila Souza',rede:'Studio Norte',unidades:1,plano:'Crescimento',mrr:197,desde:'Jan 2025',status:'ativo',saude:88,ultimoUso:'há 1h'},
-    {id:'RD-0022',nome:'Fernanda Dias',rede:'Espaço Bella',unidades:1,plano:'Base',mrr:97,desde:'Jun 2025',status:'ativo',saude:74,ultimoUso:'há 6h'},
-    {id:'RD-0031',nome:'Juliana Prado',rede:'Studio JP Hair',unidades:2,plano:'Crescimento',mrr:394,desde:'Ago 2025',status:'risco',saude:41,ultimoUso:'há 9 dias'},
-    {id:'RD-0037',nome:'Marcos Vinicius',rede:'Barbearia Vintage',unidades:1,plano:'Base',mrr:97,desde:'Set 2025',status:'ativo',saude:81,ultimoUso:'há 2h'},
-    {id:'RD-0044',nome:'Patrícia Nunes',rede:'Clínica Renove',unidades:1,plano:'Escala',mrr:347,desde:'Nov 2025',status:'ativo',saude:95,ultimoUso:'há 12 min'},
-    {id:'RD-0052',nome:'Diego Almeida',rede:'Studio 52 Barber',unidades:1,plano:'Base',mrr:97,desde:'Jan 2026',status:'inadimplente',saude:28,ultimoUso:'há 21 dias'},
-    {id:'RD-0058',nome:'Tainá Rocha',rede:'Bella Estética',unidades:1,plano:'Crescimento',mrr:197,desde:'Mar 2026',status:'trial',saude:66,ultimoUso:'há 3h'},
-  ],
-  mrrMeses: [{m:'Mar',v:3200},{m:'Abr',v:3850},{m:'Mai',v:4640},{m:'Jun',v:5390},{m:'Jul',v:6180},{m:'Ago',v:6947}],
-  auditoria: [
-    {ts:'2026-08-19 12:41:02',op:'read',ator:'sistema:comanda',detalhe:'Leitura de ficha técnica — cliente Ana Beatriz Silva, salão RD-0001 (Studio Beleza Pro)'},
-    {ts:'2026-08-19 12:38:47',op:'export',ator:'RD-0014',detalhe:'Exportação de relatório PDF — 42 clientes, Studio Norte'},
-    {ts:'2026-08-19 12:20:11',op:'write',ator:'RD-0044',detalhe:'Atualização de alergia registrada — cliente Bruna Ferreira'},
-    {ts:'2026-08-19 11:55:03',op:'read',ator:'admin:david',detalhe:'Consulta de suporte — acesso à conta RD-0031 a pedido do cliente (ticket #884)'},
-    {ts:'2026-08-19 11:40:29',op:'read',ator:'sistema:whatsapp',detalhe:'Leitura de telefone para envio de lembrete automático — 8 clientes, RD-0022'},
-    {ts:'2026-08-19 10:12:56',op:'write',ator:'RD-0001',detalhe:'Novo cadastro de cliente — Studio Moema'},
-  ],
-  tickets: [
-    {id:'#884',conta:'RD-0031',assunto:'Comanda não calculou margem corretamente',prioridade:'alta',status:'aberto',tempo:'2h atrás'},
-    {id:'#881',conta:'RD-0052',assunto:'Cobrança duplicada no cartão',prioridade:'alta',status:'aberto',tempo:'6h atrás'},
-    {id:'#879',conta:'RD-0014',assunto:'Dúvida sobre migração de plano',prioridade:'baixa',status:'respondido',tempo:'1 dia atrás'},
-    {id:'#875',conta:'RD-0058',assunto:'Como configurar WhatsApp',prioridade:'media',status:'resolvido',tempo:'2 dias atrás'},
-  ],
-};
+
+// ── AUTH + CARGA DE DADO REAL ──
+const SUPABASE_URL = 'https://shekztrtkaknyudvzttf.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_WGAnLGQxexd89d0dOJhpTg_KoIGWVaX';
+const API_BASE_URL = '';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function chamarAPI(metodo, caminho, corpo) {
+  const { data: { session } } = await sb.auth.getSession();
+  const resposta = await fetch(API_BASE_URL + caminho, {
+    method: metodo,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
+    body: corpo ? JSON.stringify(corpo) : undefined,
+  });
+  const json = await resposta.json();
+  if (!resposta.ok) throw new Error(json.erro || 'Erro na requisição.');
+  return json;
+}
+
+// Estado real, carregado da API -- nada mockado a partir daqui.
+const ADMIN = { contas: [], visao: null };
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const html=(el,mk)=>{el.innerHTML=mk;return el};
-const R=v=>'R$ '+Number(v).toLocaleString('pt-BR');
+const R=v=>'R$ '+Number(v||0).toLocaleString('pt-BR');
+const esc=v=>(v==null?'':String(v)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const Modal={open(t,b){$('#mtitle').textContent=t;html($('#mcontent'),b);$('#mbd').classList.add('open')},close(){$('#mbd').classList.remove('open')}};
+const Toast={show(tx,ic='✓'){
+  const t=document.createElement('div');
+  t.className='toast';
+  t.innerHTML=`<span style="font-size:16px">${ic}</span><span>${tx}</span>`;
+  $('#twrap').prepend(t);
+  setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),350)},3200);
+}};
 
-function doLogin(){
-  $('#lw').style.display='none';
-  $('#topbar').style.display='flex';
-  $('#mainWrap').style.display='block';
-  Router.go('visao');
+const STATUS_TAG = {
+  ativo: ['tsg','Ativo'], trial: ['top','Trial'],
+  inadimplente: ['trs','Inadimplente'], cancelado: ['tam','Cancelado'],
+};
+
+async function doLogin(){
+  const email=$('#admEmail').value.trim();
+  const senha=$('#admSenha').value;
+  const btn=$('#admBtn');
+  html($('#admErro'),'');
+  if(!email||!senha){ html($('#admErro'),'<div class="lerro">Preencha e-mail e senha.</div>'); return; }
+
+  btn.disabled=true; btn.textContent='Entrando...';
+  try{
+    const { error } = await sb.auth.signInWithPassword({ email, password: senha });
+    if(error) throw error;
+    await chamarAPI('GET','/admin/me'); // confirma admin no backend -- nunca confia só no client
+    $('#lw').style.display='none';
+    $('#topbar').style.display='flex';
+    $('#mainWrap').style.display='block';
+    Router.go('visao');
+  }catch(erro){
+    await sb.auth.signOut();
+    const msg = erro.message==='Invalid login credentials' ? 'E-mail ou senha incorretos.'
+      : erro.message.includes('restrito') ? 'Esta conta não tem acesso ao painel administrativo.'
+      : erro.message;
+    html($('#admErro'),'<div class="lerro">'+msg+'</div>');
+  }finally{
+    btn.disabled=false; btn.textContent='Entrar no painel';
+  }
 }
 
 const Router={go(pg){
@@ -219,188 +259,102 @@ const Router={go(pg){
   P[pg]&&P[pg]();
 }};
 
-const P = {
-  visao(){
-    const mrrTotal = D.contas.reduce((a,c)=>a+c.mrr,0);
-    const ativos = D.contas.filter(c=>c.status==='ativo').length;
-    const risco = D.contas.filter(c=>c.status==='risco'||c.status==='inadimplente').length;
-    const arr = mrrTotal*12;
-    const planoCount = {Base:0,Crescimento:0,Escala:0};
-    D.contas.forEach(c=>planoCount[c.plano]++);
-    const maxMrr = Math.max(...D.mrrMeses.map(m=>m.v));
-    html($('#page-visao'), `
-      <div class="sech"><div><div class="sct">Visão <em>Geral</em></div><div class="scsub">Saúde do negócio SalonOS em tempo real</div></div></div>
-      <div class="g4 mb16" style="margin-bottom:16px">
-        <div class="kc"><div class="kcbar" style="background:var(--op)"></div><div class="kclbl">MRR Total</div><div class="kcv" style="color:var(--op)">${R(mrrTotal)}</div><div class="kcd up">▲ +12% vs mês anterior</div></div>
-        <div class="kc"><div class="kcbar" style="background:var(--gd)"></div><div class="kclbl">ARR Projetado</div><div class="kcv">${R(arr)}</div><div class="kcd n">12× MRR atual</div></div>
-        <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Contas Ativas</div><div class="kcv sg2">${ativos}</div><div class="kcd n">${D.contas.length} no total</div></div>
-        <div class="kc"><div class="kcbar" style="background:var(--rs)"></div><div class="kclbl">Contas em Risco</div><div class="kcv rs2">${risco}</div><div class="kcd dn">Risco ou inadimplente</div></div>
-      </div>
+function emBreve(idPagina, titulo, sub){
+  html($('#'+idPagina), `
+    <div class="sech"><div><div class="sct">${titulo}</div><div class="scsub">${sub}</div></div></div>
+    <div class="card"><div class="emb">Em breve.<br>${sub}</div></div>
+  `);
+}
 
-      <div class="g64" style="margin-bottom:14px">
-        <div class="card">
-          <div class="cardh"><div class="cardt">MRR <em>últimos 6 meses</em></div></div>
-          <div class="cardb">
-            <div style="display:flex;align-items:flex-end;gap:8px;height:110px">
-              ${D.mrrMeses.map((m,i)=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
-                <div style="width:100%;height:${Math.round(m.v/maxMrr*90)}px;background:${i===D.mrrMeses.length-1?'var(--op)':'var(--bg3)'};border-radius:3px 3px 0 0"></div>
-                <div class="mono" style="font-size:10px;color:var(--tx3)">${m.m}</div>
-              </div>`).join('')}
-            </div>
-            <div class="divider"></div>
-            <div style="display:flex;justify-content:space-between;font-size:11.5px"><span class="tm3">Crescimento no período</span><span class="fw6 sg2">+117%</span></div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="cardh"><div class="cardt">Distribuição de <em>Planos</em></div></div>
-          <div class="cardb">
-            ${Object.entries(planoCount).map(([p,n])=>{
-              const pct = Math.round(n/D.contas.length*100);
-              const col = p==='Escala'?'var(--op)':p==='Crescimento'?'var(--gd)':'var(--tx3)';
-              return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span>${p}</span><span class="fw6">${n} contas</span></div><div class="hbar"><div class="hbarf" style="width:${pct}%;background:${col}"></div></div></div>`;
-            }).join('')}
-            <div class="divider"></div>
-            <div style="font-size:11px;color:var(--tx3);line-height:1.6">Ticket médio: <strong class="tm2">${R(Math.round(mrrTotal/D.contas.length))}</strong>/conta</div>
-          </div>
-        </div>
+const P = {
+  async visao(){
+    html($('#page-visao'),'<div class="emb">Carregando...</div>');
+    try{
+      const [visao, contas] = await Promise.all([
+        chamarAPI('GET','/admin/visao'),
+        chamarAPI('GET','/admin/contas'),
+      ]);
+      ADMIN.visao = visao; ADMIN.contas = contas;
+    }catch(erro){
+      html($('#page-visao'), '<div class="emb" style="color:var(--rs)">Não foi possível carregar: '+erro.message+'</div>');
+      return;
+    }
+    const c = ADMIN.visao.contagem_por_status;
+    const atencao = ADMIN.contas.filter(x=>x.status_assinatura==='inadimplente');
+    html($('#page-visao'), `
+      <div class="sech"><div><div class="sct">Visão <em>Geral</em></div><div class="scsub">Contas e assinaturas da plataforma -- dado real, sem gateway de pagamento integrado ainda</div></div></div>
+      <div class="g4 mb16" style="margin-bottom:16px">
+        <div class="kc"><div class="kcbar" style="background:var(--op)"></div><div class="kclbl">MRR Contratado</div><div class="kcv" style="color:var(--op)">${R(ADMIN.visao.mrr_contratado)}</div><div class="kcd n">Soma do plano das contas ativas</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Contas Ativas</div><div class="kcv sg2">${c.ativo}</div><div class="kcd n">${ADMIN.visao.total_contas} no total</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--op)"></div><div class="kclbl">Em Trial</div><div class="kcv" style="color:var(--op)">${c.trial}</div><div class="kcd n">Ainda não converteram</div></div>
+        <div class="kc"><div class="kcbar" style="background:var(--rs)"></div><div class="kclbl">Inadimplentes</div><div class="kcv rs2">${c.inadimplente}</div><div class="kcd dn">Precisam de ação</div></div>
       </div>
 
       <div class="card">
         <div class="cardh"><div class="cardt">Contas que <em>precisam de atenção</em></div><button class="btn btgh sm" onclick="Router.go('contas')">Ver todas</button></div>
-        ${D.contas.filter(c=>c.status==='risco'||c.status==='inadimplente').map(c=>`
-          <div class="tr" style="grid-template-columns:auto 1fr auto auto" onclick="verConta('${c.id}')">
-            <div class="av" style="background:${c.status==='inadimplente'?'var(--rsl)':'var(--aml)'};color:${c.status==='inadimplente'?'var(--rs)':'var(--am)'}">${c.nome.split(' ').map(n=>n[0]).slice(0,2).join('')}</div>
-            <div><div class="fw6">${c.rede}</div><div class="tm3 mono" style="font-size:10.5px">${c.id} · saúde ${c.saude}/100 · ${c.ultimoUso}</div></div>
-            <div class="mono tm2">${R(c.mrr)}/mês</div>
-            <div><span class="tag ${c.status==='inadimplente'?'trs':'tam'}">${c.status}</span></div>
-          </div>`).join('')}
+        ${atencao.length ? atencao.map(x=>`
+          <div class="tr" style="grid-template-columns:auto 1fr auto" onclick="verConta('${x.id}')">
+            <div class="av" style="background:var(--rsl);color:var(--rs)">${esc((x.nome||'?').split(' ').map(n=>n[0]).slice(0,2).join(''))}</div>
+            <div><div class="fw6">${esc(x.nome)}</div><div class="tm3" style="font-size:10.5px">${esc(x.cidade||'—')} · plano ${esc(x.plano)}</div></div>
+            <div><span class="tag trs">Inadimplente</span></div>
+          </div>`).join('') : '<div class="cardb tm3">Nenhuma conta inadimplente no momento.</div>'}
       </div>
     `);
   },
 
-  contas(){
+  async contas(){
+    html($('#page-contas'),'<div class="emb">Carregando...</div>');
+    try{
+      ADMIN.contas = await chamarAPI('GET','/admin/contas');
+    }catch(erro){
+      html($('#page-contas'), '<div class="emb" style="color:var(--rs)">Não foi possível carregar: '+erro.message+'</div>');
+      return;
+    }
     html($('#page-contas'), `
-      <div class="sech"><div><div class="sct">Contas <em>da Plataforma</em></div><div class="scsub">${D.contas.length} contas — redes e salões individuais</div></div>
-      <div class="scacts"><input class="fi" placeholder="Buscar conta..." style="background:var(--bg3);border:1px solid var(--ln2);border-radius:7px;padding:8px 12px;font-size:12px;width:200px"></div></div>
+      <div class="sech"><div><div class="sct">Contas <em>da Plataforma</em></div><div class="scsub">${ADMIN.contas.length} estabelecimento(s) cadastrado(s)</div></div></div>
       <div class="tw">
-        <div class="th" style="grid-template-columns:90px 2fr 1fr 1fr 90px 100px 90px">
-          <div>ID</div><div>Conta</div><div>Plano</div><div>MRR</div><div>Saúde</div><div>Último uso</div><div>Status</div>
+        <div class="th" style="grid-template-columns:2fr 1fr 1fr 1fr 110px">
+          <div>Conta</div><div>Cidade</div><div>Plano</div><div>Proprietário</div><div>Status</div>
         </div>
-        ${D.contas.map(c=>{
-          const hcol = c.saude>=75?'var(--sg)':c.saude>=50?'var(--am)':'var(--rs)';
-          const stMap = {ativo:['tsg','ativo'],risco:['tam','risco'],inadimplente:['trs','inadimplente'],trial:['top','trial']};
-          const [tcls,tlbl] = stMap[c.status];
-          return `<div class="tr" style="grid-template-columns:90px 2fr 1fr 1fr 90px 100px 90px" onclick="verConta('${c.id}')">
-            <div class="mono tm3">${c.id}</div>
-            <div><div class="fw6">${c.rede}</div><div class="tm3" style="font-size:10.5px">${c.nome} · ${c.unidades} unid. · desde ${c.desde}</div></div>
-            <div>${c.plano}</div>
-            <div class="mono fw6">${R(c.mrr)}</div>
-            <div><div class="hbar" style="width:50px"><div class="hbarf" style="width:${c.saude}%;background:${hcol}"></div></div></div>
-            <div class="tm3" style="font-size:11px">${c.ultimoUso}</div>
-            <div><span class="tag ${tcls}">${tlbl}</span></div>
+        ${ADMIN.contas.length ? ADMIN.contas.map(x=>{
+          const [tcls,tlbl] = STATUS_TAG[x.status_assinatura] || ['tam', x.status_assinatura];
+          return `<div class="tr" style="grid-template-columns:2fr 1fr 1fr 1fr 110px" onclick="verConta('${x.id}')">
+            <div><div class="fw6">${esc(x.nome)}</div><div class="tm3" style="font-size:10.5px">desde ${new Date(x.created_at).toLocaleDateString('pt-BR')}</div></div>
+            <div class="tm2">${esc(x.cidade||'—')}</div>
+            <div class="tm2" style="text-transform:capitalize">${esc(x.plano)}</div>
+            <div class="tm2">${esc(x.proprietarios?.nome||'—')}</div>
+            <div><span class="tag ${tcls}">${esc(tlbl)}</span></div>
           </div>`;
-        }).join('')}
+        }).join('') : '<div style="padding:16px;font-size:12px" class="tm3">Nenhuma conta cadastrada ainda.</div>'}
       </div>
     `);
   },
 
   financeiro(){
-    const mrrTotal = D.contas.reduce((a,c)=>a+c.mrr,0);
-    const inadimplente = D.contas.filter(c=>c.status==='inadimplente');
-    const valorInadimplente = inadimplente.reduce((a,c)=>a+c.mrr,0);
-    html($('#page-financeiro'), `
-      <div class="sech"><div><div class="sct">Financeiro <em>da Plataforma</em></div><div class="scsub">Faturamento, inadimplência e movimentação de MRR</div></div></div>
-      <div class="g4" style="margin-bottom:16px">
-        <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">MRR Novo (mês)</div><div class="kcv sg2">${R(591)}</div><div class="kcd up">2 contas novas</div></div>
-        <div class="kc"><div class="kcbar" style="background:var(--op)"></div><div class="kclbl">Expansão (upgrades)</div><div class="kcv" style="color:var(--op)">${R(197)}</div><div class="kcd up">1 conta subiu de plano</div></div>
-        <div class="kc"><div class="kcbar" style="background:var(--rs)"></div><div class="kclbl">Churn (mês)</div><div class="kcv rs2">${R(0)}</div><div class="kcd n">Nenhum cancelamento</div></div>
-        <div class="kc"><div class="kcbar" style="background:var(--am)"></div><div class="kclbl">Em Atraso</div><div class="kcv am2">${R(valorInadimplente)}</div><div class="kcd dn">${inadimplente.length} conta(s)</div></div>
-      </div>
-      <div class="card">
-        <div class="cardh"><div class="cardt">Cobranças em <em>Atraso</em></div></div>
-        ${inadimplente.length ? inadimplente.map(c=>`
-          <div class="tr" style="grid-template-columns:1fr auto auto auto" onclick="verConta('${c.id}')">
-            <div><div class="fw6">${c.rede}</div><div class="tm3 mono" style="font-size:10.5px">${c.id}</div></div>
-            <div class="mono rs2 fw6">${R(c.mrr)}</div>
-            <div class="tm3">Vencido há 8 dias</div>
-            <div><button class="btn btgh sm" onclick="event.stopPropagation();Toast('Cobrança reenviada para '+'${c.rede}')">Reenviar cobrança</button></div>
-          </div>`).join('') : '<div class="cardb tm3">Nenhuma cobrança em atraso.</div>'}
-      </div>
-    `);
+    emBreve('page-financeiro', 'Financeiro <em>da Plataforma</em>', 'Depende de integração com gateway de pagamento (nenhum ligado ainda) -- sem isso não existe transação/fatura real pra mostrar.');
   },
 
   suporte(){
-    const abertos = D.tickets.filter(t=>t.status==='aberto').length;
-    html($('#page-suporte'), `
-      <div class="sech"><div><div class="sct">Central de <em>Suporte</em></div><div class="scsub">${abertos} tickets abertos agora</div></div></div>
-      <div class="g3" style="margin-bottom:16px">
-        <div class="kc"><div class="kcbar" style="background:var(--rs)"></div><div class="kclbl">Abertos</div><div class="kcv rs2">${abertos}</div></div>
-        <div class="kc"><div class="kcbar" style="background:var(--op)"></div><div class="kclbl">Tempo médio de resposta</div><div class="kcv" style="color:var(--op)">2h 40min</div></div>
-        <div class="kc"><div class="kcbar" style="background:var(--sg)"></div><div class="kclbl">Satisfação (últimos 30d)</div><div class="kcv sg2">4.7</div></div>
-      </div>
-      <div class="tw">
-        <div class="th" style="grid-template-columns:70px 1fr 100px 90px 100px 90px">
-          <div>Ticket</div><div>Assunto</div><div>Conta</div><div>Prioridade</div><div>Status</div><div>Aberto</div>
-        </div>
-        ${D.tickets.map(t=>{
-          const pCol = {alta:'trs',media:'tam',baixa:'top'}[t.prioridade];
-          const sCol = {aberto:'trs',respondido:'tam',resolvido:'tsg'}[t.status];
-          return `<div class="tr" style="grid-template-columns:70px 1fr 100px 90px 100px 90px">
-            <div class="mono tm3">${t.id}</div>
-            <div>${t.assunto}</div>
-            <div class="mono tm3">${t.conta}</div>
-            <div><span class="tag ${pCol}">${t.prioridade}</span></div>
-            <div><span class="tag ${sCol}">${t.status}</span></div>
-            <div class="tm3" style="font-size:11px">${t.tempo}</div>
-          </div>`;
-        }).join('')}
-      </div>
-    `);
+    emBreve('page-suporte', 'Central de <em>Suporte</em>', 'Central de tickets ainda não foi construída -- fica pra uma próxima entrega.');
   },
 
   auditoria(){
-    html($('#page-auditoria'), `
-      <div class="sech"><div><div class="sct">Auditoria <em>&amp; LGPD</em></div><div class="scsub">Todo acesso a dado sensível de cliente fica registrado — este é o compromisso que vira diferencial de venda</div></div>
-      <div class="scacts"><button class="btn btgh sm">Exportar log completo</button></div></div>
-
-      <div style="background:var(--opl);border:1px solid rgba(126,161,196,.25);border-radius:var(--r);padding:13px 16px;margin-bottom:14px;font-size:12px;color:var(--tx2);line-height:1.6">
-        <strong style="color:var(--op)">Por que isso existe:</strong> nenhum concorrente do mercado de gestão de salão comunica ativamente como protege dado de cliente (fórmula, alergia, histórico). Este log — leitura, escrita e exportação, com ator e timestamp — é a prova concreta por trás da promessa de segurança feita ao cliente final.
-      </div>
-
-      <div class="tw">
-        <div class="audit-row" style="border-bottom:1px solid var(--ln2);background:var(--bg2);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3)">
-          <div>Timestamp</div><div>Operação</div><div>Detalhe</div><div style="text-align:right">Ator</div>
-        </div>
-        ${D.auditoria.map(a=>`
-          <div class="audit-row">
-            <div class="audit-ts">${a.ts}</div>
-            <div><span class="audit-op ${a.op}">${a.op}</span></div>
-            <div class="audit-detail">${a.detalhe}</div>
-            <div class="audit-actor">${a.ator}</div>
-          </div>`).join('')}
-      </div>
-    `);
-  }
+    emBreve('page-auditoria', 'Auditoria <em>&amp; LGPD</em>', 'Log de acesso a dado sensível exige instrumentar todas as rotas existentes -- mudança maior, registrada como pendência separada.');
+  },
 };
 
 function verConta(id){
-  const c = D.contas.find(x=>x.id===id);
-  Modal.open(c.rede, `
+  const c = ADMIN.contas.find(x=>x.id===id);
+  if(!c) return;
+  const [tcls,tlbl] = STATUS_TAG[c.status_assinatura] || ['tam', c.status_assinatura];
+  Modal.open(c.nome, `
     <div style="display:flex;gap:24px;margin-bottom:16px">
-      <div><div class="tm3" style="font-size:10px;text-transform:uppercase">Plano</div><div class="fw6">${c.plano}</div></div>
-      <div><div class="tm3" style="font-size:10px;text-transform:uppercase">MRR</div><div class="fw6 mono">${R(c.mrr)}</div></div>
-      <div><div class="tm3" style="font-size:10px;text-transform:uppercase">Saúde</div><div class="fw6">${c.saude}/100</div></div>
+      <div><div class="tm3" style="font-size:10px;text-transform:uppercase">Plano</div><div class="fw6" style="text-transform:capitalize">${esc(c.plano)}</div></div>
+      <div><div class="tm3" style="font-size:10px;text-transform:uppercase">Status</div><div><span class="tag ${tcls}">${esc(tlbl)}</span></div></div>
     </div>
-    <div class="tm2" style="font-size:12.5px;line-height:1.7">Responsável: ${c.nome}<br>Unidades: ${c.unidades}<br>Cliente desde: ${c.desde}<br>Último uso: ${c.ultimoUso}</div>
-    <div class="divider"></div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btp sm" onclick="Toast('Abrindo conversa de suporte...')">Contatar</button>
-      <button class="btn btgh sm" onclick="Toast('Abrindo histórico de fatura...')">Ver faturas</button>
-    </div>
+    <div class="tm2" style="font-size:12.5px;line-height:1.7">Cidade: ${esc(c.cidade||'—')}<br>Proprietário: ${esc(c.proprietarios?.nome||'—')} (${esc(c.proprietarios?.telefone||'—')})<br>Cliente desde: ${new Date(c.created_at).toLocaleDateString('pt-BR')}</div>
   `);
 }
-
-function Toast(msg){ alert(msg); }
 
 document.addEventListener('DOMContentLoaded', ()=>{
   $$('.nb[data-page]').forEach(b=>b.addEventListener('click',()=>Router.go(b.dataset.page)));

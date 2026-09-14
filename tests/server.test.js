@@ -74,4 +74,39 @@ describe('Autenticação', () => {
     const res = await request(app).post('/solicitacoes-agendamento/qualquer-id/aceitar');
     expect(res.status).toBe(401);
   });
+
+  it('bloqueia /produtos/:id/lotes sem Authorization header', async () => {
+    const res = await request(app).get('/produtos/qualquer-id/lotes');
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia POST /produtos/:id/lotes sem Authorization header', async () => {
+    const res = await request(app).post('/produtos/qualquer-id/lotes').send({ quantidade_inicial: 1 });
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia /lotes/:id sem Authorization header', async () => {
+    const res = await request(app).patch('/lotes/qualquer-id').send({ quantidade_atual: 1 });
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia /estabelecimentos/:id/lotes-vencendo sem Authorization header', async () => {
+    const res = await request(app).get('/estabelecimentos/qualquer-id/lotes-vencendo');
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia /admin/me sem Authorization header', async () => {
+    const res = await request(app).get('/admin/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia /admin/contas sem Authorization header', async () => {
+    const res = await request(app).get('/admin/contas');
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia /admin/visao sem Authorization header', async () => {
+    const res = await request(app).get('/admin/visao');
+    expect(res.status).toBe(401);
+  });
 });

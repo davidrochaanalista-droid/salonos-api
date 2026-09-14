@@ -284,6 +284,71 @@ Mais quatro melhorias no motor de agendamento via WhatsApp:
 Nenhuma testada dentro do webhook real ainda (mesmo motivo de sempre).
 Sintaxe e 17/17 testes conferidos.
 
+### Rastreabilidade de lote (FEFO) + painel-admin.html real (14/09/2026)
+
+David decidiu tocar as duas últimas pendências não-escopadas do dia
+(adiando Nota Fiscal e Pagamento Antecipado até validar com donos de
+salão -- ver Pendências):
+
+1. **Lote de insumo com dedução FEFO** (migração `database/22-lotes-produtos-fefo.sql`):
+   nova tabela `produto_lotes` (numero_lote, quantidade_inicial/atual,
+   validade, data_entrada) por produto. `produtos.quantidade_em_estoque`
+   virou agregado mantido por trigger (`sync_quantidade_estoque_produto`)
+   = soma dos lotes. `fechar_comanda` foi reescrita (mesma migração,
+   `create or replace`) pra chamar `dar_baixa_estoque_fefo` por produto
+   em vez de decrementar direto -- consome do lote que vence primeiro;
+   se não cobrir tudo, deixa negativo no último lote (não trava
+   fechamento, mesmo princípio da migração 16). Produto sem lote
+   cadastrado ainda cai no comportamento legado (decremento direto).
+   Rotas novas em `src/routes/produtos.js`: `GET/POST /produtos/:id/lotes`,
+   `PATCH /lotes/:id`, `GET /estabelecimentos/:id/lotes-vencendo`.
+   Frontend: `salon-v6.html` ganhou modal "Gerenciar lotes" (a partir do
+   modal de editar produto) e badge "vence DD/MM" na lista de estoque
+   quando há lote vencendo nos próximos 30 dias.
+2. **`painel-admin.html` real**: era 100% mockado (`const D`), login
+   fake. Agora: nova tabela `admins` (`database/23-admins.sql`,
+   `user_id` + `sou_admin()`) -- separada de `proprietarios` de
+   propósito, admin não é dono de salão. Como admin precisa de leitura
+   cross-tenant (o que RLS-por-usuário não permite por design), as
+   rotas `src/routes/admin.js` (`/admin/me`, `/admin/contas`,
+   `/admin/visao`) usam a service_role key via novo middleware
+   `src/middleware/exigirAdmin.js` (monta depois de `autenticar`,
+   reaproveita `req.user`, 403 se não estiver em `admins`) -- nunca
+   `req.supabase`. `doLogin()` agora faz Supabase Auth de verdade +
+   confirma admin no backend antes de mostrar qualquer dado. Escopo
+   desta entrega: **Contas** e **Visão Geral** mostram dado real
+   (estabelecimentos/proprietarios/status_assinatura/planos_precos,
+   já existiam desde a migração 07) -- inclusive a lista "contas que
+   precisam de atenção" usa `status_assinatura = 'inadimplente'` como
+   sinal real (não um "saúde/100" inventado, que existia só no
+   protótipo). **Financeiro, Suporte e Auditoria & LGPD ficam "em
+   breve"**, decisão explícita: sem gateway de pagamento não há
+   transação/fatura real; tabela de ticket é feature nova (fora do
+   escopo de "tornar real o que já existe"); log de auditoria real
+   exige instrumentar todas as rotas existentes (mudança grande,
+   cross-cutting) -- ver Pendências.
+
+**`/code-review high` rodado depois da implementação** (apontado direto
+pro path do repo -- a primeira tentativa sem path revisou o repo errado,
+achado de tooling registrado à parte) encontrou e foram corrigidos:
+XSS armazenado em `painel-admin.html` (nome/cidade/proprietário
+interpolados sem escape em innerHTML -- painel de admin é cross-tenant,
+achado sério), `PATCH /produtos/:id` sobrescrevendo silenciosamente
+`quantidade_em_estoque` de produtos que já têm lote (agora ignora esse
+campo nesse caso, já que quem manda é o trigger), aspas simples no nome
+do produto quebrando o onclick de "Gerenciar lotes" (mesmo fix de
+`nomeSeguro` já usado em `abrirReceitaAtividade`), e `dias=0` sendo
+tratado como falsy em `/estabelecimentos/:id/lotes-vencendo`. `npm test`
+seguiu 24/24 depois dos fixes.
+
+**Migrações 22 e 23 rodadas e confirmadas em produção** (David rodou no
+SQL Editor, confirmado por query direta via service_role: as duas
+tabelas existem). Linha de admin em `admins` já inserida
+(`davidrocha.coitinho@gmail.com` → `c5dcd01f-8a9e-4f68-9ad4-e7afe5445e75`).
+**Ainda não testado no navegador**: fluxo completo de lote (cadastrar 2
+lotes com validades diferentes, fechar comanda, confirmar baixa pelo
+lote mais próximo do vencimento) e login real no painel-admin.
+
 ### Conta de teste
 
 Existe um estabelecimento de teste ("Studio Teste QA") no Supabase de
@@ -325,14 +390,29 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
 4. **Marketplace de Clientes** — placeholder "em breve", decisão consciente
    (13/09): diretório público + rastreio de origem é decisão de canal de
    aquisição, não prioridade agora. Reavaliar quando fizer sentido.
-5. **Rastreabilidade de lote de insumo** (Eixo 3, clínica de estética
-   pequena) — não implementado, não escopado ainda.
-6. **`painel-admin.html`** — continua fora de escopo (console interno da
-   SalonOS, não do salão).
+5. **Rastreabilidade de lote de insumo — CONSTRUÍDO em 14/09, não
+   rodado/testado ainda**: ver seção "Rastreabilidade de lote (FEFO) +
+   painel-admin.html real" acima. Falta David rodar a migração 22 e
+   testar no navegador.
+6. **`painel-admin.html` — CONSTRUÍDO em 14/09, não rodado/testado
+   ainda**: Contas e Visão Geral reais; Financeiro/Suporte/Auditoria
+   ficam "em breve" por decisão explícita (ver seção acima). Falta
+   David rodar a migração 23, inserir sua própria linha em `admins`, e
+   testar login no navegador.
+7. **Log de auditoria real (LGPD)** — pendência nova, identificada ao
+   escopar o painel-admin: exige instrumentar leitura/escrita/exportação
+   de dado sensível em todas as rotas existentes (mudança grande,
+   cross-cutting). Não escopado ainda.
+8. **Central de suporte (tickets)** — pendência nova, identificada ao
+   escopar o painel-admin: precisa de tabela/rotas novas, feature nova
+   (não é "tornar real o que já existe"). Não escopado ainda.
 
 ## Ordem sugerida pra continuar
 
-1. Testar o motor de agendamento via WhatsApp ponta a ponta com número
+1. Migrações 22 e 23 já rodadas e admin já inserido (ver seção acima) --
+   falta só testar no navegador: cadastro de lote + fechamento de
+   comanda (baixa FEFO) e login no painel-admin.
+2. Testar o motor de agendamento via WhatsApp ponta a ponta com número
    real com calma (conexão já validada, mas registrar_solicitacao_agendamento,
    aceitar/propor horário, checagem de conflito, lembrete 2h e aviso de
    sinal ainda não passaram por um teste de conversa real -- ver avisos
@@ -342,6 +422,5 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
    Studio Teste QA), mas ninguém escaneou -- confirmado que a instância
    ficou em `connecting`, não `open`, nenhum risco de repetir o incidente
    de contato pessoal. Retomar quando o usuário quiser.
-2. Escopar pagamento antecipado/sinal (item 2 acima) se o dono quiser
-   seguir essa linha pra reduzir falta
-3. Escopar rastreabilidade de lote de insumo (Eixo 3)
+3. Validar com donos de salão se pagamento antecipado/sinal (item 2) e
+   nota fiscal (item 3) são prioridade antes de escopar de verdade.

@@ -60,6 +60,19 @@ router.patch('/produtos/:id', async (req, res) => {
     if (req.body[campo] !== undefined) atualizacoes[campo] = req.body[campo];
   }
 
+  // quantidade_em_estoque só é editável direto enquanto o produto não tem
+  // lote (migração 22) -- com lote, esse campo é um agregado mantido por
+  // trigger (soma de produto_lotes.quantidade_atual) e seria sobrescrito
+  // silenciosamente no próximo ajuste de lote. Ignorar aqui em vez de
+  // deixar o usuário achar que editou algo que não vai persistir.
+  if (atualizacoes.quantidade_em_estoque !== undefined) {
+    const { count } = await req.supabase
+      .from('produto_lotes')
+      .select('id', { count: 'exact', head: true })
+      .eq('produto_id', req.params.id);
+    if (count > 0) delete atualizacoes.quantidade_em_estoque;
+  }
+
   const { data, error } = await req.supabase
     .from('produtos')
     .update(atualizacoes)
@@ -106,6 +119,84 @@ router.post('/estabelecimentos/:id/produtos/identificar-foto', async (req, res) 
     console.error('Falha ao identificar produto por foto:', erro.message);
     res.json({ marca: null, descricao: null, validade: null });
   }
+});
+
+// GET /produtos/:id/lotes
+router.get('/produtos/:id/lotes', async (req, res) => {
+  const { data, error } = await req.supabase
+    .from('produto_lotes')
+    .select('*')
+    .eq('produto_id', req.params.id)
+    .order('validade', { ascending: true, nullsFirst: false });
+
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json(data);
+});
+
+// POST /produtos/:id/lotes
+router.post('/produtos/:id/lotes', async (req, res) => {
+  const { numero_lote, quantidade_inicial, validade, data_entrada, custo_unitario } = req.body;
+  if (quantidade_inicial === undefined) return res.status(400).json({ erro: 'quantidade_inicial é obrigatório.' });
+
+  const { data: produto, error: errProduto } = await req.supabase
+    .from('produtos')
+    .select('estabelecimento_id')
+    .eq('id', req.params.id)
+    .single();
+  if (errProduto || !produto) return res.status(404).json({ erro: 'Produto não encontrado ou sem permissão de acesso.' });
+
+  const { data, error } = await req.supabase
+    .from('produto_lotes')
+    .insert({
+      produto_id: req.params.id,
+      estabelecimento_id: produto.estabelecimento_id,
+      numero_lote, validade, custo_unitario,
+      data_entrada: data_entrada || undefined,
+      quantidade_inicial,
+      quantidade_atual: quantidade_inicial,
+    })
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ erro: error.message });
+  res.status(201).json(data);
+});
+
+// PATCH /lotes/:id — ajuste manual (perda, correção)
+router.patch('/lotes/:id', async (req, res) => {
+  const camposPermitidos = ['quantidade_atual', 'validade', 'numero_lote'];
+  const atualizacoes = {};
+  for (const campo of camposPermitidos) {
+    if (req.body[campo] !== undefined) atualizacoes[campo] = req.body[campo];
+  }
+
+  const { data, error } = await req.supabase
+    .from('produto_lotes')
+    .update(atualizacoes)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json(data);
+});
+
+// GET /estabelecimentos/:id/lotes-vencendo?dias=30
+router.get('/estabelecimentos/:id/lotes-vencendo', async (req, res) => {
+  const dias = req.query.dias !== undefined && Number.isFinite(Number(req.query.dias)) ? Number(req.query.dias) : 30;
+  const limite = new Date();
+  limite.setDate(limite.getDate() + dias);
+
+  const { data, error } = await req.supabase
+    .from('produto_lotes')
+    .select('*, produtos(nome)')
+    .eq('estabelecimento_id', req.params.id)
+    .gt('quantidade_atual', 0)
+    .lte('validade', limite.toISOString().slice(0, 10))
+    .order('validade', { ascending: true });
+
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json(data);
 });
 
 // GET /atividades/:id/receita
