@@ -62,14 +62,21 @@ textarea{font-family:inherit;font-size:13px;outline:none;border:none;width:100%;
 const app = document.getElementById('app');
 const params = new URLSearchParams(window.location.search);
 const atendimentoId = params.get('atendimento_id');
+// Escapado antes de qualquer uso em innerHTML -- vem da query string da
+// URL (o link é montado pelo backend, mas a URL em si não é confiável:
+// alguém poderia forjar um link com HTML/script nesses parâmetros).
+const escaparHtml = s => (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const nomeProfissional = escaparHtml(params.get('profissional'));
+const nomeServico = escaparHtml(params.get('servico'));
 
 let nota = 0;
 
 function renderFormulario(erro) {
+  const tituloServico = nomeServico || 'atendimento';
   app.innerHTML = `
-    <div class="titulo">Como foi seu <em>atendimento</em>?</div>
-    <div class="sub">Sua avaliação ajuda o estabelecimento a melhorar.</div>
-    ${erro ? `<div class="msg erro">${erro}</div>` : ''}
+    <div class="titulo">Como foi seu <em>${tituloServico}</em>${nomeProfissional ? ` com a ${nomeProfissional}` : ''}?</div>
+    <div class="sub">Sua avaliação ajuda ${nomeProfissional ? 'a ' + nomeProfissional + ' e o estabelecimento' : 'o estabelecimento'} a melhorar.</div>
+    ${erro ? `<div class="msg erro">${escaparHtml(erro)}</div>` : ''}
     <div class="estrelas" id="estrelas">
       ${[1,2,3,4,5].map(n => `<span class="estrela" data-nota="${n}">★</span>`).join('')}
     </div>

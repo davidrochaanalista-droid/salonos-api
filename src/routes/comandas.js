@@ -145,15 +145,20 @@ async function dispararAvaliacoes(supabase, comandaId) {
 
   const { data: atendimentos } = await supabase
     .from('atendimentos')
-    .select('id, estabelecimento_id, clientes(nome, telefone)')
+    .select('id, estabelecimento_id, clientes(nome, telefone), profissionais(nome), estabelecimento_atividades(nome)')
     .eq('comanda_id', comandaId);
 
   for (const atendimento of atendimentos || []) {
     const telefone = atendimento.clientes?.telefone;
     if (!telefone) continue;
 
-    const link = `${baseUrl}/avaliar.html?atendimento_id=${atendimento.id}`;
-    const texto = `Oi! Como foi seu atendimento? Sua avaliação ajuda muito: ${link}`;
+    const primeiroNome = atendimento.clientes?.nome?.split(' ')[0] || '';
+    const nomeProfissional = atendimento.profissionais?.nome?.split(' ')[0];
+    const nomeServico = atendimento.estabelecimento_atividades?.nome || 'atendimento';
+    const link = `${baseUrl}/avaliar.html?atendimento_id=${atendimento.id}`
+      + (nomeProfissional ? `&profissional=${encodeURIComponent(nomeProfissional)}` : '')
+      + `&servico=${encodeURIComponent(nomeServico)}`;
+    const texto = `${primeiroNome ? primeiroNome + ', muito' : 'Muito'} obrigada por vir até nós hoje! 💛 Queríamos saber: o que achou do seu ${nomeServico}${nomeProfissional ? ' com a ' + nomeProfissional : ''}? Sua avaliação ajuda muito a gente: ${link}`;
     await enviarMensagemWhatsApp({ telefone, texto, estabelecimentoId: atendimento.estabelecimento_id });
   }
 }
