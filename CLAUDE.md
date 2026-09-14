@@ -251,6 +251,39 @@ fallback genérico em vez de interpretação instantânea -- se isso incomodar
 na prática, considerar trocar `MODELO_IA`/`GROQ_MODEL` nesse tipo de
 chamada especificamente, ou revisitar o prompt.
 
+### Profissional + conflito real de agenda + lembrete 2h + sinal por faltas (14/09/2026)
+
+Mais quatro melhorias no motor de agendamento via WhatsApp:
+
+1. **Preferência de profissional na solicitação** (migração 20,
+   `profissional_id` em `solicitacoes_agendamento`) -- a IA pergunta
+   naturalmente se o cliente tem preferência antes de registrar o pedido
+   (ferramenta `registrar_solicitacao_agendamento` ganhou o parâmetro
+   `nome_profissional`, mapeado pro id em `executarFerramentaIA`).
+2. **Checagem de conflito de verdade** (`src/lib/disponibilidade.js`,
+   `buscarConflitoAgendamento`, client-agnóstico -- recebe o supabase
+   client por parâmetro porque painel usa `req.supabase` e webhook usa
+   `service_role`). Antes o sistema criava o agendamento sem checar nada
+   contra a agenda -- agora checa em 3 pontos: aceitar solicitação como
+   pedida, propor horário (com seletor de profissional no modal), e
+   quando o cliente aceita uma proposta (proteção contra corrida). Sempre
+   erro claro (409) em vez de sobrescrever.
+3. **Automação "Lembrete 2h antes"** (migração 21, tipo `lembrete_2h`,
+   `verificarLembrete2h` em `scheduler.js`, mesmo padrão dedupe das
+   outras 7) -- segundo lembrete mais perto do horário, além da
+   confirmação 24h, pra reduzir falta sem aviso.
+4. **Sinal antecipado pra cliente com histórico de falta**
+   (`LIMITE_FALTAS_SINAL = 2` em `whatsapp.js`, sem migração -- conta
+   `agendamentos` com `status = 'nao_compareceu'` na hora, não guarda
+   flag). Cliente com mais de 2 faltas registradas: a IA avisa no final
+   da conversa de agendamento que vai precisar de sinal, mas **não cobra
+   nada sozinha** -- só avisa que a equipe vai combinar valor/forma de
+   pagamento. Pagamento antecipado de verdade (Pix/cartão) segue como
+   pendência separada, ainda não escopada (ver Pendências).
+
+Nenhuma testada dentro do webhook real ainda (mesmo motivo de sempre).
+Sintaxe e 17/17 testes conferidos.
+
 ### Conta de teste
 
 Existe um estabelecimento de teste ("Studio Teste QA") no Supabase de
@@ -260,59 +293,38 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
 
 ## Pendências reais restantes
 
-1. **Evolution API/Railway — ainda bloqueado**: trial do Railway expirado,
-   precisa de plano pago pra provisionar (confirmado de novo em 13/09 via
-   `railway init`: "Your trial has expired. Please select a plan to
-   continue using Railway." — bloqueia até escolher plano, não dá pra
-   contornar por código). Sem isso, nem o gatilho de avaliação nem o motor
-   de automações enviam mensagem de verdade (só logam). Template pronto no
-   marketplace do Railway quando for a hora: `railway deploy -t
-   evolution-api-4`. O próprio `salonos-api` também nunca foi deployado.
-   CLI já está instalado e autenticado (`davidrocha.analista@gmail.com`).
-   Tentativa alternativa em 13/09 com Z-API (id/token/client-token de um
-   salão de teste) esbarrou em assinatura bloqueada da instância
-   ("subscribe to this instance again") — não é um problema de código,
-   ficou só confirmado que autenticação Z-API (header `Client-Token`) segue
-   o padrão esperado. Decisão: manter Evolution API como plano de produção
-   (multi-salão numa instância só sai muito mais barato que Z-API, que
-   cobra assinatura por número conectado).
-2. **Conexão de WhatsApp por salão + importação de contatos** — escopado e
-   construído em 13/09 (`database/17-whatsapp-conexao.sql`,
-   `src/lib/evolution-api.js`, `src/routes/whatsapp-conexao.js`, aba
-   WhatsApp em `salon-v6.html`), mas **⚠️ não testado contra uma instância
-   real** — bloqueado pelo item 1 acima. Modelo: um único serviço Railway do
-   Evolution API, **uma instância por salão** (`salon_{estabelecimento_id}`,
-   substituiu a `EVOLUTION_INSTANCE` fixa do `.env` — `enviarMensagemWhatsApp`
-   e todo mundo que a chama agora passam `estabelecimentoId`). Fluxo: dono
-   clica "Conectar WhatsApp" → modal com QR code (webhook sincroniza
-   `estabelecimentos.whatsapp_status`/`whatsapp_numero` via evento
-   `connection.update`) → depois de conectado, "Importar contatos" busca os
-   contatos salvos no celular (`findContacts` do Evolution) numa tela de
-   revisão com checkbox antes de virar `clientes` de verdade — decisão
-   consciente de não importar automaticamente pra não misturar contato
-   pessoal do dono com cliente real do salão. Nomes de endpoint/payload da
-   Evolution API v2 foram escritos de memória (não verificados) — primeira
-   coisa a conferir/ajustar assim que existir uma instância real pra testar.
+1. **Evolution API/Railway — RESOLVIDO em 13-14/09**: plano do Railway
+   ativado (workspace `davidrocha.coitinho@gmail.com`), `salonos-api` e
+   Evolution API deployados de verdade e online (ver seção "Deploy em
+   produção" acima). Testado com WhatsApp real: conexão por QR pareou de
+   verdade, importação de contatos funcionou (depois do fix do bug
+   `remoteJid`). O motor de automações/gatilho de avaliação já pode
+   enviar mensagem de verdade a partir de agora (antes só logava).
+2. **Pagamento antecipado / sinal** — cliente perguntou "e se quiser pagar
+   antecipado?" (14/09), ainda **não escopado nem construído**. Hoje só
+   existe o aviso de que "vai precisar de sinal" pra cliente com histórico
+   de falta (`LIMITE_FALTAS_SINAL`, ver seção acima) -- é só um aviso em
+   texto, não cobra nada de verdade. Falta decidir: qual gateway (Pix
+   direto, Mercado Pago, Asaas, Stripe?), como confirmar o pagamento
+   (webhook do gateway?), o que acontece se o cliente não pagar a tempo.
+   Também seria a base pra um "sinal obrigatório" de verdade (não só pra
+   quem já faltou) se o dono quiser reduzir falta em geral -- ver
+   recomendação dada ao usuário nesse dia.
 3. **Marketplace de Clientes** — placeholder "em breve", decisão consciente
    (13/09): diretório público + rastreio de origem é decisão de canal de
    aquisição, não prioridade agora. Reavaliar quando fizer sentido.
-   (**WhatsApp Flows/editor visual de conversa** saiu da lista — nunca foi
-   uma aba própria, era só o texto do placeholder que morava dentro da aba
-   "WhatsApp", já substituído pelo motor de conexão real, ver item 2. Além
-   disso contradiz o Eixo 5 da estratégia, que já decidiu não reconstruir
-   WhatsApp do zero.)
 4. **Rastreabilidade de lote de insumo** (Eixo 3, clínica de estética
-   pequena) — não implementado.
+   pequena) — não implementado, não escopado ainda.
 5. **`painel-admin.html`** — continua fora de escopo (console interno da
    SalonOS, não do salão).
 
 ## Ordem sugerida pra continuar
 
-1. Resolver o plano do Railway, provisionar Evolution API + deployar o
-   `salonos-api` (bloqueio raiz de várias pendências) — David está
-   resolvendo isso (13/09)
-2. Testar WhatsApp ponta a ponta com número real (conexão QR, importação
-   de contatos, gatilho de avaliação, as 4 automações do scheduler e os 2
-   gatilhos inline)
-3. Escopar rastreabilidade de lote de insumo (Eixo 3) — próxima pendência
-   real que não depende do Railway
+1. Testar o motor de agendamento via WhatsApp ponta a ponta com número
+   real com calma (conexão já validada, mas registrar_solicitacao_agendamento,
+   aceitar/propor horário, checagem de conflito, lembrete 2h e aviso de
+   sinal ainda não passaram por um teste de conversa real -- ver avisos
+   de "não testado dentro do webhook real" nas seções acima)
+2. Escopar pagamento antecipado/sinal (item 2 acima) se o dono quiser
+   seguir essa linha pra reduzir falta
+3. Escopar rastreabilidade de lote de insumo (Eixo 3)

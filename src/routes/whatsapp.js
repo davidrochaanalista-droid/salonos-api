@@ -32,6 +32,11 @@ const MODELO_IA = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 // para disparar a pergunta de repetição de procedimento. Ajustável.
 const SESSAO_GAP_HORAS = 4;
 
+// Mais de quantas faltas (agendamentos com status "nao_compareceu") o
+// cliente precisa acumular antes da IA passar a exigir sinal antecipado
+// pra confirmar o próximo agendamento. Ajustável.
+const LIMITE_FALTAS_SINAL = 2;
+
 // ============================================================
 // FERRAMENTAS DA IA (tool calling) -- a Groq é compatível com o formato
 // OpenAI de function calling. Sem isso, a IA só gera texto e não pode
@@ -149,7 +154,7 @@ function estaAberto(estabelecimento) {
 // ============================================================
 // SYSTEM PROMPT
 // ============================================================
-function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instrucaoExtra, nomeCliente }) {
+function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instrucaoExtra, nomeCliente, exigirSinal }) {
   const listaAtividades = atividades
     .map(a => `- ${a.nome}${a.preco ? ` (${a.preco_variavel ? 'a partir de ' : ''}R$ ${a.preco})` : ''}${a.duracao_min ? `, ${a.duracao_min}min` : ''}`)
     .join('\n');
@@ -160,6 +165,8 @@ function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instr
   return `Você é a atendente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}", conversando pelo WhatsApp do negócio. Agora, no horário de Brasília, é hora de dizer "${saudacaoPorHorario()}" -- use essa saudação (ou uma variação natural dela) se for cumprimentar o cliente agora, mas só no início da conversa, não repita em toda mensagem. ${primeiroNome ? `Esse cliente já é cadastrado e se chama ${primeiroNome} -- chame-o pelo primeiro nome ao cumprimentar (ex: "${saudacaoPorHorario()}, ${primeiroNome}!"), nunca pergunte o nome de novo.` : ''}
 
 ${aberto ? '' : `IMPORTANTE -- FORA DO HORÁRIO DE FUNCIONAMENTO: agora o estabelecimento está fechado (funciona ${estabelecimento.horario_abertura?.slice(0,5)} às ${estabelecimento.horario_fechamento?.slice(0,5)}). Avise isso ao cliente de forma leve, uma vez, sem soar como bloqueio -- e continue o atendimento normalmente. Nunca pare de ajudar só porque está fechado: se o assunto for agendamento, colete o serviço desejado, a preferência de dia/horário, e pergunte naturalmente se tem preferência de profissional ou se tanto faz -- e assim que tiver essas informações, chame a ferramenta registrar_solicitacao_agendamento (nunca diga que "já agendou" ou "está confirmado" -- diga que a equipe confirma assim que abrir). Não perca o cliente por estar fora do horário.`}
+
+${exigirSinal ? `IMPORTANTE -- CLIENTE COM HISTÓRICO DE FALTAS: esse cliente já faltou em mais de ${LIMITE_FALTAS_SINAL} atendimentos sem avisar. Se o assunto for agendar um novo horário, converse normalmente até fechar os detalhes (serviço, dia/horário, profissional), e só no final, antes de encerrar esse assunto, avise com gentileza (sem soar como punição) que pra confirmar esse agendamento vai ser necessário um sinal antecipado, e que a equipe vai combinar o valor e a forma de pagamento diretamente. Não invente valor nem forma de pagamento do sinal.` : ''}
 
 REGRAS DE TOM (sempre):
 - Português do Brasil, cordial e caloroso, mas objetivo — nada de resposta robótica nem parágrafo longo. Pode usar "oi", "tudo bem?" naturalmente, mas sem gíria regional pesada (nunca "oxe", "bah", "mano", "cê").
@@ -305,12 +312,23 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
       content: m.conteudo,
     }));
 
+    // Cliente com histórico de faltar sem avisar -- passa a exigir sinal
+    // antecipado pra confirmar o próximo agendamento (não é cobrança
+    // automática, só um requisito que a IA comunica; quem efetivamente
+    // combina o sinal com a cliente é a equipe, ver LIMITE_FALTAS_SINAL).
+    const { count: faltasCount } = await supabase
+      .from('agendamentos')
+      .select('id', { count: 'exact', head: true })
+      .eq('cliente_id', cliente.id)
+      .eq('status', 'nao_compareceu');
+
     const systemPrompt = montarSystemPrompt({
       estabelecimento: { ...estabelecimento, segmento_nome: estabelecimento.segmentos.nome },
       atividades: atividades || [],
       memoriaCliente,
       instrucaoExtra,
       nomeCliente: cliente.nome,
+      exigirSinal: (faltasCount || 0) > LIMITE_FALTAS_SINAL,
     });
 
     const mensagensIA = [{ role: 'system', content: systemPrompt }, ...historico, { role: 'user', content: mensagem }];
