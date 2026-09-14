@@ -79,6 +79,15 @@ async function executarFerramentaIA(chamada, cliente) {
   return { ok: true, atualizado: atualizacoes };
 }
 
+// Saudação por horário, sempre no fuso de Brasília (independe de onde o
+// servidor roda -- Railway não necessariamente está em horário do Brasil).
+function saudacaoPorHorario() {
+  const hora = Number(new Intl.DateTimeFormat('pt-BR', { hour: 'numeric', hour12: false, timeZone: 'America/Sao_Paulo' }).format(new Date()));
+  if (hora < 12) return 'Bom dia';
+  if (hora < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
 // ============================================================
 // SYSTEM PROMPT
 // ============================================================
@@ -87,7 +96,7 @@ function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instr
     .map(a => `- ${a.nome}${a.preco ? ` (${a.preco_variavel ? 'a partir de ' : ''}R$ ${a.preco})` : ''}${a.duracao_min ? `, ${a.duracao_min}min` : ''}`)
     .join('\n');
 
-  return `Você é a atendente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}", conversando pelo WhatsApp do negócio.
+  return `Você é a atendente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}", conversando pelo WhatsApp do negócio. Agora, no horário de Brasília, é hora de dizer "${saudacaoPorHorario()}" -- use essa saudação (ou uma variação natural dela) se for cumprimentar o cliente agora, mas só no início da conversa, não repita em toda mensagem.
 
 REGRAS DE TOM (sempre):
 - Português do Brasil, cordial e caloroso, mas objetivo — nada de resposta robótica nem parágrafo longo. Pode usar "oi", "tudo bem?" naturalmente, mas sem gíria regional pesada (nunca "oxe", "bah", "mano", "cê").
@@ -276,7 +285,7 @@ async function processarOnboarding({ cliente, mensagem, estabelecimento }) {
   switch (cliente.estado_onboarding) {
     case 'novo': {
       await supabase.from('clientes').update({ estado_onboarding: 'aguardando_nome' }).eq('id', cliente.id);
-      return `Oi! Seja bem-vindo ao ${estabelecimento.nome} 😊 Para começar, qual é o seu nome completo?`;
+      return `${saudacaoPorHorario()}! Seja bem-vindo ao ${estabelecimento.nome} 😊 Para começar, qual é o seu nome completo?`;
     }
 
     case 'aguardando_nome': {
