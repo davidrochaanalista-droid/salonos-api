@@ -336,7 +336,12 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
    real com calma (conexão já validada, mas registrar_solicitacao_agendamento,
    aceitar/propor horário, checagem de conflito, lembrete 2h e aviso de
    sinal ainda não passaram por um teste de conversa real -- ver avisos
-   de "não testado dentro do webhook real" nas seções acima)
+   de "não testado dentro do webhook real" nas seções acima). **Tentativa
+   iniciada em 14/09 e pausada por decisão do usuário**: QR code chegou a
+   ser gerado (instância `salon_02b907b6-...`, ver `estabelecimento_id` do
+   Studio Teste QA), mas ninguém escaneou -- confirmado que a instância
+   ficou em `connecting`, não `open`, nenhum risco de repetir o incidente
+   de contato pessoal. Retomar quando o usuário quiser.
 2. Escopar pagamento antecipado/sinal (item 2 acima) se o dono quiser
    seguir essa linha pra reduzir falta
 3. Escopar rastreabilidade de lote de insumo (Eixo 3)
