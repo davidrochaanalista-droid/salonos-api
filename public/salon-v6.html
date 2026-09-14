@@ -1158,6 +1158,34 @@ window.confirmarEditarAtividade=async function(id){
   }catch(erro){Toast.show(erro.message,'⚠');}
 };
 
+window.aceitarSolicitacaoAgendamento=async function(id){
+  try{
+    await chamarAPI('POST',`/solicitacoes-agendamento/${id}/aceitar`);
+    Toast.show('Agendamento confirmado! Cliente avisada por WhatsApp.');
+    P.agenda();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
+window.abrirPropostaHorario=function(id){
+  const s=(state.solicitacoesAgendamento||[]).find(x=>x.id===id);
+  if(!s)return;
+  Modal.open('Propor outro horário','<div class="mb2">'
+    +'<p class="tsm tm2" style="margin-bottom:12px">O cliente pediu: "'+s.pedido_cliente+'". Escolha o horário que você pode oferecer.</p>'
+    +'<div class="fg"><label class="flbl">Data e hora propostas</label><input class="fi" id="propostaDataHora" type="datetime-local"></div>'
+    +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarPropostaHorario(\''+id+'\')">Enviar proposta por WhatsApp</button></div>');
+};
+
+window.confirmarPropostaHorario=async function(id){
+  const valor=$('#propostaDataHora')?.value;
+  if(!valor){Toast.show('Escolha uma data e hora','⚠');return;}
+  try{
+    await chamarAPI('POST',`/solicitacoes-agendamento/${id}/propor-horario`,{data_hora_proposta:new Date(valor).toISOString()});
+    Modal.close();
+    Toast.show('Proposta enviada por WhatsApp! Aguardando resposta da cliente.');
+    P.agenda();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
 const Router={
   go(pg){
     $$('.page').forEach(p=>p.classList.remove('active'));
@@ -1175,16 +1203,19 @@ async agenda(){
   html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando agenda...</div>');
   const inicioDia=new Date();inicioDia.setHours(0,0,0,0);
   const fimDia=new Date();fimDia.setHours(23,59,59,999);
-  let agendamentos=[],profissionais=[];
+  let agendamentos=[],profissionais=[],solicitacoes=[];
   try{
-    [agendamentos,profissionais]=await Promise.all([
+    [agendamentos,profissionais,solicitacoes]=await Promise.all([
       chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/agendamentos?desde=${inicioDia.toISOString()}&ate=${fimDia.toISOString()}`),
       chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/profissionais`),
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/solicitacoes-agendamento`).catch(()=>[]),
     ]);
   }catch(erro){
     html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível carregar a agenda: '+erro.message+'</div>');
     return;
   }
+  state.solicitacoesAgendamento=solicitacoes;
+  const solicitacoesAbertas=solicitacoes.filter(s=>s.status==='pendente'||s.status==='horario_proposto');
   profissionais=profissionais.filter(p=>p.ativo!==false);
   state.agendamentosHoje=agendamentos;
   const validos=agendamentos.filter(a=>a.status!=='cancelado'&&a.status!=='nao_compareceu');
@@ -1194,7 +1225,21 @@ async agenda(){
   const times=[];for(let h=8;h<20;h++){times.push(String(h).padStart(2,'0')+':00');times.push(String(h).padStart(2,'0')+':30');}
   const horaLocal=iso=>{const d=new Date(iso);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
   const dataHoje=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
-  html(pg,'<div class="gsplit"><div>'
+  const fmtDataHora=iso=>new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const blocoSolicitacoes=solicitacoesAbertas.length?('<div class="card mb12"><div class="cardh"><div class="cardt">Solicitações <em>Fora do Horário</em></div></div><div>'
+    +solicitacoesAbertas.map(s=>{
+      const nomeCliente=s.clientes?.nome||s.clientes?.telefone||'Cliente';
+      const nomeServico=s.estabelecimento_atividades?.nome||'Serviço';
+      if(s.status==='horario_proposto'){
+        return '<div class="lr"><div style="flex:1"><div class="lrn">'+nomeCliente+'</div><div class="lrm">'+nomeServico+' — pediu: "'+s.pedido_cliente+'"</div><div class="lrm" style="color:var(--am)">Aguardando resposta sobre '+fmtDataHora(s.data_hora_proposta)+'</div></div></div>';
+      }
+      return '<div class="lr"><div style="flex:1"><div class="lrn">'+nomeCliente+'</div><div class="lrm">'+nomeServico+' — pediu: "'+s.pedido_cliente+'"'+(s.data_hora_solicitada?' ('+fmtDataHora(s.data_hora_solicitada)+')':'')+'</div></div>'
+        +'<div style="display:flex;gap:6px;flex-shrink:0">'
+        +(s.data_hora_solicitada?'<button class="btn btp xs" onclick="aceitarSolicitacaoAgendamento(\''+s.id+'\')">Aceitar</button>':'')
+        +'<button class="btn btgh xs" onclick="abrirPropostaHorario(\''+s.id+'\')">Propor horário</button>'
+        +'</div></div>';
+    }).join('')+'</div></div>'):'';
+  html(pg,blocoSolicitacoes+'<div class="gsplit"><div>'
   +'<div class="sech"><div><div class="sct">Agenda <em>de Hoje</em></div><div class="scsub">'+dataHoje+' - '+validos.length+' agendamento(s) - por profissional</div></div><div class="scacts"><button class="btn btp sm" onclick="abrirModalNovoAgendamento()">+ Agendar</button></div></div>'
   +'<div class="card mb12" style="overflow:hidden"><div style="display:grid;grid-template-columns:repeat(3,1fr);background:var(--bd)">'
   +[[String(validos.length),'Agendamentos hoje'],[R(ticketMedio),'Ticket médio'],[confirmados.length+' de '+validos.length,'Confirmados/concluídos']].map(([v,l],i)=>'<div style="background:var(--cr);padding:10px 13px;text-align:center;'+(i?'border-left:1px solid var(--bd)':'')+'"><div style="font-family:var(--fd);font-size:17px;font-weight:300">'+v+'</div><div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.6px;margin-top:2px">'+l+'</div></div>').join('')

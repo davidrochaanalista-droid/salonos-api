@@ -53,30 +53,63 @@ const FERRAMENTAS_IA = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'registrar_solicitacao_agendamento',
+      description: 'Registra um pedido de agendamento feito com o estabelecimento fechado (fora do horário de funcionamento), pra equipe confirmar assim que abrir. Só chame depois de já saber qual serviço o cliente quer e a preferência de dia/horário dele.',
+      parameters: {
+        type: 'object',
+        properties: {
+          nome_servico: { type: 'string', description: 'Nome do serviço desejado, o mais próximo possível de um dos serviços oferecidos.' },
+          pedido_cliente: { type: 'string', description: 'O que o cliente pediu, em texto natural (ex: "sábado de manhã", "quinta às 15h").' },
+          data_hora_solicitada: { type: 'string', description: 'Se der pra entender uma data/hora exata do pedido do cliente, formato ISO 8601 (YYYY-MM-DDTHH:MM:SS), considerando o fuso de Brasília. Deixe vazio se não for possível saber uma data/hora exata (ex: cliente só disse "qualquer dia da semana que vem").' },
+        },
+        required: ['pedido_cliente'],
+      },
+    },
+  },
 ];
 
-async function executarFerramentaIA(chamada, cliente) {
-  if (chamada.function?.name !== 'atualizar_cadastro_cliente') {
-    return { ok: false, motivo: 'ferramenta desconhecida' };
-  }
-
+async function executarFerramentaIA(chamada, contexto) {
   let argumentos;
   try {
-    argumentos = JSON.parse(chamada.function.arguments || '{}');
+    argumentos = JSON.parse(chamada.function?.arguments || '{}');
   } catch {
     return { ok: false, motivo: 'argumentos inválidos' };
   }
 
-  const camposPermitidos = ['nome', 'endereco', 'data_nascimento'];
-  const atualizacoes = {};
-  for (const campo of camposPermitidos) {
-    if (argumentos[campo]) atualizacoes[campo] = argumentos[campo];
-  }
-  if (!Object.keys(atualizacoes).length) return { ok: false, motivo: 'nenhum campo válido pra atualizar' };
+  if (chamada.function?.name === 'atualizar_cadastro_cliente') {
+    const camposPermitidos = ['nome', 'endereco', 'data_nascimento'];
+    const atualizacoes = {};
+    for (const campo of camposPermitidos) {
+      if (argumentos[campo]) atualizacoes[campo] = argumentos[campo];
+    }
+    if (!Object.keys(atualizacoes).length) return { ok: false, motivo: 'nenhum campo válido pra atualizar' };
 
-  const { error } = await supabase.from('clientes').update(atualizacoes).eq('id', cliente.id);
-  if (error) return { ok: false, motivo: error.message };
-  return { ok: true, atualizado: atualizacoes };
+    const { error } = await supabase.from('clientes').update(atualizacoes).eq('id', contexto.cliente.id);
+    if (error) return { ok: false, motivo: error.message };
+    return { ok: true, atualizado: atualizacoes };
+  }
+
+  if (chamada.function?.name === 'registrar_solicitacao_agendamento') {
+    if (!argumentos.pedido_cliente) return { ok: false, motivo: 'pedido_cliente é obrigatório' };
+
+    const atividade = (contexto.atividades || []).find(a => a.nome.toLowerCase() === (argumentos.nome_servico || '').toLowerCase())
+      || (contexto.atividades || []).find(a => a.nome.toLowerCase().includes((argumentos.nome_servico || '').toLowerCase()));
+
+    const { error } = await supabase.from('solicitacoes_agendamento').insert({
+      estabelecimento_id: contexto.estabelecimentoId,
+      cliente_id: contexto.cliente.id,
+      estabelecimento_atividade_id: atividade?.id || null,
+      pedido_cliente: argumentos.pedido_cliente,
+      data_hora_solicitada: argumentos.data_hora_solicitada || null,
+    });
+    if (error) return { ok: false, motivo: error.message };
+    return { ok: true, registrado: true };
+  }
+
+  return { ok: false, motivo: 'ferramenta desconhecida' };
 }
 
 // Saudação por horário, sempre no fuso de Brasília (independe de onde o
@@ -118,7 +151,7 @@ function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instr
 
   return `Você é a atendente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}", conversando pelo WhatsApp do negócio. Agora, no horário de Brasília, é hora de dizer "${saudacaoPorHorario()}" -- use essa saudação (ou uma variação natural dela) se for cumprimentar o cliente agora, mas só no início da conversa, não repita em toda mensagem. ${primeiroNome ? `Esse cliente já é cadastrado e se chama ${primeiroNome} -- chame-o pelo primeiro nome ao cumprimentar (ex: "${saudacaoPorHorario()}, ${primeiroNome}!"), nunca pergunte o nome de novo.` : ''}
 
-${aberto ? '' : `IMPORTANTE -- FORA DO HORÁRIO DE FUNCIONAMENTO: agora o estabelecimento está fechado (funciona ${estabelecimento.horario_abertura?.slice(0,5)} às ${estabelecimento.horario_fechamento?.slice(0,5)}). Avise isso ao cliente de forma leve, uma vez, sem soar como bloqueio -- e continue o atendimento normalmente. Nunca pare de ajudar só porque está fechado: se o assunto for agendamento, colete o serviço desejado e a preferência de dia/horário do cliente normalmente, e diga que a equipe confirma assim que abrir. Não perca o cliente por estar fora do horário.`}
+${aberto ? '' : `IMPORTANTE -- FORA DO HORÁRIO DE FUNCIONAMENTO: agora o estabelecimento está fechado (funciona ${estabelecimento.horario_abertura?.slice(0,5)} às ${estabelecimento.horario_fechamento?.slice(0,5)}). Avise isso ao cliente de forma leve, uma vez, sem soar como bloqueio -- e continue o atendimento normalmente. Nunca pare de ajudar só porque está fechado: se o assunto for agendamento, colete o serviço desejado e a preferência de dia/horário do cliente naturalmente na conversa, e assim que tiver essas duas informações, chame a ferramenta registrar_solicitacao_agendamento (nunca diga que "já agendou" ou "está confirmado" -- diga que a equipe confirma assim que abrir). Não perca o cliente por estar fora do horário.`}
 
 REGRAS DE TOM (sempre):
 - Português do Brasil, cordial e caloroso, mas objetivo — nada de resposta robótica nem parágrafo longo. Pode usar "oi", "tudo bem?" naturalmente, mas sem gíria regional pesada (nunca "oxe", "bah", "mano", "cê").
@@ -199,6 +232,26 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
       return res.sendStatus(200);
     }
 
+    // ── 1.5 RESPOSTA A UMA PROPOSTA DE HORÁRIO PENDENTE ──
+    // Se a equipe propôs um horário alternativo e está esperando resposta,
+    // essa mensagem é tratada como resposta a essa proposta (em linguagem
+    // natural, nunca exigindo "sim"/"não" literal), não como assunto novo.
+    const { data: solicitacaoPendente } = await supabase
+      .from('solicitacoes_agendamento')
+      .select('*, estabelecimento_atividades(nome, duracao_min)')
+      .eq('cliente_id', cliente.id)
+      .eq('status', 'horario_proposto')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (solicitacaoPendente) {
+      const respostaTexto = await tratarRespostaPropostaHorario({ solicitacaoPendente, mensagem, cliente, estabelecimentoId });
+      await registrarMensagens({ estabelecimentoId, clienteId: cliente.id, mensagem, respostaTexto });
+      await enviarMensagemWhatsApp({ telefone, texto: respostaTexto, estabelecimentoId });
+      return res.sendStatus(200);
+    }
+
     // ── 2. CLIENTE COMPLETO — checa se é nova sessão + busca último atendimento ──
     const horasDesdeUltimaInteracao = (Date.now() - new Date(cliente.ultima_interacao_em).getTime()) / 3600000;
     let instrucaoExtra = '';
@@ -265,7 +318,7 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
     if (mensagemResposta.tool_calls?.length) {
       mensagensIA.push(mensagemResposta);
       for (const chamada of mensagemResposta.tool_calls) {
-        const resultado = await executarFerramentaIA(chamada, cliente);
+        const resultado = await executarFerramentaIA(chamada, { cliente, atividades: atividades || [], estabelecimentoId });
         mensagensIA.push({ role: 'tool', tool_call_id: chamada.id, content: JSON.stringify(resultado) });
       }
       resposta = await groq.chat.completions.create({
@@ -383,6 +436,113 @@ async function atualizarMemoria({ estabelecimentoId, clienteId, memoriaAtual }) 
 }
 
 // ============================================================
+// SOLICITAÇÃO DE AGENDAMENTO — resposta do cliente a uma proposta de
+// horário alternativo (feita pela equipe pelo painel, ver
+// routes/solicitacoes-agendamento.js). Sempre interpretada em linguagem
+// natural pela IA -- nunca exige "sim"/"não" literal do cliente.
+// ============================================================
+const FERRAMENTA_RESPOSTA_PROPOSTA = [
+  {
+    type: 'function',
+    function: {
+      name: 'responder_proposta_horario',
+      description: 'Registra se o cliente aceitou ou não o horário alternativo proposto pelo salão, com base na resposta em linguagem natural dele.',
+      parameters: {
+        type: 'object',
+        properties: {
+          aceitou: { type: 'boolean', description: 'true se o cliente aceitou o horário proposto, false se recusou ou quer outro horário.' },
+          novo_pedido: { type: 'string', description: 'Se recusou e sugeriu outra preferência de dia/horário, registre aqui. Deixe vazio se não sugeriu nada.' },
+        },
+        required: ['aceitou'],
+      },
+    },
+  },
+];
+
+async function tratarRespostaPropostaHorario({ solicitacaoPendente, mensagem, cliente, estabelecimentoId }) {
+  const dataFormatada = new Date(solicitacaoPendente.data_hora_proposta).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+
+  const resposta = await groq.chat.completions.create({
+    model: MODELO_IA,
+    messages: [
+      { role: 'system', content: `Você está avaliando a resposta de um cliente a uma proposta de horário alternativo pro serviço "${solicitacaoPendente.estabelecimento_atividades?.nome || 'atendimento'}", proposto pra ${dataFormatada}. Use a ferramenta responder_proposta_horario pra registrar se ele aceitou ou não, com base na mensagem dele -- que pode vir em qualquer forma natural (nunca exija "sim"/"não" literal).` },
+      { role: 'user', content: mensagem },
+    ],
+    tools: FERRAMENTA_RESPOSTA_PROPOSTA,
+    tool_choice: 'required',
+    temperature: 0.2,
+    max_tokens: 150,
+  });
+
+  const chamada = resposta.choices[0].message.tool_calls?.[0];
+  let aceitou = false;
+  let novoPedido = '';
+  try {
+    const argumentos = JSON.parse(chamada?.function?.arguments || '{}');
+    aceitou = !!argumentos.aceitou;
+    novoPedido = argumentos.novo_pedido || '';
+  } catch { /* segue com aceitou=false se a IA não respondeu no formato esperado */ }
+
+  const primeiroNome = cliente.nome?.split(' ')[0] || '';
+
+  if (aceitou) {
+    const duracaoMin = solicitacaoPendente.estabelecimento_atividades?.duracao_min || 60;
+    const inicio = new Date(solicitacaoPendente.data_hora_proposta);
+    const fim = new Date(inicio.getTime() + duracaoMin * 60000);
+
+    const { data: agendamento, error: errAgendamento } = await supabase
+      .from('agendamentos')
+      .insert({
+        estabelecimento_id: estabelecimentoId,
+        cliente_id: cliente.id,
+        estabelecimento_atividade_id: solicitacaoPendente.estabelecimento_atividade_id,
+        inicio: inicio.toISOString(),
+        fim: fim.toISOString(),
+        origem: 'whatsapp',
+        observacao: 'Horário alternativo proposto pela equipe, aceito pelo cliente.',
+      })
+      .select()
+      .single();
+
+    if (errAgendamento) {
+      console.error('Falha ao criar agendamento a partir de proposta aceita:', errAgendamento.message);
+      return 'Tive um problema aqui pra confirmar seu horário. Já vou chamar a equipe pra resolver com você, tá bem?';
+    }
+
+    await supabase.from('solicitacoes_agendamento').update({ status: 'confirmado', agendamento_id: agendamento.id }).eq('id', solicitacaoPendente.id);
+    return `${primeiroNome ? primeiroNome + ', que' : 'Que'} bom! Ficou confirmado pra ${dataFormatada} então 😊 Te esperamos por aqui!`;
+  }
+
+  const pedidoAtualizado = novoPedido ? `${solicitacaoPendente.pedido_cliente} / cliente recusou o horário proposto e sugeriu: ${novoPedido}` : `${solicitacaoPendente.pedido_cliente} / cliente recusou o horário proposto (${dataFormatada})`;
+  await supabase.from('solicitacoes_agendamento').update({ status: 'pendente', pedido_cliente: pedidoAtualizado, data_hora_proposta: null }).eq('id', solicitacaoPendente.id);
+  return `Entendi${primeiroNome ? ', ' + primeiroNome : ''}! Vou avisar a equipe pra ver outro horário que funcione melhor pra você. Assim que tiver uma opção, te aviso por aqui.`;
+}
+
+// Mensagem enviada quando a equipe propõe um horário alternativo pelo
+// painel -- gerada pela IA (mesmo tom do resto do atendimento), não é
+// um template fixo tipo "responda sim ou não".
+async function gerarMensagemPropostaHorario({ nomeCliente, nomeServico, dataHoraProposta }) {
+  const dataFormatada = new Date(dataHoraProposta).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+  const primeiroNome = nomeCliente?.split(' ')[0] || '';
+
+  try {
+    const resposta = await groq.chat.completions.create({
+      model: MODELO_IA,
+      messages: [
+        { role: 'system', content: 'Você é a atendente virtual de um salão, escrevendo pelo WhatsApp. Tom cordial e caloroso, mensagem curta (2-3 frases), no máximo 1 emoji. Nunca peça "responda sim ou não" -- escreva como uma pessoa perguntaria naturalmente se aquele horário funciona.' },
+        { role: 'user', content: `Escreva uma mensagem${primeiroNome ? ' pra ' + primeiroNome : ''} avisando que o horário que pediu não estava disponível, mas propondo ${dataFormatada} pra "${nomeServico || 'o atendimento'}", perguntando se funciona pra ela(e).` },
+      ],
+      temperature: 0.6,
+      max_tokens: 150,
+    });
+    return resposta.choices[0].message.content;
+  } catch (erro) {
+    console.error('Falha ao gerar mensagem de proposta de horário, usando texto padrão:', erro.message);
+    return `${primeiroNome ? primeiroNome + ', o' : 'O'} horário que você pediu não estava disponível, mas que tal ${dataFormatada} pra ${nomeServico || 'o atendimento'}? Me avisa se funciona pra você!`;
+  }
+}
+
+// ============================================================
 // AUXILIARES
 // ============================================================
 async function registrarMensagens({ estabelecimentoId, clienteId, mensagem, respostaTexto }) {
@@ -470,3 +630,4 @@ async function tratarAtualizacaoConexao(estabelecimentoId, dados) {
 
 module.exports = router;
 module.exports.enviarMensagemWhatsApp = enviarMensagemWhatsApp;
+module.exports.gerarMensagemPropostaHorario = gerarMensagemPropostaHorario;

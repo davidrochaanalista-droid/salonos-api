@@ -64,4 +64,14 @@ describe('Autenticação', () => {
     const res = await request(app).get('/estabelecimentos/qualquer-id/whatsapp/contatos');
     expect(res.status).toBe(401);
   });
+
+  it('bloqueia /estabelecimentos/:id/solicitacoes-agendamento sem Authorization header', async () => {
+    const res = await request(app).get('/estabelecimentos/qualquer-id/solicitacoes-agendamento');
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia /solicitacoes-agendamento/:id/aceitar sem Authorization header', async () => {
+    const res = await request(app).post('/solicitacoes-agendamento/qualquer-id/aceitar');
+    expect(res.status).toBe(401);
+  });
 });
