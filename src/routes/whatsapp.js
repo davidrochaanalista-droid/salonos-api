@@ -32,6 +32,54 @@ const MODELO_IA = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 const SESSAO_GAP_HORAS = 4;
 
 // ============================================================
+// FERRAMENTAS DA IA (tool calling) -- a Groq é compatível com o formato
+// OpenAI de function calling. Sem isso, a IA só gera texto e não pode
+// realmente mudar nada no banco -- qualquer "vou atualizar seu cadastro"
+// sem uma ferramenta de verdade por trás seria a IA mentindo pro cliente.
+// ============================================================
+const FERRAMENTAS_IA = [
+  {
+    type: 'function',
+    function: {
+      name: 'atualizar_cadastro_cliente',
+      description: 'Corrige ou atualiza o nome, endereço e/ou data de nascimento do cliente já cadastrado, quando ele pedir explicitamente pra corrigir uma informação. Só chame com o(s) campo(s) que o cliente realmente pediu pra mudar.',
+      parameters: {
+        type: 'object',
+        properties: {
+          nome: { type: 'string', description: 'Nome corrigido, só se o cliente pediu pra mudar o nome.' },
+          endereco: { type: 'string', description: 'Endereço corrigido, só se o cliente pediu pra mudar o endereço.' },
+          data_nascimento: { type: 'string', description: 'Data de nascimento no formato YYYY-MM-DD, só se o cliente informou ou corrigiu.' },
+        },
+      },
+    },
+  },
+];
+
+async function executarFerramentaIA(chamada, cliente) {
+  if (chamada.function?.name !== 'atualizar_cadastro_cliente') {
+    return { ok: false, motivo: 'ferramenta desconhecida' };
+  }
+
+  let argumentos;
+  try {
+    argumentos = JSON.parse(chamada.function.arguments || '{}');
+  } catch {
+    return { ok: false, motivo: 'argumentos inválidos' };
+  }
+
+  const camposPermitidos = ['nome', 'endereco', 'data_nascimento'];
+  const atualizacoes = {};
+  for (const campo of camposPermitidos) {
+    if (argumentos[campo]) atualizacoes[campo] = argumentos[campo];
+  }
+  if (!Object.keys(atualizacoes).length) return { ok: false, motivo: 'nenhum campo válido pra atualizar' };
+
+  const { error } = await supabase.from('clientes').update(atualizacoes).eq('id', cliente.id);
+  if (error) return { ok: false, motivo: error.message };
+  return { ok: true, atualizado: atualizacoes };
+}
+
+// ============================================================
 // SYSTEM PROMPT
 // ============================================================
 function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instrucaoExtra }) {
@@ -39,13 +87,18 @@ function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instr
     .map(a => `- ${a.nome}${a.preco ? ` (${a.preco_variavel ? 'a partir de ' : ''}R$ ${a.preco})` : ''}${a.duracao_min ? `, ${a.duracao_min}min` : ''}`)
     .join('\n');
 
-  return `Você é a assistente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}".
+  return `Você é a atendente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}", conversando pelo WhatsApp do negócio.
 
 REGRAS DE TOM (sempre):
-- Português do Brasil, formal-cordial, sem gírias e sem regionalismo (nunca "oxe", "bah", "mano", "cê").
-- Clara, direta e simpática — recepcionista experiente, não robô.
+- Português do Brasil, cordial e caloroso, mas objetivo — nada de resposta robótica nem parágrafo longo. Pode usar "oi", "tudo bem?" naturalmente, mas sem gíria regional pesada (nunca "oxe", "bah", "mano", "cê").
+- No máximo 1 emoji por mensagem, só quando fizer sentido — nunca em toda frase.
+- Mensagens curtas, como uma pessoa digitaria no WhatsApp. Se a resposta tiver mais de uma ideia, separe cada ideia num parágrafo próprio (linha em branco entre elas) -- cada parágrafo vira uma mensagem separada de verdade, então não quebre uma frase no meio.
+- Você é a atendente automatizada do negócio -- não é preciso anunciar isso a cada mensagem, mas nunca negue ou esconda se o cliente perguntar direta ou indiretamente.
 - Nunca invente preço, horário ou serviço fora da lista abaixo.
-- Se não tiver certeza, diga que vai confirmar com a equipe.
+- Se não tiver certeza de algo, diga com honestidade que vai confirmar com a equipe -- nunca invente pra parecer seguro.
+- Se não entender a mensagem, peça esclarecimento com gentileza (ex: "só pra eu entender direitinho, você quer dizer...?"), nunca de forma seca.
+- Se o cliente pedir pra parar de receber mensagens ou demonstrar desinteresse, respeite na hora, sem insistir nem repetir a pergunta.
+- Se o cliente pedir pra corrigir nome, endereço ou data de nascimento, use a ferramenta atualizar_cadastro_cliente disponível -- nunca diga que corrigiu ou salvou algo sem realmente chamar a ferramenta.
 
 SERVIÇOS OFERECIDOS:
 ${listaAtividades}
@@ -161,14 +214,38 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
       instrucaoExtra,
     });
 
-    const resposta = await groq.chat.completions.create({
+    const mensagensIA = [{ role: 'system', content: systemPrompt }, ...historico, { role: 'user', content: mensagem }];
+
+    let resposta = await groq.chat.completions.create({
       model: MODELO_IA,
-      messages: [{ role: 'system', content: systemPrompt }, ...historico, { role: 'user', content: mensagem }],
+      messages: mensagensIA,
       temperature: 0.6,
       max_tokens: 400,
+      tools: FERRAMENTAS_IA,
     });
 
-    const respostaTexto = resposta.choices[0].message.content;
+    let mensagemResposta = resposta.choices[0].message;
+
+    // A IA pediu pra executar uma ação de verdade (ex: corrigir o nome
+    // salvo) -- roda no nosso código, devolve o resultado real pra ela, e
+    // só então gera o texto final. Sem isso, a IA só teria como "dizer"
+    // que atualizou sem nunca ter mudado nada no banco.
+    if (mensagemResposta.tool_calls?.length) {
+      mensagensIA.push(mensagemResposta);
+      for (const chamada of mensagemResposta.tool_calls) {
+        const resultado = await executarFerramentaIA(chamada, cliente);
+        mensagensIA.push({ role: 'tool', tool_call_id: chamada.id, content: JSON.stringify(resultado) });
+      }
+      resposta = await groq.chat.completions.create({
+        model: MODELO_IA,
+        messages: mensagensIA,
+        temperature: 0.6,
+        max_tokens: 400,
+      });
+      mensagemResposta = resposta.choices[0].message;
+    }
+
+    const respostaTexto = mensagemResposta.content;
     await registrarMensagens({ estabelecimentoId, clienteId: cliente.id, mensagem, respostaTexto });
 
     const totalInteracoes = (memoriaCliente?.total_interacoes || 0) + 1;
@@ -182,7 +259,7 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
     }
 
     await supabase.from('clientes').update({ ultima_interacao_em: new Date().toISOString() }).eq('id', cliente.id);
-    await enviarMensagemWhatsApp({ telefone, texto: respostaTexto, estabelecimentoId });
+    await enviarRespostaIA({ telefone, texto: respostaTexto, estabelecimentoId });
 
     res.sendStatus(200);
   } catch (erro) {
@@ -319,6 +396,17 @@ async function enviarMensagemWhatsApp({ telefone, texto, estabelecimentoId }) {
     await evolution.enviarTexto(estabelecimentoId, telefone, texto);
   } catch (erro) {
     console.error('Falha ao enviar WhatsApp via Evolution API:', erro.message);
+  }
+}
+
+// Resposta livre da IA pode ter mais de uma ideia -- o prompt já instrui a
+// separar cada ideia num parágrafo (linha em branco), aqui cada parágrafo
+// vira uma mensagem de WhatsApp de verdade em sequência, como uma pessoa
+// digitando várias mensagens curtas em vez de um bloco só de texto.
+async function enviarRespostaIA({ telefone, texto, estabelecimentoId }) {
+  const partes = texto.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+  for (const parte of partes) {
+    await enviarMensagemWhatsApp({ telefone, texto: parte, estabelecimentoId });
   }
 }
 

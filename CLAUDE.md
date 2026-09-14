@@ -154,6 +154,50 @@ não um número virgem -- por isso o volume alto; a tela de revisão com
 checkbox existe exatamente pra esse cenário, pra não importar tudo como
 cliente sem o dono revisar).
 
+### ⚠️ Incidente real: IA de atendimento respondeu a um contato pessoal
+
+Ao testar a conexão de WhatsApp com um número pessoal real (13/09), um
+contato pessoal do David mandou uma mensagem casual pro número conectado
+e a IA de onboarding tratou como "cliente novo do salão", perguntando
+nome/endereço numa conversa confusa -- criou um cadastro de cliente falso
+com o telefone real da pessoa. Causa raiz: o webhook responde
+automaticamente a **qualquer** mensagem recebida, sem diferenciar
+"cliente de verdade" de "alguém só mandando mensagem pro número". Isso é
+o comportamento correto/esperado pro número oficial do salão em produção,
+mas é perigoso testar conectando um número pessoal de uso cotidiano --
+a IA vai atender quem quer que mande mensagem. Resolvido nesse caso:
+desconectado o WhatsApp, apagado o cadastro/mensagens/memória criados
+pro contato real. **Lição:** avisar isso antes de qualquer teste futuro
+com número pessoal, ou usar um número dedicado só pra teste.
+
+### Motor de tool calling na IA do WhatsApp (13/09/2026)
+
+A IA agora consegue executar ações de verdade, não só gerar texto --
+`FERRAMENTAS_IA`/`executarFerramentaIA` em `src/routes/whatsapp.js`
+implementam function calling (formato OpenAI, suportado pela Groq).
+Primeira ferramenta: `atualizar_cadastro_cliente` (nome/endereço/data de
+nascimento), chamada quando o cliente já onboardado pede pra corrigir um
+dado. Fluxo: 1ª chamada à Groq com `tools` anexado → se vier
+`tool_calls`, executa de verdade no Supabase → manda o resultado de volta
+pra Groq numa 2ª chamada → só aí gera o texto final pro cliente. Sem
+isso, a IA só conseguiria *dizer* que atualizou sem nunca ter mudado nada
+-- mentira pro cliente. Testado isoladamente contra a API real da Groq
+(fora do webhook): a IA identificou corretamente a intenção de correção,
+chamou a ferramenta com o argumento certo, e gerou a resposta final
+depois do resultado real. Não testado ainda dentro do fluxo completo do
+webhook (evitado de propósito, pra não repetir o incidente acima).
+
+Também: prompt do sistema revisado pra tom mais caloroso mas objetivo
+(máximo 1 emoji por mensagem, mensagens curtas), respostas da IA com mais
+de uma ideia são quebradas em mensagens separadas de verdade
+(`enviarRespostaIA` separa por parágrafo e manda uma de cada vez, não um
+bloco só), pede esclarecimento com gentileza quando não entende, respeita
+pedido de parar de receber mensagem, e é transparente se perguntada se é
+IA (decisão consciente: **não** esconder por padrão, diferente de uma
+sugestão de prompt externa que pedia esconder -- rejeitada por causa do
+incidente acima). Cadastro continua exigindo nome + endereço (não só
+nome) -- decisão consciente de manter como estava.
+
 ### Conta de teste
 
 Existe um estabelecimento de teste ("Studio Teste QA") no Supabase de
