@@ -309,13 +309,25 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
    (webhook do gateway?), o que acontece se o cliente não pagar a tempo.
    Também seria a base pra um "sinal obrigatório" de verdade (não só pra
    quem já faltou) se o dono quiser reduzir falta em geral -- ver
-   recomendação dada ao usuário nesse dia.
-3. **Marketplace de Clientes** — placeholder "em breve", decisão consciente
+   recomendação dada ao usuário nesse dia. **Decisão (14/09): fica "em
+   breve" por enquanto** -- David vai validar primeiro com os donos de
+   salão se isso é prioridade antes de escopar de verdade.
+3. **Nota fiscal (NFS-e)** — "tem cliente que pede nota" (14/09), ainda
+   **não escopado nem construído**. Área regulada (emissão de NFS-e
+   depende de integração com prefeitura/provedor tipo NFE.io, eNotas,
+   Focus NFe, e dado fiscal de cada salão -- CNPJ, regime tributário).
+   Duas linhas possíveis já discutidas: (a) simples -- só marcar "cliente
+   pediu nota" na comanda, emissão de verdade continua manual, fora do
+   sistema, zero custo/dependência; (b) completo -- emitir de verdade
+   pelo sistema via provedor pago, com responsabilidade fiscal real.
+   **Decisão (14/09): fica "em breve" por enquanto**, mesmo motivo do
+   item 2 -- validar com os donos antes de escopar.
+4. **Marketplace de Clientes** — placeholder "em breve", decisão consciente
    (13/09): diretório público + rastreio de origem é decisão de canal de
    aquisição, não prioridade agora. Reavaliar quando fizer sentido.
-4. **Rastreabilidade de lote de insumo** (Eixo 3, clínica de estética
+5. **Rastreabilidade de lote de insumo** (Eixo 3, clínica de estética
    pequena) — não implementado, não escopado ainda.
-5. **`painel-admin.html`** — continua fora de escopo (console interno da
+6. **`painel-admin.html`** — continua fora de escopo (console interno da
    SalonOS, não do salão).
 
 ## Ordem sugerida pra continuar
