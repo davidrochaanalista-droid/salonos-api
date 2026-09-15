@@ -16,8 +16,10 @@
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const Groq = require('groq-sdk');
+const { randomUUID } = require('crypto');
 const evolution = require('../lib/evolution-api');
-const { buscarConflitoAgendamento } = require('../lib/disponibilidade');
+const { buscarHorariosDisponiveis } = require('../lib/disponibilidade');
+const { confirmarSolicitacaoAgendamento } = require('../lib/agendamento-confirmacao');
 
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -63,16 +65,54 @@ const FERRAMENTAS_IA = [
     type: 'function',
     function: {
       name: 'registrar_solicitacao_agendamento',
-      description: 'Registra um pedido de agendamento feito com o estabelecimento fechado (fora do horário de funcionamento), pra equipe confirmar assim que abrir. Só chame depois de já saber qual serviço o cliente quer e a preferência de dia/horário dele -- e depois de perguntar naturalmente se ele tem preferência de profissional ou se tanto faz.',
+      description: 'Registra um pedido de agendamento feito com o estabelecimento fechado (fora do horário de funcionamento), pra equipe confirmar assim que abrir. Pode registrar mais de um serviço de uma vez, se o cliente pedir vários na mesma visita (ex: unhas, cabelo e depilação). Só chame depois de já saber quais serviços o cliente quer e a preferência de dia/horário dele -- e depois de perguntar naturalmente se ele tem preferência de profissional por serviço ou se tanto faz.',
       parameters: {
         type: 'object',
         properties: {
-          nome_servico: { type: 'string', description: 'Nome do serviço desejado, o mais próximo possível de um dos serviços oferecidos.' },
+          servicos: {
+            type: 'array',
+            minItems: 1,
+            description: 'Lista dos serviços pedidos, na ordem que o cliente quer fazer na visita.',
+            items: {
+              type: 'object',
+              properties: {
+                nome_servico: { type: 'string', description: 'Nome do serviço desejado, o mais próximo possível de um dos serviços oferecidos.' },
+                nome_profissional: { type: 'string', description: 'Nome da profissional que o cliente prefere pra esse serviço, só se ele mencionou. Deixe vazio se tanto faz.' },
+              },
+              required: ['nome_servico'],
+            },
+          },
           pedido_cliente: { type: 'string', description: 'O que o cliente pediu, em texto natural (ex: "sábado de manhã", "quinta às 15h").' },
           data_hora_solicitada: { type: 'string', description: 'Se der pra entender uma data/hora exata do pedido do cliente, formato ISO 8601 (YYYY-MM-DDTHH:MM:SS), considerando o fuso de Brasília. Deixe vazio se não for possível saber uma data/hora exata (ex: cliente só disse "qualquer dia da semana que vem").' },
-          nome_profissional: { type: 'string', description: 'Nome da profissional que o cliente prefere, só se ele mencionou uma preferência específica. Deixe vazio se ele disse que tanto faz ou não mencionou.' },
         },
-        required: ['pedido_cliente'],
+        required: ['servicos', 'pedido_cliente'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'buscar_horarios_disponiveis',
+      description: 'Busca de verdade um horário e profissional livres, agora que o estabelecimento está aberto, pro(s) serviço(s) que o cliente quer -- encaixando todos na mesma visita, em sequência. Só chame depois de já saber quais serviços o cliente quer e ter perguntado naturalmente se ele tem preferência de profissional por serviço ou se tanto faz. Nunca invente horário -- só use o que essa ferramenta devolver de verdade.',
+      parameters: {
+        type: 'object',
+        properties: {
+          servicos: {
+            type: 'array',
+            minItems: 1,
+            description: 'Lista dos serviços pedidos, na ordem que o cliente quer fazer na visita.',
+            items: {
+              type: 'object',
+              properties: {
+                nome_servico: { type: 'string', description: 'Nome do serviço desejado, o mais próximo possível de um dos serviços oferecidos.' },
+                nome_profissional: { type: 'string', description: 'Nome da profissional que o cliente prefere pra esse serviço, só se ele mencionou. Deixe vazio se tanto faz.' },
+              },
+              required: ['nome_servico'],
+            },
+          },
+          data_preferida: { type: 'string', description: 'Data preferida do cliente, formato YYYY-MM-DD, se ele mencionou uma. Deixe vazio se não mencionou (a busca já procura a partir de hoje).' },
+        },
+        required: ['servicos'],
       },
     },
   },
@@ -99,27 +139,117 @@ async function executarFerramentaIA(chamada, contexto) {
     return { ok: true, atualizado: atualizacoes };
   }
 
-  if (chamada.function?.name === 'registrar_solicitacao_agendamento') {
-    if (!argumentos.pedido_cliente) return { ok: false, motivo: 'pedido_cliente é obrigatório' };
+  // Acha a atividade/profissional mais próximos do nome que a IA extraiu
+  // da fala do cliente -- exato primeiro, senão substring. Mesma lógica
+  // usada tanto pra registrar quanto pra buscar horário.
+  function resolverServico({ nome_servico, nome_profissional }, contexto) {
+    // nomeServicoBuscado vazio faz `.includes('')` bater com QUALQUER
+    // atividade (string vazia é substring de tudo) -- sem essa guarda, um
+    // nome_servico ausente/vazio (ex: Groq mandando argumento incompleto)
+    // resolvia silenciosamente pro primeiro serviço do catálogo em vez de
+    // falhar. Agora só tenta o match se o cliente/IA realmente deu um nome.
+    const nomeServicoBuscado = (nome_servico || '').trim().toLowerCase();
+    const atividade = !nomeServicoBuscado ? undefined
+      : (contexto.atividades || []).find(a => a.nome.toLowerCase() === nomeServicoBuscado)
+      || (contexto.atividades || []).find(a => a.nome.toLowerCase().includes(nomeServicoBuscado));
 
-    const atividade = (contexto.atividades || []).find(a => a.nome.toLowerCase() === (argumentos.nome_servico || '').toLowerCase())
-      || (contexto.atividades || []).find(a => a.nome.toLowerCase().includes((argumentos.nome_servico || '').toLowerCase()));
-
-    const nomeProfissionalBuscado = (argumentos.nome_profissional || '').toLowerCase();
+    const nomeProfissionalBuscado = (nome_profissional || '').toLowerCase();
     const profissional = nomeProfissionalBuscado
       ? (contexto.profissionais || []).find(p => p.nome.toLowerCase().includes(nomeProfissionalBuscado))
       : null;
 
-    const { error } = await supabase.from('solicitacoes_agendamento').insert({
+    return { atividade, profissional };
+  }
+
+  if (chamada.function?.name === 'registrar_solicitacao_agendamento') {
+    if (!argumentos.pedido_cliente) return { ok: false, motivo: 'pedido_cliente é obrigatório' };
+    if (!argumentos.servicos?.length) return { ok: false, motivo: 'servicos é obrigatório' };
+
+    const grupoId = randomUUID();
+    const agoraBase = Date.now();
+    // created_at explícito e escalonado por índice -- um INSERT em lote só
+    // (uma linha por serviço) pode gravar todas as linhas com o mesmo
+    // valor de now(), já que o Postgres avalia now() uma vez por
+    // statement. Sem isso, /grupo/:grupoId/aceitar (que usa
+    // order('created_at') pra reconstituir a ordem pedida pelo cliente)
+    // teria desempate indefinido.
+    const linhas = argumentos.servicos.map((s, i) => {
+      const { atividade, profissional } = resolverServico(s, contexto);
+      return {
+        estabelecimento_id: contexto.estabelecimentoId,
+        cliente_id: contexto.cliente.id,
+        estabelecimento_atividade_id: atividade?.id || null,
+        profissional_id: profissional?.id || null,
+        pedido_cliente: argumentos.pedido_cliente,
+        data_hora_solicitada: argumentos.data_hora_solicitada || null,
+        grupo_id: grupoId,
+        created_at: new Date(agoraBase + i).toISOString(),
+      };
+    });
+
+    const { error } = await supabase.from('solicitacoes_agendamento').insert(linhas);
+    if (error) return { ok: false, motivo: error.message };
+    return { ok: true, registrado: true, quantidade: linhas.length };
+  }
+
+  if (chamada.function?.name === 'buscar_horarios_disponiveis') {
+    if (!argumentos.servicos?.length) return { ok: false, motivo: 'servicos é obrigatório' };
+
+    const resolvidos = argumentos.servicos.map(s => ({ ...resolverServico(s, contexto), pedido: s }));
+    const naoEncontrados = resolvidos.filter(r => !r.atividade).map(r => r.pedido.nome_servico);
+    if (naoEncontrados.length) return { ok: false, motivo: `Serviço(s) não encontrado(s) no catálogo: ${naoEncontrados.join(', ')}` };
+
+    const servicosBusca = resolvidos.map(r => ({
+      estabelecimentoAtividadeId: r.atividade.id,
+      duracaoMin: r.atividade.duracao_min || 60,
+      profissionalPreferidoId: r.profissional?.id || null,
+    }));
+
+    let propostas;
+    try {
+      propostas = await buscarHorariosDisponiveis(supabase, {
+        estabelecimentoId: contexto.estabelecimentoId,
+        servicos: servicosBusca,
+        dataPreferida: argumentos.data_preferida || null,
+      });
+    } catch (erro) {
+      return { ok: false, motivo: 'Falha ao buscar horários: ' + erro.message };
+    }
+
+    if (!propostas.length) return { ok: false, motivo: 'sem horário disponível na próxima semana' };
+
+    const plano = propostas[0];
+    const grupoId = randomUUID();
+    const agoraBase = Date.now();
+    const linhas = plano.itens.map((item, i) => ({
       estabelecimento_id: contexto.estabelecimentoId,
       cliente_id: contexto.cliente.id,
-      estabelecimento_atividade_id: atividade?.id || null,
-      profissional_id: profissional?.id || null,
-      pedido_cliente: argumentos.pedido_cliente,
-      data_hora_solicitada: argumentos.data_hora_solicitada || null,
-    });
+      estabelecimento_atividade_id: item.estabelecimento_atividade_id,
+      profissional_id: item.profissional_id,
+      pedido_cliente: `Busca automática: ${argumentos.servicos.map(s => s.nome_servico).join(', ')}`,
+      status: 'horario_proposto',
+      data_hora_proposta: item.inicio,
+      origem_proposta: 'busca_automatica',
+      grupo_id: grupoId,
+      created_at: new Date(agoraBase + i).toISOString(),
+    }));
+
+    const { error } = await supabase.from('solicitacoes_agendamento').insert(linhas);
     if (error) return { ok: false, motivo: error.message };
-    return { ok: true, registrado: true };
+
+    // Manda o horário já formatado no fuso de Brasília pro texto que a IA
+    // vai narrar -- mandar só o ISO em UTC faz a IA ler o número da hora
+    // direto (ex: ler "12:00:00.000Z" como "12h"), errando o horário real
+    // que o cliente vai entender -- achado testando de verdade.
+    return {
+      ok: true,
+      data_visita: plano.data,
+      plano: plano.itens.map(item => ({
+        servico: contexto.atividades.find(a => a.id === item.estabelecimento_atividade_id)?.nome,
+        profissional: contexto.profissionais.find(p => p.id === item.profissional_id)?.nome,
+        horario: new Date(item.inicio).toLocaleString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }),
+      })),
+    };
   }
 
   return { ok: false, motivo: 'ferramenta desconhecida' };
@@ -164,7 +294,9 @@ function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instr
 
   return `Você é a atendente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}", conversando pelo WhatsApp do negócio. Agora, no horário de Brasília, é hora de dizer "${saudacaoPorHorario()}" -- use essa saudação (ou uma variação natural dela) se for cumprimentar o cliente agora, mas só no início da conversa, não repita em toda mensagem. ${primeiroNome ? `Esse cliente já é cadastrado e se chama ${primeiroNome} -- chame-o pelo primeiro nome ao cumprimentar (ex: "${saudacaoPorHorario()}, ${primeiroNome}!"), nunca pergunte o nome de novo.` : ''}
 
-${aberto ? '' : `IMPORTANTE -- FORA DO HORÁRIO DE FUNCIONAMENTO: agora o estabelecimento está fechado (funciona ${estabelecimento.horario_abertura?.slice(0,5)} às ${estabelecimento.horario_fechamento?.slice(0,5)}). Avise isso ao cliente de forma leve, uma vez, sem soar como bloqueio -- e continue o atendimento normalmente. Nunca pare de ajudar só porque está fechado: se o assunto for agendamento, colete o serviço desejado, a preferência de dia/horário, e pergunte naturalmente se tem preferência de profissional ou se tanto faz -- e assim que tiver essas informações, chame a ferramenta registrar_solicitacao_agendamento (nunca diga que "já agendou" ou "está confirmado" -- diga que a equipe confirma assim que abrir). Não perca o cliente por estar fora do horário.`}
+${aberto
+  ? `IMPORTANTE -- AGENDAMENTO (estabelecimento aberto agora): se o assunto for agendamento, colete o(s) serviço(s) desejado(s) (o cliente pode pedir mais de um na mesma visita, ex: unhas, cabelo e depilação -- nesse caso registre todos juntos), e pergunte naturalmente se tem preferência de profissional por serviço ou se tanto faz. Assim que tiver essas informações, chame a ferramenta buscar_horarios_disponiveis -- ela busca de verdade um horário livre, nunca invente horário sozinha. Apresente o que ela devolver de forma natural (nunca peça "responda sim ou não") e pergunte se aquele horário funciona pra ele(a). Se ele topar, o agendamento já fica confirmado na hora.`
+  : `IMPORTANTE -- FORA DO HORÁRIO DE FUNCIONAMENTO: agora o estabelecimento está fechado (funciona ${estabelecimento.horario_abertura?.slice(0,5)} às ${estabelecimento.horario_fechamento?.slice(0,5)}). Avise isso ao cliente de forma leve, uma vez, sem soar como bloqueio -- e continue o atendimento normalmente. Nunca pare de ajudar só porque está fechado: se o assunto for agendamento, colete o(s) serviço(s) desejado(s) (o cliente pode pedir mais de um na mesma visita, ex: unhas, cabelo e depilação -- nesse caso registre todos juntos), a preferência de dia/horário, e pergunte naturalmente se tem preferência de profissional por serviço ou se tanto faz -- e assim que tiver essas informações, chame a ferramenta registrar_solicitacao_agendamento (nunca diga que "já agendou" ou "está confirmado" -- diga que a equipe confirma assim que abrir). Não perca o cliente por estar fora do horário.`}
 
 ${exigirSinal ? `IMPORTANTE -- CLIENTE COM HISTÓRICO DE FALTAS: esse cliente já faltou em mais de ${LIMITE_FALTAS_SINAL} atendimentos sem avisar. Se o assunto for agendar um novo horário, converse normalmente até fechar os detalhes (serviço, dia/horário, profissional), e só no final, antes de encerrar esse assunto, avise com gentileza (sem soar como punição) que pra confirmar esse agendamento vai ser necessário um sinal antecipado, e que a equipe vai combinar o valor e a forma de pagamento diretamente. Não invente valor nem forma de pagamento do sinal.` : ''}
 
@@ -255,20 +387,38 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
     }
 
     // ── 1.5 RESPOSTA A UMA PROPOSTA DE HORÁRIO PENDENTE ──
-    // Se a equipe propôs um horário alternativo e está esperando resposta,
-    // essa mensagem é tratada como resposta a essa proposta (em linguagem
-    // natural, nunca exigindo "sim"/"não" literal), não como assunto novo.
-    const { data: solicitacaoPendente } = await supabase
+    // Se a equipe (ou a busca automática) propôs horário(s) e está
+    // esperando resposta, essa mensagem é tratada como resposta a essa
+    // proposta (em linguagem natural, nunca exigindo "sim"/"não"
+    // literal), não como assunto novo. Um pedido pode ter mais de um
+    // serviço (ver migração 24/grupo_id) -- busca a proposta mais
+    // recente e todas as irmãs do mesmo grupo (grupo_id null = pedido
+    // avulso de um serviço só, grupo de 1).
+    const { data: propostaMaisRecente } = await supabase
       .from('solicitacoes_agendamento')
-      .select('*, estabelecimento_atividades(nome, duracao_min)')
+      .select('id, grupo_id')
       .eq('cliente_id', cliente.id)
       .eq('status', 'horario_proposto')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (solicitacaoPendente) {
-      const respostaTexto = await tratarRespostaPropostaHorario({ solicitacaoPendente, mensagem, cliente, estabelecimentoId });
+    let solicitacoesPendentes = [];
+    if (propostaMaisRecente) {
+      let consultaGrupo = supabase
+        .from('solicitacoes_agendamento')
+        .select('*, estabelecimento_atividades(nome, duracao_min)')
+        .eq('cliente_id', cliente.id)
+        .eq('status', 'horario_proposto');
+      consultaGrupo = propostaMaisRecente.grupo_id
+        ? consultaGrupo.eq('grupo_id', propostaMaisRecente.grupo_id)
+        : consultaGrupo.eq('id', propostaMaisRecente.id);
+      const { data } = await consultaGrupo;
+      solicitacoesPendentes = data || [];
+    }
+
+    if (solicitacoesPendentes.length) {
+      const respostaTexto = await tratarRespostaPropostaHorario({ solicitacoesPendentes, mensagem, cliente, estabelecimento, estabelecimentoId });
       await registrarMensagens({ estabelecimentoId, clienteId: cliente.id, mensagem, respostaTexto });
       await enviarMensagemWhatsApp({ telefone, texto: respostaTexto, estabelecimentoId });
       return res.sendStatus(200);
@@ -479,99 +629,127 @@ const FERRAMENTA_RESPOSTA_PROPOSTA = [
     type: 'function',
     function: {
       name: 'responder_proposta_horario',
-      description: 'Registra se o cliente aceitou ou não o horário alternativo proposto pelo salão, com base na resposta em linguagem natural dele.',
+      description: 'Registra quais dos horários propostos o cliente aceitou, com base na resposta em linguagem natural dele.',
       parameters: {
         type: 'object',
         properties: {
-          aceitou: { type: 'boolean', description: 'true se o cliente aceitou o horário proposto, false se recusou ou quer outro horário.' },
-          novo_pedido: { type: 'string', description: 'Se recusou e sugeriu outra preferência de dia/horário, registre aqui. Deixe vazio se não sugeriu nada.' },
+          resposta: { type: 'string', enum: ['todos', 'parcial', 'nenhum'], description: '"todos" se o cliente aceitou tudo o que foi proposto, "nenhum" se recusou tudo, "parcial" se aceitou só parte dos serviços propostos.' },
+          servicos_aceitos: { type: 'array', items: { type: 'string' }, description: 'Nomes dos serviços que o cliente aceitou -- só preencha quando resposta="parcial".' },
+          novo_pedido: { type: 'string', description: 'Se recusou algo e sugeriu outra preferência de dia/horário, registre aqui. Deixe vazio se não sugeriu nada.' },
         },
-        required: ['aceitou'],
+        required: ['resposta'],
       },
     },
   },
 ];
 
-async function tratarRespostaPropostaHorario({ solicitacaoPendente, mensagem, cliente, estabelecimentoId }) {
-  const dataFormatada = new Date(solicitacaoPendente.data_hora_proposta).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+// Um pedido pode ter mais de um serviço (ver migração 24/grupo_id) --
+// solicitacoesPendentes é sempre um array (grupo de 1 pros pedidos
+// antigos/avulsos de um serviço só, continua funcionando igual).
+async function tratarRespostaPropostaHorario({ solicitacoesPendentes, mensagem, cliente, estabelecimento, estabelecimentoId }) {
+  const nomeServico = s => s.estabelecimento_atividades?.nome || 'atendimento';
+  const listaServicos = solicitacoesPendentes.map(nomeServico).join(', ');
+  const dataFormatada = new Date(solicitacoesPendentes[0].data_hora_proposta).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+  const primeiroNome = cliente.nome?.split(' ')[0] || '';
 
   // A Groq com tool_choice:'required' já se mostrou instável em teste real
   // (às vezes gera JSON malformado, às vezes não chama a ferramenta) -- se
-  // isso falhar, NUNCA travamos o cliente sem resposta nem assumimos
-  // "recusou" sem saber: respondemos com honestidade que a equipe vai
-  // confirmar, e deixamos a solicitação como está (horario_proposto) pra
-  // alguém revisar manualmente a conversa.
-  let aceitou = null;
-  let novoPedido = '';
-  for (let tentativa = 0; tentativa < 2 && aceitou === null; tentativa++) {
+  // isso falhar, NUNCA travamos o cliente sem resposta nem assumimos nada:
+  // respondemos com honestidade que a equipe vai confirmar, e deixamos as
+  // solicitações como estão (horario_proposto) pra alguém revisar manualmente.
+  let resultado = null;
+  for (let tentativa = 0; tentativa < 2 && !resultado; tentativa++) {
     try {
       const resposta = await groq.chat.completions.create({
         model: MODELO_IA,
         messages: [
-          { role: 'system', content: `Você está avaliando a resposta de um cliente a uma proposta de horário alternativo pro serviço "${solicitacaoPendente.estabelecimento_atividades?.nome || 'atendimento'}", proposto pra ${dataFormatada}. Use a ferramenta responder_proposta_horario pra registrar se ele aceitou ou não, com base na mensagem dele -- que pode vir em qualquer forma natural (nunca exija "sim"/"não" literal).` },
+          { role: 'system', content: `Você está avaliando a resposta de um cliente a uma proposta de horário pro(s) serviço(s) ${listaServicos}, começando ${dataFormatada}. Use a ferramenta responder_proposta_horario pra registrar se ele aceitou tudo, nada, ou só parte, com base na mensagem dele -- que pode vir em qualquer forma natural (nunca exija "sim"/"não" literal).` },
           { role: 'user', content: mensagem },
         ],
         tools: FERRAMENTA_RESPOSTA_PROPOSTA,
         tool_choice: 'required',
         temperature: 0.2,
-        max_tokens: 150,
+        max_tokens: 200,
       });
       const chamada = resposta.choices[0].message.tool_calls?.[0];
       const argumentos = JSON.parse(chamada.function.arguments);
-      aceitou = !!argumentos.aceitou;
-      novoPedido = argumentos.novo_pedido || '';
+      if (!['todos', 'parcial', 'nenhum'].includes(argumentos.resposta)) throw new Error('resposta fora do esperado');
+      // Filtra nome vazio/só espaço antes de guardar -- um item vazio em
+      // servicos_aceitos casaria com QUALQUER solicitação pendente lá na
+      // frente (string vazia é substring de tudo), virando "aceitou tudo"
+      // por engano quando o cliente só aceitou parte.
+      const servicosAceitosLimpos = (argumentos.servicos_aceitos || []).map(n => (n || '').trim()).filter(Boolean);
+      resultado = { resposta: argumentos.resposta, servicosAceitos: servicosAceitosLimpos, novoPedido: argumentos.novo_pedido || '' };
     } catch (erro) {
       console.error(`Falha ao interpretar resposta de proposta de horário (tentativa ${tentativa + 1}):`, erro.message);
     }
   }
 
-  const primeiroNome = cliente.nome?.split(' ')[0] || '';
-
-  if (aceitou === null) {
+  // "parcial" sem nenhum serviço listado é a Groq não tendo certeza de
+  // qual parte foi aceita -- mesmo tratamento de quando a ferramenta falha
+  // de vez: nunca assume "recusou tudo" por ambiguidade, principalmente
+  // porque pra item de busca_automatica isso marcaria como recusado
+  // (terminal) sem o cliente ter realmente dito não a nada.
+  if (!resultado || (resultado.resposta === 'parcial' && !resultado.servicosAceitos.length)) {
     return `Entendi${primeiroNome ? ', ' + primeiroNome : ''}! Vou confirmar isso com a equipe e já te retorno por aqui.`;
   }
 
-  if (aceitou) {
-    const duracaoMin = solicitacaoPendente.estabelecimento_atividades?.duracao_min || 60;
-    const inicio = new Date(solicitacaoPendente.data_hora_proposta);
-    const fim = new Date(inicio.getTime() + duracaoMin * 60000);
+  const aceitas = resultado.resposta === 'todos' ? solicitacoesPendentes
+    : resultado.resposta === 'nenhum' ? []
+    : solicitacoesPendentes.filter(s => resultado.servicosAceitos.some(nome => nomeServico(s).toLowerCase().includes(nome.toLowerCase())));
+  const recusadas = solicitacoesPendentes.filter(s => !aceitas.includes(s));
 
-    // Confere de novo (a equipe já checou ao propor, mas outro agendamento
-    // pode ter entrado nesse meio-tempo) -- nunca cria em cima de conflito.
-    if (solicitacaoPendente.profissional_id) {
-      const conflito = await buscarConflitoAgendamento(supabase, { profissionalId: solicitacaoPendente.profissional_id, inicio: inicio.toISOString(), fim: fim.toISOString() });
-      if (conflito) {
-        return `${primeiroNome ? primeiroNome + ', esse' : 'Esse'} horário acabou de ser ocupado aqui do nosso lado. Vou pedir pra equipe te chamar com uma nova opção, combinado?`;
-      }
+  const confirmadas = [];
+  const pendentesEquipe = [];
+  const emConflito = [];
+
+  for (const s of aceitas) {
+    // Proposta feita pela equipe (ou pedido antigo sem essa marcação): a
+    // equipe já vetou esse horário manualmente ao propor -- confirma
+    // direto, mesmo comportamento de sempre, sem gate de horário aberto.
+    // Proposta de busca automática (sem revisão humana): só confirma
+    // sozinha se o salão estiver aberto agora -- se o cliente responder
+    // de noite, cai pra equipe revisar, não agenda sem ninguém por perto.
+    if (s.origem_proposta === 'busca_automatica' && !estaAberto(estabelecimento)) {
+      await supabase.from('solicitacoes_agendamento').update({ status: 'pendente' }).eq('id', s.id);
+      pendentesEquipe.push(s);
+      continue;
     }
-
-    const { data: agendamento, error: errAgendamento } = await supabase
-      .from('agendamentos')
-      .insert({
-        estabelecimento_id: estabelecimentoId,
-        cliente_id: cliente.id,
-        profissional_id: solicitacaoPendente.profissional_id,
-        estabelecimento_atividade_id: solicitacaoPendente.estabelecimento_atividade_id,
-        inicio: inicio.toISOString(),
-        fim: fim.toISOString(),
-        origem: 'whatsapp',
-        observacao: 'Horário alternativo proposto pela equipe, aceito pelo cliente.',
-      })
-      .select()
-      .single();
-
-    if (errAgendamento) {
-      console.error('Falha ao criar agendamento a partir de proposta aceita:', errAgendamento.message);
-      return 'Tive um problema aqui pra confirmar seu horário. Já vou chamar a equipe pra resolver com você, tá bem?';
-    }
-
-    await supabase.from('solicitacoes_agendamento').update({ status: 'confirmado', agendamento_id: agendamento.id }).eq('id', solicitacaoPendente.id);
-    return `${primeiroNome ? primeiroNome + ', que' : 'Que'} bom! Ficou confirmado pra ${dataFormatada} então 😊 Te esperamos por aqui!`;
+    const resultadoConfirmacao = await confirmarSolicitacaoAgendamento(supabase, { solicitacaoId: s.id });
+    if (resultadoConfirmacao.ok) confirmadas.push(s);
+    else emConflito.push(s);
   }
 
-  const pedidoAtualizado = novoPedido ? `${solicitacaoPendente.pedido_cliente} / cliente recusou o horário proposto e sugeriu: ${novoPedido}` : `${solicitacaoPendente.pedido_cliente} / cliente recusou o horário proposto (${dataFormatada})`;
-  await supabase.from('solicitacoes_agendamento').update({ status: 'pendente', pedido_cliente: pedidoAtualizado, data_hora_proposta: null }).eq('id', solicitacaoPendente.id);
-  return `Entendi${primeiroNome ? ', ' + primeiroNome : ''}! Vou avisar a equipe pra ver outro horário que funcione melhor pra você. Assim que tiver uma opção, te aviso por aqui.`;
+  for (const s of recusadas) {
+    if (s.origem_proposta === 'busca_automatica') {
+      await supabase.from('solicitacoes_agendamento').update({ status: 'recusado' }).eq('id', s.id);
+    } else {
+      const pedidoAtualizado = resultado.novoPedido
+        ? `${s.pedido_cliente} / cliente recusou o horário proposto e sugeriu: ${resultado.novoPedido}`
+        : `${s.pedido_cliente} / cliente recusou o horário proposto (${dataFormatada})`;
+      await supabase.from('solicitacoes_agendamento').update({ status: 'pendente', pedido_cliente: pedidoAtualizado, data_hora_proposta: null }).eq('id', s.id);
+    }
+  }
+
+  const partes = [];
+  if (confirmadas.length) {
+    // Serviços em sequência têm horários diferentes entre si (ver
+    // buscarHorariosDisponiveis) -- lista cada um com o próprio horário
+    // em vez de repetir um só horário pra todos, que ficaria errado.
+    const detalhes = confirmadas.map(s => `${nomeServico(s)} (${new Date(s.data_hora_proposta).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })})`).join(', ');
+    partes.push(`${primeiroNome ? primeiroNome + ', que' : 'Que'} bom! ${detalhes} ${confirmadas.length > 1 ? 'ficaram confirmados' : 'ficou confirmado'} 😊`);
+  }
+  if (emConflito.length) {
+    partes.push(`${emConflito.map(nomeServico).join(', ')} infelizmente esse horário acabou de ser ocupado aqui do nosso lado. Vou pedir pra equipe te chamar com uma nova opção.`);
+  }
+  if (pendentesEquipe.length) {
+    partes.push(`${pendentesEquipe.map(nomeServico).join(', ')} já registrei -- a equipe confirma assim que abrir.`);
+  }
+  if (recusadas.length && !confirmadas.length && !emConflito.length && !pendentesEquipe.length) {
+    partes.push(`Entendi${primeiroNome ? ', ' + primeiroNome : ''}! Vou ver outro horário que funcione melhor pra você. Assim que tiver uma opção, te aviso por aqui.`);
+  }
+
+  return partes.join('\n\n') || `Entendi${primeiroNome ? ', ' + primeiroNome : ''}!`;
 }
 
 // Mensagem enviada quando a equipe propõe um horário alternativo pelo

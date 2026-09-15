@@ -140,10 +140,32 @@ router.post('/produtos/:id/lotes', async (req, res) => {
 
   const { data: produto, error: errProduto } = await req.supabase
     .from('produtos')
-    .select('estabelecimento_id')
+    .select('estabelecimento_id, quantidade_em_estoque')
     .eq('id', req.params.id)
     .single();
   if (errProduto || !produto) return res.status(404).json({ erro: 'Produto não encontrado ou sem permissão de acesso.' });
+
+  // Primeiro lote deste produto, com estoque legado (editado direto via
+  // PATCH antes de existir lote) -- o trigger sync_quantidade_estoque_produto
+  // (migração 22) recalcula quantidade_em_estoque como soma dos lotes assim
+  // que o primeiro lote entra, o que perderia esse estoque legado em
+  // silêncio. Cria um lote implícito representando o que já tinha, pra
+  // manter a continuidade (total depois = legado + lote novo).
+  const { count: totalLotes } = await req.supabase
+    .from('produto_lotes')
+    .select('id', { count: 'exact', head: true })
+    .eq('produto_id', req.params.id);
+  if (!totalLotes && produto.quantidade_em_estoque > 0) {
+    const { error: errLegado } = await req.supabase.from('produto_lotes').insert({
+      produto_id: req.params.id,
+      estabelecimento_id: produto.estabelecimento_id,
+      numero_lote: null,
+      quantidade_inicial: produto.quantidade_em_estoque,
+      quantidade_atual: produto.quantidade_em_estoque,
+      validade: null,
+    });
+    if (errLegado) return res.status(500).json({ erro: errLegado.message });
+  }
 
   const { data, error } = await req.supabase
     .from('produto_lotes')

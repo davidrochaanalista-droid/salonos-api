@@ -109,4 +109,9 @@ describe('Autenticação', () => {
     const res = await request(app).get('/admin/visao');
     expect(res.status).toBe(401);
   });
+
+  it('bloqueia /solicitacoes-agendamento/grupo/:grupoId/aceitar sem Authorization header', async () => {
+    const res = await request(app).post('/solicitacoes-agendamento/grupo/qualquer-id/aceitar');
+    expect(res.status).toBe(401);
+  });
 });

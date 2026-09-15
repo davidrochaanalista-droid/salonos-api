@@ -349,6 +349,139 @@ tabelas existem). Linha de admin em `admins` já inserida
 lotes com validades diferentes, fechar comanda, confirmar baixa pelo
 lote mais próximo do vencimento) e login real no painel-admin.
 
+### Agendamento self-service com múltiplos serviços via WhatsApp (14/09/2026)
+
+David pediu explicitamente pra suportar cliente pedindo vários serviços
+na mesma visita (ex: unhas + cabelo + depilação), com o sistema buscando
+horário/profissional livres e encaixando tudo em sequência. Isso não
+existia de forma nenhuma antes -- nem busca automática de horário livre
+(só existia checagem de UM horário já escolhido, `buscarConflitoAgendamento`),
+nem suporte a mais de um serviço por pedido.
+
+**Schema** (`database/24-grupo-solicitacao-agendamento.sql`):
+`solicitacoes_agendamento` ganhou `grupo_id` (agrupa as linhas de um
+mesmo pedido -- continua uma linha por serviço, não virou header+itens)
+e `origem_proposta` (`equipe` vs `busca_automatica` -- controla o
+comportamento ao cliente recusar, ver abaixo). `grupo_id` null = pedido
+antigo/avulso de um serviço só, continua funcionando igual.
+
+**Motor de busca** (`buscarHorariosDisponiveis`, novo em
+`src/lib/disponibilidade.js`): varre até 7 dias, grade de 15min, encaixa
+os serviços pedidos em sequência (profissional preferido se livre, senão
+qualquer profissional ativo -- não existe tabela de especialidade
+profissional↔serviço no sistema). **Achado real testando**: a primeira
+versão usava `Date.setHours()` (fuso local do processo Node), o que
+quebraria em produção porque o Railway não necessariamente roda em
+horário de Brasília (mesmo cuidado já documentado em
+`estaAberto()`/`saudacaoPorHorario()`) -- corrigido pra construir os
+instantes com offset fixo `-03:00` (Brasil não tem mais horário de
+verão desde 2019), testado de verdade forçando `TZ=UTC` no processo pra
+confirmar que o resultado não muda.
+
+**Dois caminhos, comportamento diferente por decisão explícita do
+David**:
+- **Salão aberto agora**: nova ferramenta `buscar_horarios_disponiveis`
+  -- a IA busca de verdade (nunca inventa horário), propõe, e se o
+  cliente aceitar, **agenda direto, sem revisão da equipe** (mudança
+  deliberada do princípio "IA nunca confirma sozinha", só pra esse caso).
+  Reavalia `estaAberto()` de novo no momento da resposta do cliente (não
+  no momento da oferta) -- se ele responder já com o salão fechado, cai
+  pro fluxo de equipe em vez de agendar sem ninguém por perto.
+- **Salão fechado agora**: `registrar_solicitacao_agendamento` (já
+  existia) agora aceita array de serviços -- mesmo comportamento de
+  sempre, equipe confirma manualmente.
+
+**Achado real #2 testando contra a Groq de verdade**: a ferramenta
+`buscar_horarios_disponiveis` devolvia o horário como ISO UTC cru
+(`"2026-09-14T12:00:00.000Z"`) pro resultado da tool-call, e a IA leu o
+número da hora direto sem converter, dizendo pro cliente "hoje às 12h"
+quando o horário real era 09:00 (Brasília) -- corrigido formatando o
+horário já em texto local antes de devolver como resultado da
+ferramenta. Sem esse teste ponta a ponta contra a Groq real (não só
+contra a lógica determinística), esse bug não teria aparecido.
+
+`tratarRespostaPropostaHorario` foi generalizada pra tratar um grupo
+inteiro de serviços de uma vez (`resposta: todos|parcial|nenhum`),
+mesmo padrão de segurança já testado (retry×2, nunca assume nada se a
+Groq falhar). Lógica de confirmação (recheca conflito + cria
+`agendamentos` + marca confirmado) extraída pra
+`src/lib/agendamento-confirmacao.js`, reusada em 4 lugares (rota
+`/aceitar`, nova rota em lote `/grupo/:grupoId/aceitar`, e os dois
+caminhos aberto/fechado dentro do webhook).
+
+**Testado de verdade** (webhook local + Groq real, não só a lógica
+determinística): pedido de 2 serviços com salão aberto → IA perguntou
+preferência de profissional → buscou horário real → cliente aceitou →
+2 `agendamentos` criados de verdade, sequenciais, sem conflito, sem
+equipe nenhuma envolvida. Pedido de 2 serviços com salão fechado →
+2 linhas de `solicitacoes_agendamento` criadas com o mesmo `grupo_id`,
+equipe avisada que vai confirmar. Painel (`salon-v6.html`) testado no
+navegador: os 2 serviços do mesmo pedido aparecem agrupados num card só.
+Dado de teste limpo depois (agendamentos/solicitações/mensagens da conta
+QA removidos).
+
+**Não testado ainda**: caso de conflito real (dois clientes pedindo o
+mesmo profissional/horário ao mesmo tempo) e caso de recusa parcial
+(cliente aceita só 1 dos N serviços propostos) -- lógica existe e foi
+revisada, mas não exercitada ponta a ponta contra a Groq real.
+
+**`/code-review high` rodado depois da implementação** encontrou e
+foram corrigidos 6 problemas reais: (1) "Aceitar tudo" no fluxo fechado
+agendava todos os serviços no mesmo instante em vez de em sequência
+(cliente pediu "sábado às 10h" pros 3 -- corrigido encadeando os
+horários no momento do aceite em lote); (2) XSS armazenado em
+`renderModalLotes` (número de lote sem escape em innerHTML -- mesma
+classe de bug já corrigida no painel-admin, adicionado `escHtml`
+global em `salon-v6.html`); (3) primeiro lote cadastrado descartava em
+silêncio o estoque legado editado antes de existir lote (corrigido
+criando um lote implícito representando o estoque antigo); (4)
+preferência de profissional sendo substituída em silêncio quando a
+preferida estava ocupada no primeiro horário candidato (corrigido pra
+nunca substituir -- ou acha horário com a profissional pedida, ou
+devolve vazio); (5) botão "Aceitar" no painel não aparecia pra
+solicitação de busca automática revertida pra pendente (só checava
+`data_hora_solicitada`, não `data_hora_proposta`); (6) resposta
+"parcial" sem nenhum serviço listado (Groq incerta) tratava como
+recusa total em vez de cair no fallback seguro de sempre.
+
+**`/code-review ultra` (multi-agente, na nuvem) rodado em seguida**
+encontrou mais 9 problemas reais no diff acumulado do dia (lotes +
+painel-admin + agendamento self-service), todos corrigidos:
+1. `buscarHorariosDisponiveis` não comparava o candidato com o horário
+   atual -- podia propor (e no caminho salão-aberto até auto-confirmar)
+   um horário já passado no dia de hoje. Corrigido pulando qualquer
+   candidato `< Date.now()`. Testado de verdade: pedido às 23h54
+   pulou corretamente pro dia seguinte.
+2. XSS armazenado esquecido no bloco de solicitações agrupadas
+   (`nomeCliente`/`pedido_cliente`, texto livre do cliente via
+   WhatsApp, sem `escHtml`) -- mesma classe já corrigida em
+   `renderModalLotes` no mesmo dia, ficou de fora aqui.
+3. `resolverServico` casava `nome_servico` vazio/ausente com QUALQUER
+   atividade (`''.includes()` é sempre `true`), resolvendo pro
+   primeiro serviço do catálogo em vez de falhar -- bug pré-existente
+   que a feature nova estendeu pro caminho que auto-confirma sem
+   revisão humana. Corrigido: nome vazio não tenta match nenhum.
+4. `propor-horario` não marcava `origem_proposta='equipe'` ao propor
+   manualmente um horário pra um item nascido de busca automática --
+   o item continuava sendo tratado como "não revisado por humano"
+   mesmo depois da equipe vetar o horário à mão.
+5. Update de encadeamento de horário no aceite em lote não checava
+   erro -- falha silenciosa geraria agendamentos sobrepostos sem
+   nenhum aviso.
+6. `created_at` podia empatar entre linhas de um mesmo INSERT em lote
+   (Postgres avalia `now()` uma vez por statement), quebrando a
+   reconstrução da ordem pedida pelo cliente no aceite em grupo --
+   corrigido escalonando `created_at` explicitamente por índice.
+7. `.map()` de ids de profissionais recriado a cada iteração do
+   horário candidato -- hoisted pra fora do loop.
+8. Aceitação parcial com um item vazio em `servicos_aceitos` também
+   casava com qualquer solicitação pendente (mesma classe do bug #3)
+   -- corrigido filtrando nomes vazios antes de guardar o resultado.
+9. Aceitar um grupo de N serviços mandava N mensagens de WhatsApp
+   separadas pro cliente -- consolidado numa única mensagem
+   (`notificarConfirmacaoGrupo`), mesmo espírito do que
+   `tratarRespostaPropostaHorario` já fazia no caminho conversacional.
+
 ### Conta de teste
 
 Existe um estabelecimento de teste ("Studio Teste QA") no Supabase de
@@ -390,15 +523,15 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
 4. **Marketplace de Clientes** — placeholder "em breve", decisão consciente
    (13/09): diretório público + rastreio de origem é decisão de canal de
    aquisição, não prioridade agora. Reavaliar quando fizer sentido.
-5. **Rastreabilidade de lote de insumo — CONSTRUÍDO em 14/09, não
-   rodado/testado ainda**: ver seção "Rastreabilidade de lote (FEFO) +
-   painel-admin.html real" acima. Falta David rodar a migração 22 e
-   testar no navegador.
-6. **`painel-admin.html` — CONSTRUÍDO em 14/09, não rodado/testado
-   ainda**: Contas e Visão Geral reais; Financeiro/Suporte/Auditoria
-   ficam "em breve" por decisão explícita (ver seção acima). Falta
-   David rodar a migração 23, inserir sua própria linha em `admins`, e
-   testar login no navegador.
+5. **Rastreabilidade de lote de insumo — RESOLVIDO em 14/09**: migração
+   22 rodada, testado no navegador de verdade (2 lotes com validades
+   diferentes, fechamento de comanda confirmando baixa FEFO pelo lote
+   mais próximo do vencimento). Ver seção "Rastreabilidade de lote
+   (FEFO) + painel-admin.html real" acima.
+6. **`painel-admin.html` — RESOLVIDO em 14/09**: migração 23 rodada,
+   admin inserido, login testado no navegador com dado real de
+   Contas/Visão Geral. Financeiro/Suporte/Auditoria ficam "em breve"
+   por decisão explícita (ver seção acima).
 7. **Log de auditoria real (LGPD)** — pendência nova, identificada ao
    escopar o painel-admin: exige instrumentar leitura/escrita/exportação
    de dado sensível em todas as rotas existentes (mudança grande,
@@ -406,12 +539,20 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
 8. **Central de suporte (tickets)** — pendência nova, identificada ao
    escopar o painel-admin: precisa de tabela/rotas novas, feature nova
    (não é "tornar real o que já existe"). Não escopado ainda.
+9. **Agendamento self-service com múltiplos serviços — RESOLVIDO em
+   14/09**: ver seção "Agendamento self-service com múltiplos serviços
+   via WhatsApp" acima. Testado de verdade (webhook + Groq real) nos
+   dois caminhos (salão aberto: agenda direto; salão fechado: equipe
+   confirma). Não testado ainda: conflito de horário real (corrida) e
+   recusa parcial (cliente aceita só parte dos serviços propostos).
 
 ## Ordem sugerida pra continuar
 
-1. Migrações 22 e 23 já rodadas e admin já inserido (ver seção acima) --
-   falta só testar no navegador: cadastro de lote + fechamento de
-   comanda (baixa FEFO) e login no painel-admin.
+1. ~~Migrações 22 e 23~~ -- RESOLVIDO, testado no navegador (ver
+   Pendências item 5/6). Migração 24 (grupo_id/origem_proposta) também
+   já rodada, agendamento self-service testado ponta a ponta (item 9).
+   Falta só testar conflito real/recusa parcial se quiser mais
+   confiança antes de usar em produção com clientes de verdade.
 2. Testar o motor de agendamento via WhatsApp ponta a ponta com número
    real com calma (conexão já validada, mas registrar_solicitacao_agendamento,
    aceitar/propor horário, checagem de conflito, lembrete 2h e aviso de

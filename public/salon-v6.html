@@ -313,6 +313,7 @@ const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
 const html=(el,mk)=>{el.innerHTML=mk;return el};
 const R=v=>'R$ '+v.toLocaleString('pt-BR');
+const escHtml=v=>(v==null?'':String(v)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 async function atualizarHero(){
   try{
@@ -1002,7 +1003,7 @@ window.abrirModalLotesProduto=async function(produtoId,produtoNome){
 function renderModalLotes(){
   const linhas=lotesAtual.length?lotesAtual.map(l=>{
     const validade=l.validade?new Date(l.validade+'T00:00:00').toLocaleDateString('pt-BR'):'sem validade';
-    return '<div class="lr"><div style="flex:1"><div class="lrn">'+(l.numero_lote||'Sem número')+'</div><div class="lrm">'+l.quantidade_atual+' de '+l.quantidade_inicial+' · vence '+validade+' · entrou '+new Date(l.data_entrada+'T00:00:00').toLocaleDateString('pt-BR')+'</div></div></div>';
+    return '<div class="lr"><div style="flex:1"><div class="lrn">'+escHtml(l.numero_lote||'Sem número')+'</div><div class="lrm">'+l.quantidade_atual+' de '+l.quantidade_inicial+' · vence '+validade+' · entrou '+new Date(l.data_entrada+'T00:00:00').toLocaleDateString('pt-BR')+'</div></div></div>';
   }).join(''):'<div style="padding:12px;font-size:12px;color:var(--ink3)">Nenhum lote cadastrado ainda — a quantidade em estoque acima é editada direto até o primeiro lote entrar.</div>';
   Modal.open('Lotes — '+lotesContexto.nome,'<div class="mb2">'
     +'<div>'+linhas+'</div>'
@@ -1218,6 +1219,15 @@ window.aceitarSolicitacaoAgendamento=async function(id){
   }catch(erro){Toast.show(erro.message,'⚠');}
 };
 
+window.aceitarGrupoSolicitacao=async function(grupoId){
+  try{
+    const resultados=await chamarAPI('POST',`/solicitacoes-agendamento/grupo/${grupoId}/aceitar`);
+    const falhas=resultados.filter(r=>!r.ok);
+    Toast.show(falhas.length?falhas.length+' serviço(s) não puderam ser confirmados (conflito de horário)':'Agendamento(s) confirmado(s)! Cliente avisada por WhatsApp.',falhas.length?'⚠':'✓');
+    P.agenda();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
 window.abrirPropostaHorario=function(id){
   const s=(state.solicitacoesAgendamento||[]).find(x=>x.id===id);
   if(!s)return;
@@ -1282,19 +1292,38 @@ async agenda(){
   const horaLocal=iso=>{const d=new Date(iso);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
   const dataHoje=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
   const fmtDataHora=iso=>new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const gruposSolicitacao=new Map();
+  solicitacoesAbertas.forEach(s=>{
+    const chave=s.grupo_id||s.id;
+    if(!gruposSolicitacao.has(chave))gruposSolicitacao.set(chave,[]);
+    gruposSolicitacao.get(chave).push(s);
+  });
   const blocoSolicitacoes=solicitacoesAbertas.length?('<div class="card mb12"><div class="cardh"><div class="cardt">Solicitações <em>Fora do Horário</em></div></div><div>'
-    +solicitacoesAbertas.map(s=>{
-      const nomeCliente=s.clientes?.nome||s.clientes?.telefone||'Cliente';
-      const nomeServico=s.estabelecimento_atividades?.nome||'Serviço';
-      const comProfissional=s.profissionais?.nome?' com '+s.profissionais.nome:'';
-      if(s.status==='horario_proposto'){
-        return '<div class="lr"><div style="flex:1"><div class="lrn">'+nomeCliente+'</div><div class="lrm">'+nomeServico+comProfissional+' — pediu: "'+s.pedido_cliente+'"</div><div class="lrm" style="color:var(--am)">Aguardando resposta sobre '+fmtDataHora(s.data_hora_proposta)+'</div></div></div>';
-      }
-      return '<div class="lr"><div style="flex:1"><div class="lrn">'+nomeCliente+'</div><div class="lrm">'+nomeServico+comProfissional+' — pediu: "'+s.pedido_cliente+'"'+(s.data_hora_solicitada?' ('+fmtDataHora(s.data_hora_solicitada)+')':'')+'</div></div>'
-        +'<div style="display:flex;gap:6px;flex-shrink:0">'
-        +(s.data_hora_solicitada?'<button class="btn btp xs" onclick="aceitarSolicitacaoAgendamento(\''+s.id+'\')">Aceitar</button>':'')
-        +'<button class="btn btgh xs" onclick="abrirPropostaHorario(\''+s.id+'\')">Propor horário</button>'
-        +'</div></div>';
+    +[...gruposSolicitacao.entries()].map(([chave,itens])=>{
+      const primeiro=itens[0];
+      // nomeCliente e pedido_cliente vêm de texto livre do cliente via
+      // WhatsApp (nome no cadastro, pedido em linguagem natural) -- sem
+      // escapar, viram innerHTML cru na tela de quem está logada no painel.
+      const nomeCliente=escHtml(primeiro.clientes?.nome||primeiro.clientes?.telefone||'Cliente');
+      const linhasServico=itens.map(s=>{
+        const nomeServico=escHtml(s.estabelecimento_atividades?.nome||'Serviço');
+        const comProfissional=s.profissionais?.nome?' com '+escHtml(s.profissionais.nome):'';
+        if(s.status==='horario_proposto'){
+          return '<div class="lrm" style="color:var(--am)">'+nomeServico+comProfissional+' — aguardando resposta sobre '+fmtDataHora(s.data_hora_proposta)+'</div>';
+        }
+        // data_hora_proposta pode estar preenchida aqui mesmo em pendente --
+        // acontece quando o cliente aceitou um horário achado pela busca
+        // automática mas o salão estava fechado nesse momento (ver
+        // tratarRespostaPropostaHorario em whatsapp.js): a equipe já tem um
+        // horário pronto pra revisar/aceitar, não precisa propor do zero.
+        const horarioConhecido=s.data_hora_solicitada||s.data_hora_proposta;
+        return '<div class="lrm">'+nomeServico+comProfissional+(horarioConhecido?' ('+fmtDataHora(horarioConhecido)+')':'')+' <button class="btn btgh xs" style="margin-left:6px" onclick="abrirPropostaHorario(\''+s.id+'\')">Propor horário</button></div>';
+      }).join('');
+      const podeAceitarDireto=itens.some(s=>s.data_hora_solicitada||s.data_hora_proposta);
+      const botaoAceitar=itens.length>1
+        ?(podeAceitarDireto?'<button class="btn btp xs" style="flex-shrink:0" onclick="aceitarGrupoSolicitacao(\''+chave+'\')">Aceitar tudo</button>':'')
+        :((itens[0].data_hora_solicitada||itens[0].data_hora_proposta)?'<button class="btn btp xs" style="flex-shrink:0" onclick="aceitarSolicitacaoAgendamento(\''+itens[0].id+'\')">Aceitar</button>':'');
+      return '<div class="lr" style="align-items:flex-start"><div style="flex:1"><div class="lrn">'+nomeCliente+'</div><div class="tsm tm2" style="margin:2px 0 6px">pediu: "'+escHtml(primeiro.pedido_cliente)+'"</div>'+linhasServico+'</div>'+botaoAceitar+'</div>';
     }).join('')+'</div></div>'):'';
   html(pg,blocoSolicitacoes+'<div class="gsplit"><div>'
   +'<div class="sech"><div><div class="sct">Agenda <em>de Hoje</em></div><div class="scsub">'+dataHoje+' - '+validos.length+' agendamento(s) - por profissional</div></div><div class="scacts"><button class="btn btp sm" onclick="abrirModalNovoAgendamento()">+ Agendar</button></div></div>'
