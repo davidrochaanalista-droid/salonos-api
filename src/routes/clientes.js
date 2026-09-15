@@ -11,6 +11,7 @@
 
 const express = require('express');
 const { encryptSensitive, decryptSensitive } = require('../lib/crypto');
+const { registrarAcessoAuditoria } = require('../lib/auditoria');
 const router = express.Router();
 
 // GET /estabelecimentos/:id/clientes — lista clientes do estabelecimento
@@ -23,19 +24,27 @@ router.get('/estabelecimentos/:id/clientes', async (req, res) => {
 
   if (error) return res.status(500).json({ erro: error.message });
   res.json(data);
+
+  registrarAcessoAuditoria(req.supabase, {
+    estabelecimentoId: req.params.id,
+    ator: req.user?.email || req.user?.id,
+    operacao: 'read',
+    tabela: 'clientes',
+    detalhe: `Listou ${data.length} cliente(s)`,
+  });
 });
 
 // GET /clientes/:id — detalhe de um cliente, incluindo resumo de memória da IA
 router.get('/clientes/:id', async (req, res) => {
   const { data: clienteBruto, error } = await req.supabase
     .from('clientes')
-    .select('id, nome, telefone, endereco, data_nascimento, estado_onboarding, ultima_interacao_em, created_at, observacoes_criptografadas')
+    .select('id, estabelecimento_id, nome, telefone, endereco, data_nascimento, estado_onboarding, ultima_interacao_em, created_at, observacoes_criptografadas')
     .eq('id', req.params.id)
     .single();
 
   if (error) return res.status(404).json({ erro: 'Cliente não encontrado ou sem permissão de acesso.' });
 
-  const { observacoes_criptografadas, ...cliente } = clienteBruto;
+  const { observacoes_criptografadas, estabelecimento_id, ...cliente } = clienteBruto;
   let observacoes = null;
   try {
     observacoes = decryptSensitive(observacoes_criptografadas);
@@ -59,6 +68,15 @@ router.get('/clientes/:id', async (req, res) => {
     .maybeSingle();
 
   res.json({ ...cliente, memoria_ia: memoria || null, ultimo_atendimento: ultimoAtendimento || null });
+
+  registrarAcessoAuditoria(req.supabase, {
+    estabelecimentoId: estabelecimento_id,
+    ator: req.user?.email || req.user?.id,
+    operacao: 'read',
+    tabela: 'clientes',
+    registroId: req.params.id,
+    detalhe: `Leitura de ficha completa (inclui observações/ficha técnica) — cliente ${cliente.nome || req.params.id}`,
+  });
 });
 
 // PATCH /clientes/:id — editar dados do cliente, incluindo ficha técnica
@@ -76,11 +94,21 @@ router.patch('/clientes/:id', async (req, res) => {
     .from('clientes')
     .update(atualizacoes)
     .eq('id', req.params.id)
-    .select('id, nome, telefone, endereco, data_nascimento, estado_onboarding, ultima_interacao_em, created_at')
+    .select('id, estabelecimento_id, nome, telefone, endereco, data_nascimento, estado_onboarding, ultima_interacao_em, created_at')
     .single();
 
   if (error) return res.status(500).json({ erro: error.message });
-  res.json(data);
+  const { estabelecimento_id, ...clienteResposta } = data;
+  res.json(clienteResposta);
+
+  registrarAcessoAuditoria(req.supabase, {
+    estabelecimentoId: estabelecimento_id,
+    ator: req.user?.email || req.user?.id,
+    operacao: 'write',
+    tabela: 'clientes',
+    registroId: req.params.id,
+    detalhe: `Atualizou campo(s): ${Object.keys(atualizacoes).join(', ')}`,
+  });
 });
 
 module.exports = router;

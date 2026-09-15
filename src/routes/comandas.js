@@ -164,3 +164,4 @@ async function dispararAvaliacoes(supabase, comandaId) {
 }
 
 module.exports = router;
+module.exports.dispararAvaliacoes = dispararAvaliacoes;

@@ -15,6 +15,7 @@
 
 const express = require('express');
 const evolution = require('../lib/evolution-api');
+const { registrarAcessoAuditoria } = require('../lib/auditoria');
 
 const router = express.Router();
 
@@ -93,6 +94,14 @@ router.get('/estabelecimentos/:id/whatsapp/contatos', async (req, res) => {
   const telefonesExistentes = new Set((clientesExistentes || []).map(c => c.telefone));
 
   res.json(contatos.map(c => ({ ...c, ja_e_cliente: telefonesExistentes.has(c.telefone) })));
+
+  registrarAcessoAuditoria(req.supabase, {
+    estabelecimentoId: req.params.id,
+    ator: req.user?.email || req.user?.id,
+    operacao: 'read',
+    tabela: 'clientes',
+    detalhe: `Leitura de telefone (${telefonesExistentes.size} cliente(s)) pra cruzar com contatos do WhatsApp`,
+  });
 });
 
 // POST /estabelecimentos/:id/whatsapp/contatos/importar
@@ -118,6 +127,14 @@ router.post('/estabelecimentos/:id/whatsapp/contatos/importar', async (req, res)
 
   if (error) return res.status(500).json({ erro: error.message });
   res.json({ importados: novos.length });
+
+  registrarAcessoAuditoria(req.supabase, {
+    estabelecimentoId: req.params.id,
+    ator: req.user?.email || req.user?.id,
+    operacao: 'write',
+    tabela: 'clientes',
+    detalhe: `Importou ${novos.length} cliente(s) novo(s) dos contatos do WhatsApp`,
+  });
 });
 
 module.exports = router;

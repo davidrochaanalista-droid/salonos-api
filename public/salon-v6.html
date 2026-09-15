@@ -735,6 +735,7 @@ function renderComandaAberta(){
     +'<div><div class="ctotal">'
     +'<div class="ctrow" style="font-size:15px"><span class="ctl fw6">Total</span><span class="cttot">'+R(total)+'</span></div>'
     +'<div class="fg mt10"><label class="flbl">Forma de pagamento</label><select class="fi" id="comandaPagamento"><option value="pix">Pix</option><option value="dinheiro">Dinheiro</option><option value="credito">Crédito</option><option value="debito">Débito</option><option value="outro">Outro</option></select></div>'
+    +(estabelecimentoAtivo?.gateway_pagamento?'<button class="btn btgh sm wf" style="justify-content:center;margin-top:10px" onclick="cobrarComandaViaPix()">Cobrar via Pix</button>':'')
     +'<button class="btn btg sm wf" style="justify-content:center;margin-top:10px" onclick="fecharComandaAtual()">Fechar comanda</button>'
     +'</div></div>'
     +'</div>');
@@ -789,6 +790,53 @@ window.cancelarComandaLocal=function(){
   comandaAtual=null;
   P.comanda();
 };
+
+let pollingPix=null;
+
+// Gera a cobrança de verdade no gateway configurado pelo dono e fica de
+// olho na comanda: o webhook do provedor (POST /webhooks/pix/...) que dá
+// baixa sozinho, esse poll só existe pra tela reagir sem o dono ter que
+// atualizar a página (mesmo padrão já usado no QR do WhatsApp).
+window.cobrarComandaViaPix=async function(){
+  Modal.open('Cobrar via Pix','<div class="mb2" style="text-align:center;padding:20px 0">Gerando cobrança...</div>');
+  try{
+    const cobranca=await chamarAPI('POST',`/comandas/${comandaAtual.id}/cobrar-pix`);
+    Modal.open('Cobrar via Pix','<div class="mb2" style="text-align:center">'
+      +'<p class="tsm tm2" style="margin-bottom:12px">Valor: '+R(cobranca.valor)+' — peça pra cliente escanear o QR ou colar o código no app do banco.</p>'
+      +(cobranca.qr_data_url?'<img src="'+escHtml(cobranca.qr_data_url)+'" style="width:220px;height:220px;border-radius:8px" alt="QR code Pix">':'')
+      +'<div class="fg mt10"><input class="fi" id="pixCopiaCola" readonly value="'+escHtml(cobranca.copia_cola||'')+'" onclick="this.select()"></div>'
+      +'<button class="btn btgh sm" style="margin-top:8px" onclick="navigator.clipboard.writeText($(\'#pixCopiaCola\').value);Toast.show(\'Copiado!\')">Copiar código</button>'
+      +'<p class="tsm tm2" style="margin-top:12px" id="pixStatus">Aguardando pagamento...</p>'
+      +'</div><div class="mf"><button class="btn btgh sm" onclick="pararPollingPix();Modal.close()">Fechar</button></div>');
+    iniciarPollingPix();
+  }catch(erro){
+    // erro.message pode carregar texto vindo direto da API do gateway
+    // (Mercado Pago/Asaas/Efí) -- terceiro, não string fixa do nosso
+    // próprio backend -- por isso escapado aqui (diferente do resto do
+    // arquivo, onde erro.message é sempre string fixa nossa).
+    Modal.open('Cobrar via Pix','<div class="mb2" style="color:var(--rs)">Não foi possível gerar a cobrança: '+escHtml(erro.message)+'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button></div>');
+  }
+};
+
+function iniciarPollingPix(){
+  pararPollingPix();
+  pollingPix=setInterval(async()=>{
+    try{
+      const comanda=await chamarAPI('GET',`/comandas/${comandaAtual.id}`);
+      if(comanda.status==='fechada'){
+        pararPollingPix();
+        Modal.close();
+        Toast.show('Pagamento recebido! Comanda baixada automaticamente.','✅');
+        comandaAtual=null;
+        P.comanda();
+      }
+    }catch(erro){/* erro passageiro de rede não deve fechar o modal */}
+  },3000);
+}
+
+function pararPollingPix(){
+  if(pollingPix){clearInterval(pollingPix);pollingPix=null;}
+}
 
 // ============================================================
 // CAIXA — extrato real + Supabase Realtime (Item 4)
@@ -861,7 +909,26 @@ window.salvarConfigSalao=async function(){
     endereco:$('#cfgEndereco')?.value.trim(),
     horario_abertura:$('#cfgAbertura')?.value||null,
     horario_fechamento:$('#cfgFechamento')?.value||null,
+    chave_pix:$('#cfgChavePix')?.value.trim()||null,
+    gateway_pagamento:$('#cfgGateway')?.value||null,
   };
+  // Credenciais de gateway só entram no PATCH se o dono de fato preencheu
+  // algo -- os campos nunca vêm pré-preenchidos com o valor salvo (a API
+  // não devolve credencial cifrada), então mandar em branco apagaria uma
+  // credencial já configurada sem o dono ter pedido isso.
+  if(corpo.gateway_pagamento==='mercadopago'){
+    const access_token=$('#cfgMpToken')?.value.trim();
+    const webhook_secret=$('#cfgMpWebhookSecret')?.value.trim();
+    if(access_token||webhook_secret)corpo.gateway_credenciais={access_token,webhook_secret};
+  }else if(corpo.gateway_pagamento==='asaas'){
+    const api_key=$('#cfgAsaasApiKey')?.value.trim();
+    const webhook_token=$('#cfgAsaasWebhookToken')?.value.trim();
+    if(api_key||webhook_token)corpo.gateway_credenciais={api_key,webhook_token};
+  }else if(corpo.gateway_pagamento==='efi'){
+    const client_id=$('#cfgEfiClientId')?.value.trim();
+    const client_secret=$('#cfgEfiClientSecret')?.value.trim();
+    if(client_id||client_secret||efiCertificadoBase64)corpo.gateway_credenciais={client_id,client_secret,certificado_base64:efiCertificadoBase64};
+  }
   if(btn)btn.textContent='Salvando...';
   try{
     const atualizado=await chamarAPI('PATCH',`/estabelecimentos/${estabelecimentoAtivo.id}`,corpo);
@@ -869,6 +936,7 @@ window.salvarConfigSalao=async function(){
     $('#unitLabel').textContent=estabelecimentoAtivo.nome;
     $('#unitName').textContent=estabelecimentoAtivo.nome;
     Toast.show('Configuracoes salvas!');
+    if(estabelecimentoAtivo.chave_pix)carregarPrevisaoPix();
   }catch(erro){
     Toast.show('Nao foi possivel salvar: '+erro.message,'⚠');
   }finally{
@@ -1621,6 +1689,7 @@ planos(){
 
 config(){
   const e=estabelecimentoAtivo||{};
+  const gw=e.gateway_pagamento||'';
   const secs=[
     {t:'Informacoes do Salao',rs:[
       {l:'Nome do salao',d:'Como aparece para as clientes',ct:'<input class="fi" style="width:200px" id="cfgNome" value="'+(e.nome||'')+'">'},
@@ -1632,9 +1701,95 @@ config(){
       {l:'Abertura',d:'Primeiro horario disponivel',ct:'<input class="fi" style="width:110px" type="time" id="cfgAbertura" value="'+(e.horario_abertura||'').slice(0,5)+'">'},
       {l:'Fechamento',d:'Ultimo horario disponivel',ct:'<input class="fi" style="width:110px" type="time" id="cfgFechamento" value="'+(e.horario_fechamento||'').slice(0,5)+'">'},
     ]},
+    {t:'Pagamento',rs:[
+      {l:'Chave Pix',d:'Usada pela IA pra mandar Copia-e-Cola no WhatsApp quando a cliente topa pagar adiantado — sem gateway, sem baixa automática, só um numero pro dono conferir no proprio banco',ct:'<input class="fi" style="width:260px" id="cfgChavePix" value="'+escHtml(e.chave_pix||'')+'" placeholder="CPF, e-mail, telefone ou chave aleatoria"><div id="cfgPixPreview"></div>'},
+    ]},
+    {t:'Gateway de Pagamento',rs:[
+      {l:'Provedor',d:'Pra cobrar via Pix numa comanda com baixa automatica — cada provedor pede credenciais diferentes',ct:'<select class="fi" style="width:200px" id="cfgGateway" onchange="atualizarCamposGateway()">'
+        +'<option value=""'+(gw===''?' selected':'')+'>Nenhum</option>'
+        +'<option value="mercadopago"'+(gw==='mercadopago'?' selected':'')+'>Mercado Pago</option>'
+        +'<option value="asaas"'+(gw==='asaas'?' selected':'')+'>Asaas</option>'
+        +'<option value="efi"'+(gw==='efi'?' selected':'')+'>Efi</option>'
+        +'</select>'},
+      {l:'Credenciais',d:'Nunca reaparecem aqui depois de salvas, por seguranca — so preencha se estiver cadastrando ou trocando',ct:'<div id="cfgGatewayCampos"></div>'},
+    ]},
   ];
-  html($('#page-config'),secs.map(s=>'<div class="cfsec"><div class="cfh">'+s.t+'</div>'+s.rs.map(r=>'<div class="cfrow"><div><div class="cflbl">'+r.l+'</div>'+(r.d?'<div class="cfdesc">'+r.d+'</div>':'')+'</div>'+r.ct+'</div>').join('')+'</div>').join('')+'<div class="flex jb mt4 ic"><span class="tsm tm2">SalonOS v6</span><button class="btn btp" id="cfgSalvarBtn" onclick="salvarConfigSalao()">Salvar configuracoes</button></div>');
+  html($('#page-config'),secs.map(s=>'<div class="cfsec"><div class="cfh">'+s.t+'</div>'+s.rs.map(r=>'<div class="cfrow"><div><div class="cflbl">'+r.l+'</div>'+(r.d?'<div class="cfdesc">'+r.d+'</div>':'')+'</div>'+r.ct+'</div>').join('')+'</div>').join('')+'<div class="flex jb mt4 ic"><span class="tsm tm2">SalonOS v6</span><div><button class="btn btgh" style="margin-right:8px" onclick="abrirModalSuporte()">Precisa de ajuda?</button><button class="btn btp" id="cfgSalvarBtn" onclick="salvarConfigSalao()">Salvar configuracoes</button></div></div>');
+  atualizarCamposGateway();
+  if(e.chave_pix)carregarPrevisaoPix();
 }
+};
+
+// ============================================================
+// CONFIG — Pagamento: preview da chave Pix solta + campos
+// condicionais de credencial por gateway (Mercado Pago/Asaas/Efi)
+// ============================================================
+async function carregarPrevisaoPix(){
+  const wrap=$('#cfgPixPreview');
+  if(!wrap)return;
+  try{
+    const pix=await chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/pix`);
+    html(wrap,'<div class="tsm tm2" style="margin-top:6px">Copia-e-cola: <code style="word-break:break-all">'+escHtml(pix.copia_cola)+'</code></div>'
+      +(pix.qr_data_url?'<img src="'+escHtml(pix.qr_data_url)+'" style="width:160px;height:160px;border-radius:8px;margin-top:8px" alt="QR Pix">':''));
+  }catch(erro){/* sem chave cadastrada ainda ou falha momentanea -- sem preview, sem drama */}
+}
+
+const CAMPOS_GATEWAY={
+  mercadopago:[{id:'cfgMpToken',lbl:'Access Token',ph:'APP_USR-...'},{id:'cfgMpWebhookSecret',lbl:'Webhook Secret',ph:'tela de Webhooks no dashboard do Mercado Pago'}],
+  asaas:[{id:'cfgAsaasApiKey',lbl:'API Key',ph:'$aact_...'},{id:'cfgAsaasWebhookToken',lbl:'Webhook Token',ph:'escolhido ao cadastrar o webhook na Asaas'}],
+  efi:[{id:'cfgEfiClientId',lbl:'Client ID',ph:''},{id:'cfgEfiClientSecret',lbl:'Client Secret',ph:''}],
+};
+
+window.atualizarCamposGateway=function(){
+  const gw=$('#cfgGateway')?.value||'';
+  const wrap=$('#cfgGatewayCampos');
+  if(!wrap)return;
+  if(!gw){html(wrap,'<div class="tsm tm2">Selecione um provedor pra configurar as credenciais.</div>');return;}
+  let corpo=(CAMPOS_GATEWAY[gw]||[]).map(c=>'<div class="fg mt8"><label class="flbl">'+c.lbl+'</label><input class="fi" style="width:260px" id="'+c.id+'" placeholder="'+c.ph+'"></div>').join('');
+  if(gw==='efi'){
+    corpo+='<div class="fg mt8"><label class="flbl">Certificado (.p12)</label><input class="fi" type="file" id="cfgEfiCertificado" accept=".p12,.pfx" onchange="lerCertificadoEfi(event)"></div><div class="tsm tm2" id="cfgEfiCertificadoStatus"></div>';
+  }
+  html(wrap,corpo);
+  efiCertificadoBase64=null;
+};
+
+// ============================================================
+// CONFIG — Central de suporte: abrir chamado (o dono não vê/responde
+// os próprios chamados aqui, só abre -- ver /admin/tickets no painel-admin
+// pro lado do David responder)
+// ============================================================
+window.abrirModalSuporte=function(){
+  Modal.open('Precisa de ajuda?',`<div class="mb2">
+    <div class="fg"><label class="flbl">Assunto</label><input class="fi" id="ticketAssunto" placeholder="Resumo do problema"></div>
+    <div class="fg mt10"><label class="flbl">Mensagem</label><textarea class="fi" id="ticketMensagem" rows="4" placeholder="Descreva com detalhes o que está acontecendo"></textarea></div>
+    <div class="fg mt10"><label class="flbl">Prioridade</label><select class="fi" id="ticketPrioridade"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option></select></div>
+  </div>
+  <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarAbrirTicket()">Enviar chamado</button></div>`);
+};
+
+window.confirmarAbrirTicket=async function(){
+  const assunto=$('#ticketAssunto')?.value.trim();
+  const mensagem=$('#ticketMensagem')?.value.trim();
+  const prioridade=$('#ticketPrioridade')?.value||'media';
+  if(!assunto||!mensagem){Toast.show('Preencha assunto e mensagem','⚠');return;}
+  try{
+    await chamarAPI('POST',`/estabelecimentos/${estabelecimentoAtivo.id}/tickets`,{assunto,mensagem,prioridade});
+    Modal.close();
+    Toast.show('Chamado enviado! A equipe responde por aqui em breve.');
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
+let efiCertificadoBase64=null;
+window.lerCertificadoEfi=function(ev){
+  const arquivo=ev.target.files?.[0];
+  if(!arquivo)return;
+  const leitor=new FileReader();
+  leitor.onload=()=>{
+    efiCertificadoBase64=leitor.result.split(',')[1];
+    const status=$('#cfgEfiCertificadoStatus');
+    if(status)status.textContent='Certificado carregado: '+arquivo.name;
+  };
+  leitor.readAsDataURL(arquivo);
 };
 
 // PWA install prompt

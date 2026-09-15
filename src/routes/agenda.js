@@ -9,6 +9,7 @@
 
 const express = require('express');
 const { enviarMensagemWhatsApp } = require('./whatsapp');
+const { registrarAcessoAuditoria } = require('../lib/auditoria');
 const router = express.Router();
 
 // POST /estabelecimentos/:id/agendamentos — criar agendamento
@@ -51,6 +52,14 @@ router.get('/estabelecimentos/:id/agendamentos', async (req, res) => {
   const { data, error } = await consulta;
   if (error) return res.status(500).json({ erro: error.message });
   res.json(data);
+
+  registrarAcessoAuditoria(req.supabase, {
+    estabelecimentoId: req.params.id,
+    ator: req.user?.email || req.user?.id,
+    operacao: 'read',
+    tabela: 'clientes',
+    detalhe: `Leitura de nome/telefone via agenda (${data.length} agendamento(s))`,
+  });
 });
 
 // PATCH /agendamentos/:id — editar horário/status/profissional

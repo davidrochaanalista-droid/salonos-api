@@ -114,4 +114,58 @@ describe('Autenticação', () => {
     const res = await request(app).post('/solicitacoes-agendamento/grupo/qualquer-id/aceitar');
     expect(res.status).toBe(401);
   });
+
+  it('bloqueia GET /estabelecimentos/:id/pix sem Authorization header', async () => {
+    const res = await request(app).get('/estabelecimentos/qualquer-id/pix');
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia POST /comandas/:id/cobrar-pix sem Authorization header', async () => {
+    const res = await request(app).post('/comandas/qualquer-id/cobrar-pix');
+    expect(res.status).toBe(401);
+  });
+
+  it('não exige autenticação no webhook de pagamento Pix (chamado pelo provedor)', async () => {
+    // gateway inexistente propositalmente -- obterAdapter() rejeita e a rota
+    // responde 404 antes de bater no Supabase (nenhum teste aqui bate na
+    // rede de verdade, ver jest.setup.js). O que importa pro teste é que
+    // NÃO seja 401: a rota está montada antes de `autenticar`.
+    const res = await request(app).post('/webhooks/pix/gateway-inexistente/qualquer-id').send({});
+    expect(res.status).not.toBe(401);
+  });
+
+  it('bloqueia POST /estabelecimentos/:id/tickets sem Authorization header', async () => {
+    const res = await request(app).post('/estabelecimentos/qualquer-id/tickets').send({ assunto: 'x', mensagem: 'y' });
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia GET /estabelecimentos/:id/tickets sem Authorization header', async () => {
+    const res = await request(app).get('/estabelecimentos/qualquer-id/tickets');
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia /admin/tickets sem Authorization header', async () => {
+    const res = await request(app).get('/admin/tickets');
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia PATCH /admin/tickets/:id sem Authorization header', async () => {
+    const res = await request(app).patch('/admin/tickets/qualquer-id').send({ status: 'resolvido' });
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia /admin/auditoria sem Authorization header', async () => {
+    const res = await request(app).get('/admin/auditoria');
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia /admin/hub-metricas sem X-Hub-Key (não é rota de usuário logado)', async () => {
+    const res = await request(app).get('/admin/hub-metricas');
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia /admin/hub-metricas com X-Hub-Key errada', async () => {
+    const res = await request(app).get('/admin/hub-metricas').set('X-Hub-Key', 'chave-errada');
+    expect(res.status).toBe(401);
+  });
 });

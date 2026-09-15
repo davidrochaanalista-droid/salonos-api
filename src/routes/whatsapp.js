@@ -19,6 +19,8 @@ const Groq = require('groq-sdk');
 const { randomUUID } = require('crypto');
 const evolution = require('../lib/evolution-api');
 const { buscarHorariosDisponiveis } = require('../lib/disponibilidade');
+const { registrarAcessoAuditoria } = require('../lib/auditoria');
+const { gerarCopiaECola } = require('../lib/pix');
 const { confirmarSolicitacaoAgendamento } = require('../lib/agendamento-confirmacao');
 
 const router = express.Router();
@@ -114,6 +116,14 @@ const FERRAMENTAS_IA = [
         },
         required: ['servicos'],
       },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'enviar_chave_pix',
+      description: 'Gera o Pix Copia-e-Cola (chave/QR) de verdade pro cliente pagar adiantado, usando a chave cadastrada pelo estabelecimento. Sem parâmetros -- o sistema já sabe qual é o estabelecimento. Só chame quando o cliente topar pagar adiantado.',
+      parameters: { type: 'object', properties: {} },
     },
   },
 ];
@@ -252,6 +262,13 @@ async function executarFerramentaIA(chamada, contexto) {
     };
   }
 
+  if (chamada.function?.name === 'enviar_chave_pix') {
+    if (!contexto.chavePix) return { ok: false, motivo: 'estabelecimento não tem chave Pix cadastrada' };
+    const copiaCola = gerarCopiaECola({ chavePix: contexto.chavePix, nomeEstabelecimento: contexto.nomeEstabelecimento, cidade: contexto.cidadeEstabelecimento });
+    if (!copiaCola) return { ok: false, motivo: 'falha ao gerar o Pix com a chave cadastrada' };
+    return { ok: true, copia_cola: copiaCola };
+  }
+
   return { ok: false, motivo: 'ferramenta desconhecida' };
 }
 
@@ -284,7 +301,7 @@ function estaAberto(estabelecimento) {
 // ============================================================
 // SYSTEM PROMPT
 // ============================================================
-function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instrucaoExtra, nomeCliente, exigirSinal }) {
+function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instrucaoExtra, nomeCliente, exigirSinal, chavePix }) {
   const listaAtividades = atividades
     .map(a => `- ${a.nome}${a.preco ? ` (${a.preco_variavel ? 'a partir de ' : ''}R$ ${a.preco})` : ''}${a.duracao_min ? `, ${a.duracao_min}min` : ''}`)
     .join('\n');
@@ -310,7 +327,7 @@ REGRAS DE TOM (sempre):
 - Se não entender a mensagem, peça esclarecimento com gentileza (ex: "só pra eu entender direitinho, você quer dizer...?"), nunca de forma seca.
 - Se o cliente pedir pra parar de receber mensagens ou demonstrar desinteresse, respeite na hora, sem insistir nem repetir a pergunta.
 - Se o cliente pedir pra corrigir nome, endereço ou data de nascimento, use a ferramenta atualizar_cadastro_cliente disponível -- nunca diga que corrigiu ou salvou algo sem realmente chamar a ferramenta.
-- Se o cliente perguntar sobre pagar adiantado/antecipado (pra não perder tempo esperando se o salão estiver cheio, por exemplo): receba a ideia bem, mas nunca invente chave Pix, link de pagamento ou qualquer forma de cobrar -- isso ainda não existe no sistema. Diga com honestidade que a equipe entra em contato pra combinar isso diretamente.
+- Se o cliente perguntar sobre pagar adiantado/antecipado (pra não perder tempo esperando se o salão estiver cheio, por exemplo): receba a ideia bem. ${chavePix ? 'Chame a ferramenta enviar_chave_pix pra mandar a chave/QR de verdade -- nunca digite a chave você mesma, sempre use a ferramenta. O valor continua sendo combinado com a equipe (nunca invente valor).' : 'Nunca invente chave Pix, link de pagamento ou qualquer forma de cobrar -- isso ainda não existe no sistema. Diga com honestidade que a equipe entra em contato pra combinar isso diretamente.'}
 
 SERVIÇOS OFERECIDOS:
 ${listaAtividades}
@@ -480,6 +497,7 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
       instrucaoExtra,
       nomeCliente: cliente.nome,
       exigirSinal: (faltasCount || 0) > LIMITE_FALTAS_SINAL,
+      chavePix: estabelecimento.chave_pix,
     });
 
     const mensagensIA = [{ role: 'system', content: systemPrompt }, ...historico, { role: 'user', content: mensagem }];
@@ -501,7 +519,7 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
     if (mensagemResposta.tool_calls?.length) {
       mensagensIA.push(mensagemResposta);
       for (const chamada of mensagemResposta.tool_calls) {
-        const resultado = await executarFerramentaIA(chamada, { cliente, atividades: atividades || [], profissionais: profissionais || [], estabelecimentoId });
+        const resultado = await executarFerramentaIA(chamada, { cliente, atividades: atividades || [], profissionais: profissionais || [], estabelecimentoId, chavePix: estabelecimento.chave_pix, nomeEstabelecimento: estabelecimento.nome, cidadeEstabelecimento: estabelecimento.cidade });
         mensagensIA.push({ role: 'tool', tool_call_id: chamada.id, content: JSON.stringify(resultado) });
       }
       resposta = await groq.chat.completions.create({
@@ -784,6 +802,18 @@ async function registrarMensagens({ estabelecimentoId, clienteId, mensagem, resp
     { estabelecimento_id: estabelecimentoId, cliente_id: clienteId, direcao: 'recebida', conteudo: mensagem },
     { estabelecimento_id: estabelecimentoId, cliente_id: clienteId, direcao: 'enviada', conteudo: respostaTexto, modelo_ia: MODELO_IA },
   ]);
+
+  // Uma linha por interação (não por campo) -- a IA lê/eventualmente
+  // escreve dado de cliente (nome, telefone, endereço) a cada mensagem;
+  // logar campo a campo seria ruído demais no log de auditoria.
+  registrarAcessoAuditoria(supabase, {
+    estabelecimentoId,
+    ator: 'sistema:whatsapp',
+    operacao: 'write',
+    tabela: 'clientes',
+    registroId: clienteId,
+    detalhe: 'Leitura/atualização de dado de cliente durante conversa automatizada do WhatsApp',
+  });
 }
 
 // Payload do webhook da Evolution API (evento "messages.upsert", formato v2).

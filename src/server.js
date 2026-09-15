@@ -34,7 +34,10 @@ const rotasListaEspera = require('./routes/lista-espera');
 const rotasProdutos = require('./routes/produtos');
 const rotasWhatsappConexao = require('./routes/whatsapp-conexao');
 const rotasSolicitacoesAgendamento = require('./routes/solicitacoes-agendamento');
+const rotasPagamentos = require('./routes/pagamentos'); // POST /comandas/:id/cobrar-pix (autenticado) + webhookRouter (ver abaixo)
+const rotasTickets = require('./routes/tickets'); // central de suporte, lado do dono -- ver /admin/tickets em routes/admin.js pro lado do David
 const rotasAdmin = require('./routes/admin'); // painel-admin.html — ver exigirAdmin abaixo
+const rotaHubMetricas = require('./routes/hub-metricas'); // GET /admin/hub-metricas -- chamada pelo backend do hub OmniFlow Studio, não por usuário logado
 const { iniciarScheduler } = require('./lib/automacoes/scheduler');
 const rotaWhatsapp = require('./routes/whatsapp'); // wrapper do 02-whatsapp-ia-servico.js — ver nota no final deste arquivo
 const rotaAvaliacoes = require('./routes/avaliacoes'); // pública -- cliente sem login avalia via link
@@ -99,6 +102,20 @@ app.use(rotaWhatsapp);
 app.use('/avaliacoes', rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false }));
 app.use(rotaAvaliacoes);
 
+// ── Webhook de gateway de pagamento (Pix) — quem chama é o provedor
+// (Mercado Pago/Asaas/Efí), nunca um usuário logado; mesmo motivo do
+// webhook do WhatsApp acima. webhookRouter já define o caminho completo
+// /webhooks/pix/:gateway/:estabelecimentoId internamente. ──
+app.use('/webhooks', rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false }));
+app.use(rotasPagamentos.webhookRouter);
+
+// ── Métricas pro hub OmniFlow Studio — chamada servidor-a-servidor,
+// autenticada por segredo compartilhado (X-Hub-Key), não por usuário
+// logado; por isso fica fora de `autenticar`/`exigirAdmin` mesmo
+// respondendo em /admin/*. Ver src/routes/hub-metricas.js. ──
+app.use('/admin/hub-metricas', rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: true, legacyHeaders: false }));
+app.use(rotaHubMetricas);
+
 // ── A partir daqui, toda rota exige token válido do Supabase Auth ──
 app.use(autenticar);
 
@@ -117,6 +134,8 @@ app.use('/', rotasListaEspera);   // já inclui o prefixo /estabelecimentos/:id/
 app.use('/', rotasProdutos);      // já inclui o prefixo /estabelecimentos/:id/produtos e /atividades/:id/receita internamente
 app.use('/', rotasWhatsappConexao); // já inclui o prefixo /estabelecimentos/:id/whatsapp/* internamente
 app.use('/', rotasSolicitacoesAgendamento); // já inclui os prefixos /estabelecimentos/:id/... e /solicitacoes-agendamento/:id/... internamente
+app.use('/', rotasPagamentos);    // POST /comandas/:id/cobrar-pix
+app.use('/', rotasTickets);       // já inclui o prefixo /estabelecimentos/:id/tickets internamente
 
 // ── Painel admin interno -- exige, além do token válido, estar na
 // tabela `admins` (ver src/middleware/exigirAdmin.js). exigirAdmin fica

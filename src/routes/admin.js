@@ -5,13 +5,12 @@
  * em server.js) -- usam req.supabaseAdmin (service_role, cross-tenant
  * de propósito), nunca req.supabase. Ver src/middleware/exigirAdmin.js.
  *
- * Escopo desta entrega (14/09/2026): só Contas e Visão Geral têm dado
- * real pra mostrar (estabelecimentos/proprietarios/status_assinatura/
- * planos_precos já existem). Financeiro, Suporte e Auditoria & LGPD
- * não têm sistema real por trás ainda (sem gateway de pagamento, sem
- * tabela de ticket, sem log de acesso) -- ficam "em breve" no frontend,
- * sem rota correspondente aqui, pelo mesmo princípio já usado no resto
- * do projeto: nenhuma seção mostra número inventado.
+ * Escopo desta entrega (15/09/2026): Contas, Visão Geral, Auditoria &
+ * LGPD e Suporte já têm dado real por trás (auditoria_acessos e
+ * tickets_suporte, ver database/26 e 27). Financeiro segue sem sistema
+ * real (sem conciliação bancária própria da plataforma) -- fica "em
+ * breve" no frontend, sem rota correspondente aqui, mesmo princípio já
+ * usado no resto do projeto: nenhuma seção mostra número inventado.
  */
 
 const express = require('express');
@@ -56,6 +55,59 @@ router.get('/admin/visao', async (req, res) => {
     contagem_por_status: contagemPorStatus,
     mrr_contratado: mrrContratado,
   });
+});
+
+// GET /admin/auditoria?estabelecimento_id=&limit= — log de acesso a dado
+// sensível de cliente (LGPD), cross-tenant por desenho -- só admin vê.
+router.get('/admin/auditoria', async (req, res) => {
+  const { estabelecimento_id, limit } = req.query;
+  let consulta = req.supabaseAdmin
+    .from('auditoria_acessos')
+    .select('id, estabelecimento_id, ator, operacao, tabela, registro_id, detalhe, created_at')
+    .order('created_at', { ascending: false })
+    .limit(Math.min(Number(limit) || 200, 1000));
+
+  if (estabelecimento_id) consulta = consulta.eq('estabelecimento_id', estabelecimento_id);
+
+  const { data, error } = await consulta;
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json(data);
+});
+
+// GET /admin/tickets — todos os chamados de suporte, cross-tenant
+router.get('/admin/tickets', async (req, res) => {
+  const { status } = req.query;
+  let consulta = req.supabaseAdmin
+    .from('tickets_suporte')
+    .select('id, estabelecimento_id, proprietario_id, assunto, mensagem, prioridade, status, resposta_admin, created_at, respondido_em, estabelecimentos(nome)')
+    .order('created_at', { ascending: false });
+
+  if (status) consulta = consulta.eq('status', status);
+
+  const { data, error } = await consulta;
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json(data);
+});
+
+// PATCH /admin/tickets/:id — David responde/atualiza o status do chamado
+router.patch('/admin/tickets/:id', async (req, res) => {
+  const { resposta_admin, status } = req.body;
+  const atualizacoes = {};
+  if (resposta_admin !== undefined) {
+    atualizacoes.resposta_admin = resposta_admin;
+    atualizacoes.respondido_em = new Date().toISOString();
+  }
+  if (status !== undefined) atualizacoes.status = status;
+
+  const { data, error } = await req.supabaseAdmin
+    .from('tickets_suporte')
+    .update(atualizacoes)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json(data);
 });
 
 module.exports = router;
