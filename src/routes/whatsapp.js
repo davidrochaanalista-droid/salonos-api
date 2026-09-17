@@ -399,7 +399,7 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
     if (cliente.estado_onboarding !== 'completo') {
       const respostaTexto = await processarOnboarding({ cliente, mensagem, estabelecimento });
       await registrarMensagens({ estabelecimentoId, clienteId: cliente.id, mensagem, respostaTexto });
-      await enviarMensagemWhatsApp({ telefone, texto: respostaTexto, estabelecimentoId });
+      await enviarRespostaIA({ telefone, texto: respostaTexto, estabelecimentoId });
       return res.sendStatus(200);
     }
 
@@ -562,19 +562,19 @@ async function processarOnboarding({ cliente, mensagem, estabelecimento }) {
   switch (cliente.estado_onboarding) {
     case 'novo': {
       await supabase.from('clientes').update({ estado_onboarding: 'aguardando_nome' }).eq('id', cliente.id);
-      return `${saudacaoPorHorario()}! Seja bem-vindo ao ${estabelecimento.nome} 😊 Para começar, qual é o seu nome completo?`;
+      return `${saudacaoPorHorario()}! Seja bem-vindo(a) ao ${estabelecimento.nome} 😊\n\nPra começar, qual é o seu nome completo?`;
     }
 
     case 'aguardando_nome': {
       const nome = await extrairCampoComIA(mensagem, 'nome completo da pessoa');
       await supabase.from('clientes').update({ nome, estado_onboarding: 'aguardando_endereco' }).eq('id', cliente.id);
-      return `Prazer, ${nome.split(' ')[0]}! Agora me conta seu endereço — usamos isso só para ocasiões especiais, como enviar uma lembrança de aniversário.`;
+      return `Prazer, ${nome.split(' ')[0]}! 😊\n\nAgora me conta seu endereço? A gente usa isso só pra ocasiões especiais, tipo mandar uma lembrancinha no seu aniversário.`;
     }
 
     case 'aguardando_endereco': {
       const endereco = await extrairCampoComIA(mensagem, 'endereço completo');
       await supabase.from('clientes').update({ endereco, estado_onboarding: 'completo' }).eq('id', cliente.id);
-      return `Perfeito, já está tudo registrado! Se quiser, pode me contar depois a sua data de nascimento — assim conseguimos lembrar de você em datas especiais. E agora, me diz: como posso te ajudar hoje?`;
+      return `Perfeito, já está tudo registrado! ✅\n\nSe quiser, depois me conta sua data de nascimento também, assim a gente não esquece de você em datas especiais.\n\nAgora me conta, como posso te ajudar hoje?`;
     }
 
     default:
