@@ -646,6 +646,100 @@ e-mail nunca confirmado — não usar. Teste de ponta a ponta do fluxo de
 convite deve ser feito criando conta nova através de um convite real.
 Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
 
+### Achados de sessão não documentada + limpeza + 3 pendências fechadas (17/09/2026)
+
+Sessão começou com "onde paramos" e uma varredura do que ficou pendurado
+sem documentar desde 16/09. Achados, na ordem:
+
+- **`vencimento_em`/lembrete de assinatura**: existia um recurso inteiro
+  pronto no working tree, não commitado e não documentado aqui --
+  `database/31-vencimento-assinatura.sql` (campo `vencimento_em` +
+  `vencimento_lembrete_enviado_dias` em `estabelecimentos`) e
+  `src/lib/lembretesAssinatura.js` (scheduler de 6h que avisa o DONO do
+  salão, por WhatsApp, quando a assinatura dele tá vencendo -- 7/3/1/0
+  dias, com Pix copia-e-cola da própria mensalidade via
+  `SALONOS_CHAVE_PIX`). Já estava corretamente ligado em `server.js`
+  (`iniciarSchedulerVencimento()`) e no `painel-admin.html`/`salon-v6.html`
+  (campo de data + banner de aviso pro dono). Revisado de ponta a ponta,
+  nenhum bug encontrado -- só nunca tinha sido commitado nem
+  documentado. Migração 31 **ainda não rodada em produção**.
+- **`GET /admin/hub-metricas`**: commit `39252a2` (15/09) e `1b6df0e`
+  também tocam nisso mas não tinham entrada própria aqui -- rota
+  autenticada por `X-Hub-Key` (segredo compartilhado, não login) pro
+  painel interno da agência OmniFlow Studio acompanhar contas/MRR.
+  Documentado retroativamente na seção "Pagamento antecipado..." acima.
+- **Achado sério, fora do escopo do que foi pedido nesta sessão**: as
+  entradas do changelog acima que citam `tests/subcontas.test.js`,
+  `tests/webhook_asaas.test.js`, `tests/seguranca.test.js`,
+  `tests/financeiro.test.js` e `tests/integracoes.test.js` com contagens
+  tipo "24/24"/"260/260" -- **nenhum desses arquivos existe no disco
+  nem no histórico do git** (`git log --follow` neles não acha nada,
+  não é `.gitignore`). Ou foram escritos numa sessão que nunca commitou
+  antes de terminar, ou se perderam de outro jeito. As alegações de
+  cobertura dessas sessões passadas **não são mais verificáveis** --
+  só `tests/crypto.test.js`, `tests/server.test.js` (smoke 401) e o
+  `tests/agendamento-conflito-parcial.test.js` novo desta sessão
+  existem de verdade hoje. Vale reconstruir a cobertura perdida aos
+  poucos, não é urgente, mas fica registrado pra não confiar cegamente
+  nos números antigos deste arquivo.
+- **`openM()`/`M`/`clientDetail()` + `const D` removidos** de
+  `salon-v6.html` (~230 linhas) -- eram código 100% morto, não o "8
+  modais com dado fake, decisão de não mexer" que o item 11 antigo
+  descrevia. O único botão que ainda chamava esse bloco (`openM('agend')`)
+  referenciava uma chave que nem existe mais no registro `M` -- e
+  `clientDetail()` (ficha de cliente com alergia/fórmula/histórico
+  100% inventados) também não tinha nenhum botão que a alcançasse. As
+  versões reais já existiam em outro lugar: despesa/saída ->
+  `POST /caixa`; fechar comanda/pagamento -> `POST /comandas/:id/fechar`
+  + Pix; ficha de cliente -> `abrirClienteDetalhe()` (linha ~710, real).
+  Confirmado com David antes de apagar. `novaFunc`, `googleReserve` e
+  `qrportal` (cadastro de funcionária avulso, integração Google
+  Reserve/Instagram, portal PWA da cliente) nunca tiveram versão real
+  em lugar nenhum -- por decisão do David, ficam fora de escopo por
+  enquanto, mesmo critério do `nfe`/Marketplace.
+- **Venda avulsa de produto no balcão (real)**: `database/32-venda-avulsa-produto.sql`
+  (`produtos.preco_venda`, função `vender_produto_avulso` -- dá baixa
+  por FEFO via `dar_baixa_estoque_fefo` já existente e lança a entrada
+  no caixa), rota `POST /produtos/:id/vender`. UI: campo "Preço de
+  venda" no cadastro/edição de produto, botão "Vender" na linha do
+  produto (só aparece se tiver preço de venda) e dentro do modal de
+  edição. `npm test` 45/45 depois da mudança.
+- **Reverificação de e-mail a cada logout/expiração de sessão (item 12
+  antigo, agora resolvido)**: `sb.auth.onAuthStateChange` escuta
+  `SIGNED_OUT` (cobre botão Sair E expiração real de sessão sem
+  diferenciar, os dois batem nesse evento) e marca
+  `localStorage['salonos_requer_reverificacao']='1'`. Próximo login com
+  essa flag: depois da senha, dispara `signInWithOtp` (código de 6
+  dígitos por e-mail, sem criar usuário novo) e só entra no painel
+  depois de `verifyOtp` confirmar -- tela nova `#lwCodigo` em
+  `salon-v6.html`. **Pendência do David, fora do meu alcance**: o
+  e-mail de "Magic Link" do Supabase por padrão só manda um link
+  clicável, não um código de 6 dígitos visível -- pra esse fluxo
+  funcionar de verdade, ele precisa editar o template em
+  Authentication → Email Templates → Magic Link no Supabase Dashboard
+  pra incluir `{{ .Token }}` no corpo do e-mail (mesma categoria de
+  ajuste manual que "Site URL"/"Allow new users to sign up" já
+  precisaram antes). **Limite conhecido**: hoje é só um gate do lado do
+  cliente (JS) -- a sessão da senha já é tecnicamente válida antes do
+  código ser confirmado, então isso não é enforcement de servidor, só
+  UX. Enforcement de verdade exigiria guardar um estado "reverificado
+  nesta sessão" em `app_metadata` e checar isso em `autenticar()`
+  (`src/middleware/auth.js`) -- não implementado, fora de escopo por
+  ora.
+- **Testado (item 9 antigo, "conflito de horário real/recusa parcial",
+  agora coberto)**: `tests/agendamento-conflito-parcial.test.js`, novo.
+  Sem bater em rede/Supabase/Groq de verdade (mesmo padrão dos outros
+  testes, ver `jest.setup.js`) -- dublês reproduzindo exatamente a
+  cadeia do client do Supabase e a forma da resposta da Groq. Cobre:
+  `confirmarSolicitacaoAgendamento` recusando quando há conflito real de
+  horário da profissional (e confirmando quando não há), e
+  `tratarRespostaPropostaHorario` confirmando só o serviço aceito e
+  devolvendo o outro pra `pendente` quando o cliente aceita parcial, e
+  nunca assumindo "recusou tudo" quando a Groq devolve `parcial` sem
+  nenhum serviço listado (ambíguo). Teste de conversa real via WhatsApp
+  continua pendente (ver Ordem sugerida item 2) -- não reativado aqui
+  de propósito, dado o histórico de incidente com número pessoal.
+
 ## Pendências reais restantes
 
 1. **Evolution API/Railway — RESOLVIDO em 13-14/09**: plano do Railway
@@ -689,24 +783,33 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
    14/09**: ver seção "Agendamento self-service com múltiplos serviços
    via WhatsApp" acima. Testado de verdade (webhook + Groq real) nos
    dois caminhos (salão aberto: agenda direto; salão fechado: equipe
-   confirma). Não testado ainda: conflito de horário real (corrida) e
-   recusa parcial (cliente aceita só parte dos serviços propostos).
+   confirma). **Conflito de horário e recusa parcial -- cobertos por
+   teste em 17/09** (ver seção "Achados de sessão não documentada..."
+   acima), com dublês, sem bater em rede real. Ainda falta o teste de
+   conversa real via WhatsApp de ponta a ponta (ver Ordem sugerida
+   item 2).
 10. **Desligar "Allow new users to sign up" no Supabase Dashboard —
     RESOLVIDO em 16/09**: David confirmou que já desligou.
-11. **8 modais com dado fake ainda no ar** (`despesa`, `fechamento`,
-    `pagamento`, `nfe`, `estqin`, `vendap`, `novaFunc`, `googleReserve`,
-    `qrportal`, registro `M` em `salon-v6.html`) -- achado em 16/09 ao
-    corrigir o modal `unidades` (que tinha o mesmo problema, já
-    resolvido). **Decisão explícita do David: não mexer agora**, foco
-    em testar pagamento real primeiro. `nfe` não pode ser tocado até ele
-    validar a necessidade com os donos de salão (mesmo motivo do item 3).
-12. **Reverificação de e-mail a cada login/expiração de sessão** --
-    pedido novo do David (16/09): "toda vez que o dono sair do sistema
-    ou expirar a sessão, o dono tem que fazer a verificação do email por
-    segurança". Ainda **não escopado nem iniciado** -- é uma camada de
-    segurança adicional, diferente do fluxo de convite (item acima), que
-    ficou pra depois por decisão consciente de terminar uma coisa de
-    cada vez.
+11. **8 "modais com dado fake" -- eram código morto, removido em
+    17/09**: não eram funcionalidades ativas usando dado fake, era
+    `openM()`/`M`/`clientDetail()` (+ o mock `D`) inalcançável por
+    nenhum botão da UI atual -- ver seção "Achados de sessão não
+    documentada..." acima pro detalhe. `despesa`/`fechamento`/`pagamento`
+    já têm versão real em outro lugar do app; `nfe` continua de fora
+    por decisão de produto (mesmo motivo do item 3); `estqin`/`vendap`
+    (entrada e venda avulsa de produto) ganharam versão real em 17/09
+    (`vender_produto_avulso`, migração 32); `novaFunc`/`googleReserve`/
+    `qrportal` seguem fora de escopo, decisão consciente do David.
+12. **Reverificação de e-mail a cada login/expiração de sessão --
+    RESOLVIDO em 17/09** (ver seção "Achados de sessão não
+    documentada..." acima): `signInWithOtp`/`verifyOtp` nativos do
+    Supabase, disparado sempre que `SIGNED_OUT` acontece (logout ou
+    sessão expirada, sem diferenciar). **Pendência do David**: editar o
+    template de e-mail "Magic Link" no Supabase Dashboard pra incluir
+    `{{ .Token }}` (hoje só manda link clicável, sem código visível) --
+    sem isso o código nunca chega pro dono ver. Enforcement é só do
+    lado do cliente por ora, não do servidor (ver seção acima pro
+    porquê).
 
 ## Ordem sugerida pra continuar
 
