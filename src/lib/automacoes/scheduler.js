@@ -234,6 +234,12 @@ async function rodarTodasAutomacoes() {
 }
 
 function iniciarScheduler() {
+  // Roda uma vez assim que o servidor sobe, além do intervalo -- sem
+  // isso, todo restart (deploy, crash) abre uma janela morta de até
+  // INTERVALO_MS sem nenhuma checagem (lembrete 24h, reativação,
+  // aniversário, retorno de ciclo ficam atrasados, nunca perdidos, já
+  // que a checagem é sempre por data/hora no banco).
+  rodarTodasAutomacoes();
   setInterval(() => rodarTodasAutomacoes(), INTERVALO_MS);
 }
 

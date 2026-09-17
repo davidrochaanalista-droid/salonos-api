@@ -810,6 +810,20 @@ sem documentar desde 16/09. Achados, na ordem:
     sem isso o código nunca chega pro dono ver. Enforcement é só do
     lado do cliente por ora, não do servidor (ver seção acima pro
     porquê).
+13. **Migração 31 (vencimento de assinatura) — RESOLVIDO em 17/09**:
+    rodada em produção pelo David. Lembrete testado direto contra
+    `verificarVencimentos()` usando o estabelecimento QA (`whatsapp_status:
+    desconectado`, então sem risco de mandar mensagem real): limiares
+    7/3/1/0 dias marcam `vencimento_lembrete_enviado_dias` corretamente,
+    dedupe não reenvia no mesmo limiar, dia fora do limiar (ex. 5) não
+    marca nada. Também corrigido de brinde: `iniciarScheduler()` e
+    `iniciarSchedulerVencimento()` (`src/lib/automacoes/scheduler.js`,
+    `src/lib/lembretesAssinatura.js`) só tinham `setInterval`, sem rodar
+    uma vez ao subir -- todo restart (deploy, crash) abria uma janela
+    morta de até 15min (automações de cliente) / 6h (vencimento) sem
+    nenhuma checagem. Não perdia dado (checagem é sempre por data no
+    banco), só atrasava o próximo aviso. Agora chama a função uma vez
+    antes de armar o `setInterval`. `npm test` 45/45 depois da mudança.
 
 ## Ordem sugerida pra continuar
 

@@ -90,7 +90,12 @@ async function verificarVencimentos() {
 }
 
 function iniciarSchedulerVencimento() {
-  setInterval(() => verificarVencimentos().catch((erro) => console.error('Falha em verificarVencimentos:', erro)), INTERVALO_MS);
+  // Roda uma vez assim que o servidor sobe, além do intervalo -- sem
+  // isso, todo restart (deploy, crash) abre uma janela morta de até
+  // INTERVALO_MS (6h) sem nenhuma checagem de vencimento.
+  const rodar = () => verificarVencimentos().catch((erro) => console.error('Falha em verificarVencimentos:', erro));
+  rodar();
+  setInterval(rodar, INTERVALO_MS);
 }
 
 module.exports = { iniciarSchedulerVencimento, verificarVencimentos };
