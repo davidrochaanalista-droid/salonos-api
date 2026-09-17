@@ -825,6 +825,27 @@ sem documentar desde 16/09. Achados, na ordem:
     banco), só atrasava o próximo aviso. Agora chama a função uma vez
     antes de armar o `setInterval`. `npm test` 45/45 depois da mudança.
 
+    **Teste de envio real em produção (17/09)**: conectado de verdade o
+    WhatsApp do estabelecimento "Harry Studio" (QR escaneado, número
+    real do David) e disparado o lembrete de vencimento contra produção
+    via `railway run` (env vars reais, sem tocar em `.env` local).
+    **Bug real achado na primeira tentativa**: Evolution API recusou o
+    envio (`{"exists":false}`) porque `proprietarios.telefone` estava
+    salvo sem DDI (`11977435644`), diferente de
+    `estabelecimentos.whatsapp_numero` (vem do pareamento, já com DDI:
+    `5511977435644`). **Corrigido**: `normalizarTelefone()` nova em
+    `src/lib/evolution-api.js`, aplicada dentro de `enviarTexto` (ponto
+    único de envio) -- detecta pelo tamanho do número (10/11 dígitos =
+    sem DDI, precisa de `55` na frente), não pelo prefixo, porque DDD 55
+    (Rio Grande do Sul) existe de verdade e um prefixo `"55"` já
+    presente pode ser DDD local, não DDI. Retestado depois do fix:
+    mensagem chegou de verdade no WhatsApp real, confirmado pelo David.
+    Esse bug afetava **qualquer** envio (lembrete de vencimento,
+    automações pro cliente, resposta da IA) pra um telefone cadastrado
+    sem DDI, não só esse caso -- corrigido pra todos de uma vez por
+    estar no choke point. Instância de teste do Harry Studio desconectada
+    depois do teste (mesmo cuidado do incidente de 13/09).
+
 ## Ordem sugerida pra continuar
 
 1. ~~Migrações 22 e 23~~ -- RESOLVIDO, testado no navegador (ver

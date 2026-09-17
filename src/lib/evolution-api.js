@@ -118,16 +118,30 @@ async function buscarContatosSalvos(estabelecimentoId) {
     .filter(c => c.telefone);
 }
 
+// Telefone sem DDI (10/11 dígitos -- DDD + número local) vira um JID que
+// não existe no WhatsApp (`{"exists":false}` da Evolution, falha silenciosa
+// -- só loga erro, não quebra o fluxo que chamou). Achado testando o
+// lembrete de vencimento em produção de verdade (17/09): proprietarios.telefone
+// é digitado à mão sem DDI, diferente de estabelecimentos.whatsapp_numero
+// (vem do próprio pareamento, já com DDI). Detecta por tamanho, não por
+// prefixo "55" -- DDD 55 (Rio Grande do Sul) existe de verdade, então um
+// número local de lá já começa com "55" sem ter DDI nenhum.
+function normalizarTelefone(telefone) {
+  const digitos = String(telefone || '').replace(/\D/g, '');
+  return digitos.length === 10 || digitos.length === 11 ? `55${digitos}` : digitos;
+}
+
 async function enviarTexto(estabelecimentoId, telefone, texto) {
   const instancia = nomeInstancia(estabelecimentoId);
   await chamarEvolution(`/message/sendText/${instancia}`, {
     method: 'POST',
-    body: JSON.stringify({ number: telefone, text: texto }),
+    body: JSON.stringify({ number: normalizarTelefone(telefone), text: texto }),
   });
 }
 
 module.exports = {
   nomeInstancia,
+  normalizarTelefone,
   evolutionConfigurada: () => !!configuracaoEvolution(),
   criarOuReconectarInstancia,
   buscarQrCode,
