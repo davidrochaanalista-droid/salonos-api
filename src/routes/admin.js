@@ -25,7 +25,7 @@ router.get('/admin/me', (req, res) => {
 router.get('/admin/contas', async (req, res) => {
   const { data, error } = await req.supabaseAdmin
     .from('estabelecimentos')
-    .select('id, nome, cidade, bairro, endereco, cep, cnpj, plano, status_assinatura, created_at, proprietarios(nome, telefone, cpf)')
+    .select('id, nome, cidade, bairro, endereco, cep, cnpj, plano, status_assinatura, vencimento_em, created_at, proprietarios(nome, telefone, cpf)')
     .order('created_at', { ascending: false });
 
   if (error) return res.status(500).json({ erro: error.message });
@@ -36,10 +36,16 @@ router.get('/admin/contas', async (req, res) => {
 // livre, ou troca o plano -- única forma de editar esses campos, o dono
 // do salão nunca escolhe o próprio status/plano.
 router.patch('/admin/contas/:id', async (req, res) => {
-  const { status_assinatura, plano } = req.body;
+  const { status_assinatura, plano, vencimento_em } = req.body;
   const atualizacoes = {};
   if (status_assinatura !== undefined) atualizacoes.status_assinatura = status_assinatura;
   if (plano !== undefined) atualizacoes.plano = plano;
+  if (vencimento_em !== undefined) {
+    atualizacoes.vencimento_em = vencimento_em || null;
+    // Data mudou -- reseta o controle de limiar já avisado (7/3/1/0 dias)
+    // pra avisar de novo do zero contando a partir da data nova.
+    atualizacoes.vencimento_lembrete_enviado_dias = null;
+  }
 
   // "Livre" é cortesia com acesso total (nível do plano "escala"),
   // sem cobrar nada -- garante essa consistência mesmo que o admin

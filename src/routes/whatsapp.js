@@ -895,3 +895,4 @@ async function tratarAtualizacaoConexao(estabelecimentoId, dados) {
 module.exports = router;
 module.exports.enviarMensagemWhatsApp = enviarMensagemWhatsApp;
 module.exports.gerarMensagemPropostaHorario = gerarMensagemPropostaHorario;
+module.exports.tratarRespostaPropostaHorario = tratarRespostaPropostaHorario;

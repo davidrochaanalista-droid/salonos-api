@@ -473,6 +473,9 @@ function verConta(id){
         ${PLANOS.map(p=>`<option value="${p}" ${(c.status_assinatura==='livre'?p==='escala':c.plano===p)?'selected':''}>${esc(p)}</option>`).join('')}
       </select>
     </div>
+    <div class="lf"><label>Vencimento (opcional -- avisa o dono por WhatsApp e no painel dele conforme a data se aproxima)</label>
+      <input type="date" id="contaVencimento" value="${esc(c.vencimento_em||'')}">
+    </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
       <button class="btn btgh" onclick="Modal.close()">Fechar</button>
       <button class="btn btp" onclick="salvarConta('${id}')">Salvar</button>
@@ -497,8 +500,9 @@ function aoTrocarStatusConta(status){
 async function salvarConta(id){
   const status_assinatura = $('#contaStatus')?.value;
   const plano = $('#contaPlano')?.value;
+  const vencimento_em = $('#contaVencimento')?.value || null;
   try{
-    await chamarAPI('PATCH', `/admin/contas/${id}`, { status_assinatura, plano });
+    await chamarAPI('PATCH', `/admin/contas/${id}`, { status_assinatura, plano, vencimento_em });
     Modal.close();
     Toast.show('Conta atualizada!');
     P.contas();

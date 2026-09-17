@@ -192,6 +192,17 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
     <button class="lbtn" id="loginBtn" onclick="doLogin()">Entrar no SalonOS</button>
   </div>
 </div>
+<div class="lw" id="lwCodigo" style="display:none">
+  <div class="lb">
+    <div class="llogo"><div class="lmark">&#9986;</div><div class="lbrand">Salon<em>OS</em></div></div>
+    <div class="lh">Confirme seu <em>e-mail</em></div>
+    <div class="lsub">Por segurança, depois de sair ou a sessão expirar, enviamos um código de 6 dígitos para <strong id="lwCodigoEmail"></strong>. Confira sua caixa de entrada (e o spam).</div>
+    <div id="codigoErro" style="display:none;background:rgba(192,80,74,.18);color:#e6a19c;border-radius:8px;padding:10px 13px;font-size:12px;margin-bottom:14px;line-height:1.5"></div>
+    <div class="lf"><label>Código recebido por e-mail</label><input type="text" inputmode="numeric" maxlength="6" id="codigoInput" placeholder="000000"></div>
+    <button class="lbtn" id="codigoBtn" onclick="confirmarCodigoReverificacao()">Confirmar e entrar</button>
+    <button class="btn btgh sm wf" style="justify-content:center;margin-top:10px" onclick="reenviarCodigoReverificacao()">Reenviar código</button>
+  </div>
+</div>
 <!-- TOPBAR -->
 <header class="topbar" id="topbar" style="display:none">
   <div class="brand"><div class="bmark">&#9986;</div><div><div class="bname">Salon<em>OS</em></div><div class="bsub" id="unitLabel">Studio Beleza Pro</div></div></div>
@@ -225,6 +236,7 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
     <div class="hk"><div class="hkv" id="hk3">-</div><div class="hkl">RECEITA MES</div><div class="hkd" id="hk3d" style="color:var(--sg)">-</div></div>
   </div>
 </div>
+<div id="avisoVencimento" style="display:none;padding:10px 20px;text-align:center;font-size:12.5px;font-weight:600"></div>
 <!-- MAIN -->
 <div class="main" id="mainWrap" style="display:none">
   <section class="page active" id="page-agenda"></section>
@@ -259,6 +271,16 @@ const SUPABASE_ANON_KEY = 'sb_publishable_WGAnLGQxexd89d0dOJhpTg_KoIGWVaX';
 const API_BASE_URL = '';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Pedido do David (16/09/2026): sempre que a sessão for encerrada -- de
+// propósito (botão Sair) ou porque o SDK não conseguiu renovar o token
+// sozinho (expirou de verdade) -- o próximo login exige reverificação por
+// e-mail além da senha, por segurança. SIGNED_OUT é o único evento do SDK
+// que cobre os dois casos sem diferenciar (não precisamos diferenciar).
+// Login novo (sem sessão anterior nunca ter existido) não passa por aqui.
+sb.auth.onAuthStateChange((evento)=>{
+  if(evento==='SIGNED_OUT')localStorage.setItem('salonos_requer_reverificacao','1');
+});
+
 let estabelecimentoAtivo = null;
 let todosEstabelecimentos = []; // lista real do dono (pode ter mais de um) -- ver abrirModalUnidades()
 let caixaChannel = null;
@@ -288,27 +310,6 @@ function renderEmBreve(pageId,titulo,sub){
   +'<div style="font-size:12.5px;line-height:1.6">Essa área ainda não está conectada a dados reais.</div>'
   +'</div></div>');
 }
-
-const D={
-  staff:[
-    {id:1,nm:'Camila Souza',rl:'Colorista',in:'CS',c:'#8B7A55',bg:'rgba(139,122,85,.18)',st:'ativo',cm:45,at:38,re:5720,cv:2574,rt:4.9,mt:7000,tl:'(11)98800-1122'},
-    {id:2,nm:'Renata Lima',rl:'Cabeleireira',in:'RL',c:'#4A7A62',bg:'rgba(74,122,98,.18)',st:'ativo',cm:40,at:31,re:3720,cv:1488,rt:4.7,mt:5000,tl:'(11)97711-3344'},
-    {id:3,nm:'Bruna Martins',rl:'Manicure',in:'BM',c:'#7A5A8A',bg:'rgba(122,90,138,.18)',st:'ativo',cm:50,at:54,re:2430,cv:1215,rt:4.8,mt:3000,tl:'(11)96622-5566'},
-    {id:4,nm:'Patricia Costa',rl:'Esteticista',in:'PC',c:'#6A7A9A',bg:'rgba(106,122,154,.18)',st:'ativo',cm:40,at:22,re:3960,cv:1584,rt:4.6,mt:5000,tl:'(11)95533-7788'},
-  ],
-  procs:[
-    {id:1,nm:'Coloracao Completa',cat:'Cabelo',dur:120,price:180,cost:32,comm:45},
-    {id:2,nm:'Mechas / Luzes',cat:'Cabelo',dur:150,price:220,cost:48,comm:45},
-    {id:3,nm:'Corte Feminino',cat:'Cabelo',dur:60,price:80,cost:8,comm:40},
-    {id:4,nm:'Progressiva',cat:'Cabelo',dur:180,price:280,cost:65,comm:40},
-    {id:5,nm:'Hidratacao Profunda',cat:'Cabelo',dur:60,price:90,cost:18,comm:45},
-    {id:6,nm:'Escova Modeladora',cat:'Cabelo',dur:60,price:70,cost:5,comm:40},
-    {id:7,nm:'Manicure Completa',cat:'Unhas',dur:45,price:40,cost:6,comm:50},
-    {id:8,nm:'Nail Art',cat:'Unhas',dur:90,price:80,cost:14,comm:50},
-    {id:9,nm:'Limpeza de Pele',cat:'Estetica',dur:90,price:150,cost:22,comm:40},
-    {id:10,nm:'Depilacao Completa',cat:'Estetica',dur:60,price:120,cost:15,comm:40},
-  ],
-};
 
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
@@ -354,6 +355,8 @@ const Modal={
   close(){$('#mbd').classList.remove('open');}
 };
 
+let emailReverificacaoPendente=null;
+
 async function doLogin(){
   const email=$('#loginEmail').value.trim();
   const senha=$('#loginSenha').value;
@@ -366,18 +369,22 @@ async function doLogin(){
     if(error)throw error;
     const estabelecimentos=await chamarAPI('GET','/estabelecimentos');
     if(!estabelecimentos.length)throw new Error('Nenhum estabelecimento cadastrado para este login.');
-    todosEstabelecimentos=estabelecimentos;
-    estabelecimentoAtivo=estabelecimentos[0];
-    $('#unitLabel').textContent=estabelecimentoAtivo.nome;
-    $('#unitName').textContent=estabelecimentoAtivo.nome;
-    $('#lw').classList.add('hide');
-    setTimeout(()=>{
+
+    if(localStorage.getItem('salonos_requer_reverificacao')==='1'){
+      emailReverificacaoPendente=email;
+      const{error:erroOtp}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false}});
+      if(erroOtp)throw erroOtp;
+      todosEstabelecimentos=estabelecimentos;
+      estabelecimentoAtivo=estabelecimentos[0];
+      $('#lwCodigoEmail').textContent=email;
+      $('#codigoErro').style.display='none';
+      $('#codigoInput').value='';
       $('#lw').style.display='none';
-      $('#topbar').style.display='flex';
-      $('#heroBar').style.display='flex';
-      $('#mainWrap').style.display='block';
-      init();
-    },500);
+      $('#lwCodigo').style.display='flex';
+      return;
+    }
+
+    entrarNoApp(estabelecimentos);
   }catch(erro){
     erroEl.textContent=erro.message||'Não foi possível entrar.';
     erroEl.style.display='block';
@@ -386,186 +393,54 @@ async function doLogin(){
   }
 }
 
-function openM(id){
-  const te=0,ts=0;
-  const po=D.procs.map(p=>`<option>${p.nm} - ${R(p.price)}</option>`).join('');
-  const so=D.staff.map(f=>`<option>${f.nm} (${f.rl})</option>`).join('');
-  const vo='';
-  const M={
-
-    despesa:{t:'Registrar Despesa',b:`<div class="mb2">
-      <div class="fg"><label class="flbl">Descricao</label><input class="fi" placeholder="Ex: Compra de insumos..."></div>
-      <div class="frow"><div class="fg"><label class="flbl">Valor (R$)</label><input class="fi" type="number" placeholder="0,00"></div><div class="fg"><label class="flbl">Categoria</label><select class="fi"><option>Insumos</option><option>Limpeza</option><option>Alimentacao</option><option>Manutencao</option><option>Outros</option></select></div></div>
-    </div>
-    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btre" onclick="Modal.close();Toast.show('Despesa registrada.')">Registrar saida</button></div>`},
-
-    fechamento:{t:'Fechar Caixa do Dia',b:`<div class="mb2">
-      <div style="background:var(--cr);border-radius:var(--r);padding:14px;border:1px solid var(--bd);margin-bottom:12px">
-        <div class="sr"><span class="srl">Total entradas</span><span class="srv sg">${R(te)}</span></div>
-        <div class="sr"><span class="srl">Total saidas</span><span class="srv rs">${R(ts)}</span></div>
-        <div class="sr" style="border-top:2px solid var(--bd2);margin-top:4px;padding-top:9px"><span class="srl fw6">Saldo liquido</span><span class="srv gd" style="font-size:15px">${R(te-ts)}</span></div>
-      </div>
-      <div class="fg"><label class="flbl">Emitir NF-e automaticamente?</label>
-        <div class="flex ic g8 mt4"><label class="tog"><input type="checkbox" checked><div class="togt"></div><div class="togk"></div></label><span class="tsm tm2">Sim, emitir NF-e no fechamento</span></div>
-      </div>
-    </div>
-    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Caixa fechado! NF-e emitida.')">Confirmar fechamento</button></div>`},
-
-    pagamento:{t:'Terminal de Pagamento',b:`<div class="mb2">
-      <div style="background:var(--ink);border-radius:13px;padding:20px;color:var(--wh)">
-        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:16px;margin-bottom:14px;text-align:center">
-          <div style="font-family:var(--fd);font-size:36px;font-weight:300;color:var(--gd)">R$ 650</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px">Comanda — Ana Beatriz Silva</div>
-        </div>
-        <div style="font-size:10px;color:rgba(255,255,255,.4);letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px">Maquininha</div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px">
-          ${[['🟢','Stone'],['🔵','Cielo'],['🟡','PagSeguro']].map(([ic,nm])=>`<div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:7px;padding:8px;text-align:center;cursor:pointer;font-size:11px;color:var(--wh)" onclick="this.parentElement.querySelectorAll('div').forEach(d=>{d.style.borderColor='rgba(255,255,255,.12)'});this.style.borderColor='var(--gd)'"><div style="font-size:16px;margin-bottom:3px">${ic}</div>${nm}</div>`).join('')}
-        </div>
-        <div style="font-size:10px;color:rgba(255,255,255,.4);letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px">Forma de pagamento</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px">
-          ${[['💳 Débito','À vista'],['💳 Crédito','1–12x'],['📱 Pix','Instantâneo'],['💵 Dinheiro','À vista']].map(([lb,sub],i)=>`<div style="background:rgba(255,255,255,.08);border:${i===0?'2px solid var(--gd)':'1px solid rgba(255,255,255,.12)'};border-radius:7px;padding:9px;cursor:pointer;font-size:12px;color:var(--wh)" onclick="this.parentElement.querySelectorAll('div').forEach(d=>{d.style.borderColor='rgba(255,255,255,.12)';d.style.borderWidth='1px'});this.style.borderColor='var(--gd)';this.style.borderWidth='2px'"><div style="font-weight:600">${lb}</div><div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">${sub}</div></div>`).join('')}
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;background:rgba(74,122,98,.15);border:1px solid rgba(74,122,98,.3);border-radius:8px;padding:8px 11px">
-          <span style="color:var(--sg)">✓</span>
-          <span style="font-size:11px;color:rgba(255,255,255,.7)">NF-e gerada · Comissão calculada · Estoque atualizado</span>
-        </div>
-      </div>
-    </div>
-    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btg" onclick="Modal.close();Toast.show('Aguardando maquininha...','💳');setTimeout(()=>Toast.show('Pagamento aprovado!','✅'),2000)">Enviar para maquininha</button></div>`},
-
-    nfe:{t:'Emissão de NF-e Eletrônica',b:`<div class="mb2">
-      <div style="display:flex;gap:0;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:16px">
-        ${[['✓','Dados','done'],['✓','Validação','done'],['3','SEFAZ','curr'],['4','Autorizada','']].map(([n,l,s])=>`<div style="flex:1;padding:10px 12px;text-align:center;background:${s==='done'?'var(--sgl)':s==='curr'?'rgba(201,169,110,.1)':'var(--cr2)'};border-right:1px solid var(--bd)"><div style="font-family:var(--fd);font-size:16px;font-weight:300;color:${s==='done'?'var(--sg)':s==='curr'?'var(--gdd)':'var(--ink3)'}">${n}</div><div style="font-size:10px;color:var(--ink3);margin-top:2px">${l}</div></div>`).join('')}
-      </div>
-      <div class="fg"><label class="flbl">CPF / CNPJ do tomador</label><input class="fi" placeholder="000.000.000-00"></div>
-      <div class="fg"><label class="flbl">Serviço prestado</label><select class="fi">${po}</select></div>
-      <div class="frow"><div class="fg"><label class="flbl">Valor bruto (R$)</label><input class="fi" type="number" value="180"></div><div class="fg"><label class="flbl">Alíquota ISS</label><select class="fi"><option>2% — SP</option><option>3% — SP</option><option>5% — máximo</option></select></div></div>
-      <div class="fg"><label class="flbl">Descrição do serviço</label><textarea class="fi" style="min-height:52px">Serviços de beleza e estética — coloração capilar</textarea></div>
-      <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:8px;padding:11px 13px;font-size:12px;color:var(--ink3);line-height:1.6">✓ Transmitida à SEFAZ-SP em tempo real · DANFE enviado automaticamente</div>
-    </div>
-    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Transmitindo para SEFAZ...','🧾');setTimeout(()=>Toast.show('NF-e autorizada!','✅'),1800)">🧾 Transmitir para SEFAZ</button></div>`},
-
-    estqin:{t:'Entrada de Produto',b:`<div class="mb2">
-      <div class="fg"><label class="flbl">Produto</label><input class="fi" placeholder="Nome do produto"></div>
-      <div class="frow"><div class="fg"><label class="flbl">Categoria</label><select class="fi"><option>Coloração</option><option>Tratamento</option><option>Progressiva</option><option>Manicure</option><option>Revenda</option></select></div><div class="fg"><label class="flbl">Tipo</label><select class="fi"><option>Insumo</option><option>Produto para venda</option></select></div></div>
-      <div class="frow"><div class="fg"><label class="flbl">Quantidade</label><input class="fi" type="number" placeholder="0"></div><div class="fg"><label class="flbl">Estoque minimo</label><input class="fi" type="number" placeholder="0"></div></div>
-      <div class="frow"><div class="fg"><label class="flbl">Custo (R$)</label><input class="fi" type="number" placeholder="0,00"></div><div class="fg"><label class="flbl">Preco de venda (R$)</label><input class="fi" type="number" placeholder="0,00"></div></div>
-    </div>
-    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Produto adicionado!')">Registrar entrada</button></div>`},
-
-    vendap:{t:'Vender Produto no Balcão',b:`<div class="mb2">
-      <div class="fg"><label class="flbl">Cliente</label><input class="fi" placeholder="Nome ou telefone"></div>
-      <div class="fg"><label class="flbl">Produto</label><select class="fi">${vo}</select></div>
-      <div class="frow"><div class="fg"><label class="flbl">Quantidade</label><input class="fi" type="number" value="1"></div><div class="fg"><label class="flbl">Pagamento</label><select class="fi"><option>Pix</option><option>Dinheiro</option><option>Débito</option><option>Crédito</option></select></div></div>
-    </div>
-    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Venda registrada!')">Registrar venda</button></div>`},
-
-    novaFunc:{t:'Cadastrar Funcionaria',b:`<div class="mb2">
-      <div class="frow"><div class="fg"><label class="flbl">Nome completo</label><input class="fi" placeholder="Nome"></div><div class="fg"><label class="flbl">Cargo</label><select class="fi"><option>Cabeleireira</option><option>Colorista</option><option>Manicure</option><option>Esteticista</option></select></div></div>
-      <div class="frow"><div class="fg"><label class="flbl">WhatsApp</label><input class="fi" type="tel" placeholder="(11) 9 0000-0000"></div><div class="fg"><label class="flbl">% Comissao</label><input class="fi" type="number" value="40"></div></div>
-      <div class="frow"><div class="fg"><label class="flbl">Meta mensal (R$)</label><input class="fi" type="number" placeholder="5000"></div><div class="fg"><label class="flbl">Data de admissao</label><input class="fi" type="date"></div></div>
-    </div>
-    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Funcionaria cadastrada!')">Cadastrar</button></div>`},
-
-    googleReserve:{t:'Google Reserve & Instagram',b:`<div class="mb2">
-      <div style="background:var(--sgl);border:1px solid rgba(74,122,98,.2);border-radius:var(--r);padding:14px;margin-bottom:14px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <div style="width:30px;height:30px;border-radius:6px;background:#4285F4;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff">G</div>
-          <div><div style="font-size:13px;font-weight:700">Google Reserve</div><div style="font-size:11px;color:var(--ink3)">Clientes agendam direto do Google Maps</div></div>
-          <span class="tag tsg" style="margin-left:auto">Conectado</span>
-        </div>
-        <div class="sr" style="padding:5px 0"><span class="srl">Agendamentos hoje</span><span class="srv sg2">3 novos</span></div>
-        <div class="sr" style="padding:5px 0"><span class="srl">Receita via Google</span><span class="srv gd2">R$ 4.920</span></div>
-        <div class="sr" style="padding:5px 0;border:none"><span class="srl">Avaliação no Google</span><span class="srv">4.9 ★ (127)</span></div>
-      </div>
-      <div style="background:rgba(225,48,108,.05);border:1px solid rgba(225,48,108,.2);border-radius:var(--r);padding:14px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <div style="width:30px;height:30px;border-radius:6px;background:linear-gradient(135deg,#f09433,#dc2743,#bc1888);display:grid;place-items:center;font-size:14px;color:#fff">📸</div>
-          <div><div style="font-size:13px;font-weight:700">Instagram — Botão Reservar</div><div style="font-size:11px;color:var(--ink3)">@studiobelezapro · Link na bio</div></div>
-          <span class="tag" style="margin-left:auto;background:rgba(225,48,108,.1);color:#cc2366">Ativo</span>
-        </div>
-        <div class="sr" style="padding:5px 0"><span class="srl">Agendamentos hoje</span><span class="srv" style="color:#cc2366">2 novos</span></div>
-        <div class="sr" style="padding:5px 0;border:none"><span class="srl">Agendamentos este mês</span><span class="srv">28</span></div>
-      </div>
-    </div>
-    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button><button class="btn btp" onclick="Modal.close();Toast.show('Configurações salvas!')">Salvar</button></div>`},
-
-    qrportal:{t:'Portal da Cliente — PWA',b:`<div class="mb2">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
-        <div style="text-align:center">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:10px">QR Code do Salão</div>
-          <div id="qrBox" style="width:130px;height:130px;border:2px solid var(--ink);border-radius:9px;margin:0 auto 10px;background:var(--cr);position:relative;overflow:hidden">
-            <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:1.5px;padding:9px;width:100%;height:100%" id="qrPat"></div>
-          </div>
-          <div style="font-size:10px;color:var(--ink3)">salonos.app/studio-beleza-pro</div>
-          <button class="btn btgh sm" style="margin-top:8px;width:100%;justify-content:center" onclick="Toast.show(\'Link copiado!\')">Copiar link</button>
-        </div>
-        <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:10px">Preview no celular</div>
-          <div style="background:var(--ink);border-radius:16px;padding:14px;border:2px solid var(--bd2)">
-            <div style="background:var(--wh);border-radius:10px;overflow:hidden;font-size:10px">
-              <div style="background:var(--gd);padding:8px 10px;color:var(--ink);font-weight:700;font-family:var(--fd);font-size:12px">Studio Beleza Pro ✂</div>
-              <div style="padding:8px 10px;border-bottom:1px solid var(--bd)"><div style="font-weight:700;font-size:11px">Ana Beatriz Silva</div><div style="color:var(--ink3);margin-top:2px">Próxima visita: em 42 dias</div></div>
-              <div style="padding:8px 10px;border-bottom:1px solid var(--bd)"><div style="color:var(--ink3);font-size:9px;text-transform:uppercase;margin-bottom:4px">Última fórmula</div><div>Louro 8.1 + oxidante 30vol</div></div>
-              <div style="padding:8px 10px;background:var(--gd);text-align:center;font-weight:700;font-size:10px;color:var(--ink)">Agendar novo horário</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:var(--r);padding:13px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);margin-bottom:8px">O que a cliente acessa</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${['Histórico completo','Fórmula de coloração','Reagendar sozinha','Confirmar presença','Baixar como app (PWA)'].map(f=>`<span style="font-size:11px;padding:4px 10px;background:var(--wh);border:1px solid var(--bd);border-radius:20px;color:var(--ink3)">✓ ${f}</span>`).join('')}
-        </div>
-      </div>
-    </div>
-    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button><button class="btn btp" onclick="Modal.close();Toast.show('QR compartilhado!','📲')">📲 Compartilhar</button></div>`,
-    cb:()=>{setTimeout(()=>{const pat=document.getElementById('qrPat');if(!pat)return;const s='STUDIOBELEZA';for(let i=0;i<100;i++){const el=document.createElement('div');el.style.cssText='border-radius:1px;background:'+((s.charCodeAt(i%s.length)+i*7)%3!==0?'var(--ink)':'transparent');pat.appendChild(el);}},100)}},
-  };
-  if(M[id]){Modal.open(M[id].t,M[id].b);M[id].cb&&M[id].cb();}
+function entrarNoApp(estabelecimentos){
+  todosEstabelecimentos=estabelecimentos;
+  estabelecimentoAtivo=estabelecimentos[0];
+  $('#unitLabel').textContent=estabelecimentoAtivo.nome;
+  $('#unitName').textContent=estabelecimentoAtivo.nome;
+  $('#lw').classList.add('hide');
+  setTimeout(()=>{
+    $('#lw').style.display='none';
+    $('#lwCodigo').style.display='none';
+    $('#topbar').style.display='flex';
+    $('#heroBar').style.display='flex';
+    $('#mainWrap').style.display='block';
+    init();
+  },500);
 }
 
-function clientDetail(c){
-  const sm={
-    ok:'<span class="tag tsg">Ativo</span>',
-    churn:'<span class="tag trs">Em risco</span>',
-    risk:'<span class="tag tam">Atencao</span>',
-    novo:'<span class="tag tsk">Novo</span>',
-    vip:'<span class="tag tgd">VIP</span>'
-  };
-  Modal.open(c.nm,`<div class="mb2">
-    <div class="flex ic g12 mb14" style="padding-bottom:14px;border-bottom:1px solid var(--bd)">
-      <div class="av avsq" style="width:46px;height:46px;border-radius:10px;font-size:16px;background:${c.bg};color:${c.c}">${c.in}</div>
-      <div style="flex:1"><div style="font-family:var(--fd);font-size:19px;font-style:italic">${c.nm}</div><div class="tm2 tsm mt4">${c.ph}</div></div>
-      ${sm[c.st]||''}
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-      <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:8px;padding:12px">
-        <div class="txs tm2 mb4 fw6">FORMULA</div>
-        <div style="font-size:12.5px;line-height:1.6">${c.fr}</div>
-        <button class="btn btgh xs mt8" onclick="Toast.show(\'Editando formula...\')">Editar formula</button>
-      </div>
-      <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:8px;padding:12px">
-        <div class="txs tm2 mb4 fw6">INFO PESSOAL</div>
-        <div class="sr" style="padding:4px 0"><span class="srl">Aniversario</span><span class="srv" style="font-size:12px">${c.bd}</span></div>
-        <div class="sr" style="padding:4px 0"><span class="srl">Ciclo retorno</span><span class="srv" style="font-size:12px">${c.cy} dias</span></div>
-        <div class="sr" style="padding:4px 0;border:none"><span class="srl">LTV total</span><span class="srv gd2" style="font-size:12px">${R(c.ltv)}</span></div>
-      </div>
-    </div>
-    ${c.al!=='Nenhuma'?`<div style="background:var(--rsl);border:1px solid rgba(192,80,74,.2);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--rs)">Alergia: <strong>${c.al}</strong></div>`:''}
-    <div class="txs tm2 fw6 mb8">OBSERVACOES</div>
-    <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--ink2);line-height:1.6;margin-bottom:14px">${c.obs}</div>
-    <div class="txs tm2 fw6 mb8">HISTORICO (${c.vt} visitas)</div>
-    <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:8px;overflow:hidden">
-      ${c.hist.map(h=>`<div style="padding:8px 12px;border-bottom:1px solid var(--bd);font-size:12px">${h}</div>`).join('')}
-    </div>
-  </div>
-  <div class="mf">
-    <button class="btn btgh sm" onclick="Modal.close()">Fechar</button>
-    <button class="btn btv sm" onclick="Toast.show(\'Mensagem enviada!\')">WhatsApp</button>
-    <button class="btn btg sm" onclick="Modal.close();openM(\'agend\')">+ Agendar</button>
-  </div>`,true);
-}
+window.confirmarCodigoReverificacao=async function(){
+  const codigo=$('#codigoInput')?.value.trim();
+  const erroEl=$('#codigoErro');
+  const btn=$('#codigoBtn');
+  erroEl.style.display='none';
+  if(!codigo){erroEl.textContent='Digite o código recebido por e-mail.';erroEl.style.display='block';return;}
+  btn.textContent='Confirmando...';
+  try{
+    const{error}=await sb.auth.verifyOtp({email:emailReverificacaoPendente,token:codigo,type:'email'});
+    if(error)throw error;
+    localStorage.removeItem('salonos_requer_reverificacao');
+    entrarNoApp(todosEstabelecimentos);
+  }catch(erro){
+    erroEl.textContent=erro.message||'Código inválido ou expirado.';
+    erroEl.style.display='block';
+  }finally{
+    btn.textContent='Confirmar e entrar';
+  }
+};
+
+window.reenviarCodigoReverificacao=async function(){
+  if(!emailReverificacaoPendente)return;
+  try{
+    const{error}=await sb.auth.signInWithOtp({email:emailReverificacaoPendente,options:{shouldCreateUser:false}});
+    if(error)throw error;
+    Toast.show('Novo código enviado!');
+  }catch(erro){
+    const erroEl=$('#codigoErro');
+    erroEl.textContent=erro.message||'Não foi possível reenviar o código.';
+    erroEl.style.display='block';
+  }
+};
 
 // Lista real de estabelecimentos do proprietário logado (não dado
 // inventado) -- se ele só tem um, mostra isso honestamente em vez de
@@ -997,13 +872,15 @@ function renderEstoque(){
     const validade=p.validade?new Date(p.validade+'T00:00:00').toLocaleDateString('pt-BR'):'-';
     const loteVencendo=vencendoPorProduto[p.id];
     const badgeVencendo=loteVencendo?' <span class="tag tam" style="margin-left:6px">vence '+new Date(loteVencendo.validade+'T00:00:00').toLocaleDateString('pt-BR')+'</span>':'';
-    return '<div class="trow" style="grid-template-columns:2fr 1.2fr 1fr 1fr 1fr 1fr" onclick="abrirModalEditarProduto(\''+p.id+'\')">'
+    const nomeSeguroRow=(p.nome||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return '<div class="trow" style="grid-template-columns:2fr 1.2fr 1fr 1fr 1fr 1fr 0.8fr" onclick="abrirModalEditarProduto(\''+p.id+'\')">'
       +'<div><div class="lrn">'+(p.nome||'-')+badgeVencendo+'</div><div class="lrm">'+(p.categoria||'')+'</div></div>'
       +'<div class="tm2">'+(p.marca||'-')+'</div>'
       +'<div class="tm2" style="'+(baixo?'color:var(--rs);font-weight:600':'')+'">'+p.quantidade_em_estoque+' '+p.unidade+'</div>'
       +'<div class="tm2">'+(p.estoque_minimo||0)+' '+p.unidade+'</div>'
       +'<div class="tm2">'+validade+'</div>'
       +'<div class="tm2">'+R(p.custo_unitario||0)+'</div>'
+      +'<div>'+(p.preco_venda?'<button class="btn btg xs" onclick="event.stopPropagation();abrirModalVenderProduto(\''+p.id+'\',\''+nomeSeguroRow+'\')">Vender</button>':'')+'</div>'
       +'</div>';
   }).join(''):'<div style="padding:16px;font-size:12px;color:var(--ink3)">Nenhum produto cadastrado ainda.</div>';
 
@@ -1014,7 +891,7 @@ function renderEstoque(){
 
   html(pg,'<div class="sech"><div><div class="sct">Estoque <em>de Produtos</em></div><div class="scsub">'+produtos.length+' produto(s) cadastrado(s)</div></div>'
     +'<div class="scacts"><button class="btn btp sm" onclick="abrirModalNovoProduto()">+ Produto</button></div></div>'
-    +'<div class="tw mb12"><div class="thead" style="grid-template-columns:2fr 1.2fr 1fr 1fr 1fr 1fr"><div>Produto</div><div>Marca</div><div>Estoque</div><div>Mínimo</div><div>Validade</div><div>Custo un.</div></div>'
+    +'<div class="tw mb12"><div class="thead" style="grid-template-columns:2fr 1.2fr 1fr 1fr 1fr 1fr 0.8fr"><div>Produto</div><div>Marca</div><div>Estoque</div><div>Mínimo</div><div>Validade</div><div>Custo un.</div><div></div></div>'
     +linhasProduto+'</div>'
     +'<div class="card"><div class="cardh"><div class="cardt">Receita <em>por Serviço</em></div></div><div>'
     +linhasReceita+'</div></div>');
@@ -1031,6 +908,7 @@ window.abrirModalNovoProduto=function(){
     +'<div class="frow"><div class="fg"><label class="flbl">Unidade</label><input class="fi" id="novoProdutoUnidade" value="un" placeholder="ml, g, un..."></div><div class="fg"><label class="flbl">Custo unitário</label><input class="fi" id="novoProdutoCusto" type="number" step="0.01" value="0"></div></div>'
     +'<div class="frow"><div class="fg"><label class="flbl">Quantidade inicial</label><input class="fi" id="novoProdutoQuantidade" type="number" step="0.01" value="0"></div><div class="fg"><label class="flbl">Estoque mínimo</label><input class="fi" id="novoProdutoMinimo" type="number" step="0.01" value="0"></div></div>'
     +'<div class="fg"><label class="flbl">Validade</label><input class="fi" id="novoProdutoValidade" type="date"></div>'
+    +'<div class="fg"><label class="flbl">Preço de venda (opcional -- só pra produto vendido avulso no balcão, deixe vazio se for só insumo interno)</label><input class="fi" id="novoProdutoPrecoVenda" type="number" step="0.01" placeholder="0,00"></div>'
     +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarNovoProduto()">Salvar produto</button></div>');
 };
 
@@ -1066,6 +944,7 @@ window.confirmarNovoProduto=async function(){
     quantidade_em_estoque:Number($('#novoProdutoQuantidade')?.value||0),
     estoque_minimo:Number($('#novoProdutoMinimo')?.value||0),
     validade:$('#novoProdutoValidade')?.value||null,
+    preco_venda:$('#novoProdutoPrecoVenda')?.value?Number($('#novoProdutoPrecoVenda').value):null,
   };
   try{
     await chamarAPI('POST',`/estabelecimentos/${estabelecimentoAtivo.id}/produtos`,corpo);
@@ -1085,8 +964,8 @@ window.abrirModalEditarProduto=function(id){
     +'<div class="frow"><div class="fg"><label class="flbl">Marca</label><input class="fi" id="editProdutoMarca" value="'+esc(p.marca)+'"></div><div class="fg"><label class="flbl">Categoria</label><input class="fi" id="editProdutoCategoria" value="'+esc(p.categoria)+'"></div></div>'
     +'<div class="frow"><div class="fg"><label class="flbl">Unidade</label><input class="fi" id="editProdutoUnidade" value="'+esc(p.unidade||'un')+'"></div><div class="fg"><label class="flbl">Custo unitário</label><input class="fi" id="editProdutoCusto" type="number" step="0.01" value="'+(p.custo_unitario||0)+'"></div></div>'
     +'<div class="frow"><div class="fg"><label class="flbl">Quantidade em estoque</label><input class="fi" id="editProdutoQuantidade" type="number" step="0.01" value="'+(p.quantidade_em_estoque||0)+'"></div><div class="fg"><label class="flbl">Estoque mínimo</label><input class="fi" id="editProdutoMinimo" type="number" step="0.01" value="'+(p.estoque_minimo||0)+'"></div></div>'
-    +'<div class="fg"><label class="flbl">Validade</label><input class="fi" id="editProdutoValidade" type="date" value="'+esc(p.validade)+'"></div>'
-    +'</div><div class="mf"><button class="btn btre sm" onclick="excluirProduto(\''+p.id+'\')">Excluir</button><button class="btn btgh sm" onclick="abrirModalLotesProduto(\''+p.id+'\',\''+nomeSeguro+'\')">Gerenciar lotes</button><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarEditarProduto(\''+p.id+'\')">Salvar alterações</button></div>');
+    +'<div class="frow"><div class="fg"><label class="flbl">Validade</label><input class="fi" id="editProdutoValidade" type="date" value="'+esc(p.validade)+'"></div><div class="fg"><label class="flbl">Preço de venda (opcional)</label><input class="fi" id="editProdutoPrecoVenda" type="number" step="0.01" value="'+(p.preco_venda||'')+'" placeholder="0,00"></div></div>'
+    +'</div><div class="mf"><button class="btn btre sm" onclick="excluirProduto(\''+p.id+'\')">Excluir</button><button class="btn btgh sm" onclick="abrirModalLotesProduto(\''+p.id+'\',\''+nomeSeguro+'\')">Gerenciar lotes</button>'+(p.preco_venda?'<button class="btn btg sm" onclick="abrirModalVenderProduto(\''+p.id+'\',\''+nomeSeguro+'\')">Vender</button>':'')+'<button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarEditarProduto(\''+p.id+'\')">Salvar alterações</button></div>');
 };
 
 window.excluirProduto=async function(id){
@@ -1154,11 +1033,31 @@ window.confirmarEditarProduto=async function(id){
     quantidade_em_estoque:Number($('#editProdutoQuantidade')?.value||0),
     estoque_minimo:Number($('#editProdutoMinimo')?.value||0),
     validade:$('#editProdutoValidade')?.value||null,
+    preco_venda:$('#editProdutoPrecoVenda')?.value?Number($('#editProdutoPrecoVenda').value):null,
   };
   try{
     await chamarAPI('PATCH',`/produtos/${id}`,corpo);
     Modal.close();
     Toast.show('Produto atualizado!');
+    P.estoque();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
+window.abrirModalVenderProduto=function(id,nome){
+  Modal.open('Vender — '+nome,'<div class="mb2">'
+    +'<div class="fg"><label class="flbl">Quantidade</label><input class="fi" id="venderProdutoQuantidade" type="number" step="0.01" value="1"></div>'
+    +'<div class="fg"><label class="flbl">Forma de pagamento</label><select class="fi" id="venderProdutoPagamento"><option value="pix">Pix</option><option value="dinheiro">Dinheiro</option><option value="credito">Crédito</option><option value="debito">Débito</option><option value="outro">Outro</option></select></div>'
+    +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarVenderProduto(\''+id+'\')">Registrar venda</button></div>');
+};
+
+window.confirmarVenderProduto=async function(id){
+  const quantidade=Number($('#venderProdutoQuantidade')?.value||0);
+  if(!quantidade){Toast.show('Informe a quantidade','⚠');return;}
+  const forma_pagamento=$('#venderProdutoPagamento')?.value;
+  try{
+    await chamarAPI('POST',`/produtos/${id}/vender`,{quantidade,forma_pagamento});
+    Modal.close();
+    Toast.show('Venda registrada!');
     P.estoque();
   }catch(erro){Toast.show(erro.message,'⚠');}
 };
@@ -1930,7 +1829,27 @@ function init(){
   $('#mclose').addEventListener('click',Modal.close);
   $('#mbd').addEventListener('click',e=>{if(e.target===$('#mbd'))Modal.close();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')Modal.close();});
+  mostrarAvisoVencimento();
   P.agenda().then(atualizarHero);
+}
+
+function mostrarAvisoVencimento(){
+  const el=$('#avisoVencimento');
+  const vencimentoEm=estabelecimentoAtivo?.vencimento_em;
+  if(!vencimentoEm){el.style.display='none';return;}
+  const hoje=new Date();hoje.setHours(0,0,0,0);
+  const vencimento=new Date(vencimentoEm+'T00:00:00');
+  const diasRestantes=Math.round((vencimento-hoje)/(24*3600*1000));
+  if(diasRestantes>7){el.style.display='none';return;}
+  const urgente=diasRestantes<=1;
+  el.style.background=urgente?'var(--rsl)':'var(--aml)';
+  el.style.color=urgente?'var(--rs)':'var(--am)';
+  el.textContent=diasRestantes>0
+    ?`Seu plano do SalonOS vence em ${diasRestantes} dia(s). Fale com a gente pra renovar.`
+    :diasRestantes===0
+      ?'Seu plano do SalonOS vence hoje. Fale com a gente pra renovar e não perder o acesso.'
+      :'Seu plano do SalonOS venceu. Fale com a gente pra renovar e não perder o acesso.';
+  el.style.display='block';
 }
 document.addEventListener('DOMContentLoaded',()=>{
   $('#mclose').addEventListener('click',Modal.close);

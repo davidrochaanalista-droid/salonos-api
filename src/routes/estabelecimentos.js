@@ -14,7 +14,7 @@ const router = express.Router();
 // Nunca devolvida em resposta de API nenhuma -- select() explícito em vez
 // de '*' nas rotas de leitura, pra garantir que o blob cifrado de
 // credencial de gateway nem trafega de volta pro navegador.
-const COLUNAS_PUBLICAS = 'id, proprietario_id, segmento_id, nome, whatsapp, cnpj, cidade, bairro, endereco, cep, latitude, longitude, horario_abertura, horario_fechamento, dias_funcionamento, plano, status_assinatura, chave_pix, gateway_pagamento, created_at';
+const COLUNAS_PUBLICAS = 'id, proprietario_id, segmento_id, nome, whatsapp, cnpj, cidade, bairro, endereco, cep, latitude, longitude, horario_abertura, horario_fechamento, dias_funcionamento, plano, status_assinatura, vencimento_em, chave_pix, gateway_pagamento, created_at';
 
 // POST /estabelecimentos — cadastrar novo estabelecimento
 router.post('/', async (req, res) => {

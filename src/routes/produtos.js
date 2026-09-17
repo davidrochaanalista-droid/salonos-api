@@ -31,7 +31,7 @@ router.get('/estabelecimentos/:id/produtos', async (req, res) => {
 
 // POST /estabelecimentos/:id/produtos
 router.post('/estabelecimentos/:id/produtos', async (req, res) => {
-  const { nome, marca, categoria, unidade, custo_unitario, quantidade_em_estoque, estoque_minimo, validade, foto_url } = req.body;
+  const { nome, marca, categoria, unidade, custo_unitario, quantidade_em_estoque, estoque_minimo, validade, foto_url, preco_venda } = req.body;
   if (!nome) return res.status(400).json({ erro: 'nome é obrigatório.' });
 
   const { data, error } = await req.supabase
@@ -44,6 +44,7 @@ router.post('/estabelecimentos/:id/produtos', async (req, res) => {
       quantidade_em_estoque: quantidade_em_estoque ?? 0,
       estoque_minimo: estoque_minimo ?? 0,
       validade, foto_url,
+      preco_venda: preco_venda || null,
     })
     .select()
     .single();
@@ -54,7 +55,7 @@ router.post('/estabelecimentos/:id/produtos', async (req, res) => {
 
 // PATCH /produtos/:id
 router.patch('/produtos/:id', async (req, res) => {
-  const camposPermitidos = ['nome', 'marca', 'categoria', 'unidade', 'custo_unitario', 'quantidade_em_estoque', 'estoque_minimo', 'validade', 'foto_url', 'ativo'];
+  const camposPermitidos = ['nome', 'marca', 'categoria', 'unidade', 'custo_unitario', 'quantidade_em_estoque', 'estoque_minimo', 'validade', 'foto_url', 'ativo', 'preco_venda'];
   const atualizacoes = {};
   for (const campo of camposPermitidos) {
     if (req.body[campo] !== undefined) atualizacoes[campo] = req.body[campo];
@@ -219,6 +220,25 @@ router.get('/estabelecimentos/:id/lotes-vencendo', async (req, res) => {
 
   if (error) return res.status(500).json({ erro: error.message });
   res.json(data);
+});
+
+// POST /produtos/:id/vender — venda avulsa no balcão, fora de uma comanda
+// de serviço (ex: cliente compra um shampoo de revenda). Dá baixa por FEFO
+// (mesma função da baixa de insumo em comanda, migração 22) e lança a
+// entrada no caixa -- tudo dentro de vender_produto_avulso (migração 32).
+router.post('/produtos/:id/vender', async (req, res) => {
+  const { quantidade, forma_pagamento } = req.body;
+  if (!quantidade) return res.status(400).json({ erro: 'quantidade é obrigatória.' });
+  if (!forma_pagamento) return res.status(400).json({ erro: 'forma_pagamento é obrigatória.' });
+
+  const { data, error } = await req.supabase.rpc('vender_produto_avulso', {
+    p_produto_id: req.params.id,
+    p_quantidade: quantidade,
+    p_forma_pagamento: forma_pagamento,
+  });
+
+  if (error) return res.status(400).json({ erro: error.message });
+  res.status(201).json(data);
 });
 
 // GET /atividades/:id/receita

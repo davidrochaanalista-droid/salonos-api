@@ -20,13 +20,18 @@ const { createStaticPix, hasError } = require('pix-utils');
 
 // merchantName tem limite de 25 caracteres no padrão BR Code -- corta
 // sem erro em vez de deixar a lib falhar num nome de salão comprido.
-function gerarPixCopiaECola({ chavePix, nomeEstabelecimento, cidade }) {
+// `valor` é opcional -- omitido, gera Pix "chave solta" sem valor fixo
+// (uso salão→cliente, ver comentário no topo do arquivo); passado, fixa
+// o valor no BR Code (uso SalonOS→dono do salão, cobrança de assinatura
+// com valor conhecido, ver src/lib/lembretesAssinatura.js).
+function gerarPixCopiaECola({ chavePix, nomeEstabelecimento, cidade, valor }) {
   if (!chavePix) return null;
 
   const pix = createStaticPix({
     pixKey: chavePix,
     merchantName: (nomeEstabelecimento || 'Salao').slice(0, 25),
     merchantCity: (cidade || 'BRASIL').slice(0, 15),
+    ...(valor ? { transactionAmount: valor } : {}),
   });
   if (hasError(pix)) return null;
 
