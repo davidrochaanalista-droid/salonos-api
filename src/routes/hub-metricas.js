@@ -37,7 +37,7 @@ router.get('/admin/hub-metricas', async (req, res) => {
 
   const valorPorPlano = Object.fromEntries(precos.map((p) => [p.plano, Number(p.valor_mensal)]));
 
-  const contagemPorStatus = { trial: 0, ativo: 0, inadimplente: 0, cancelado: 0 };
+  const contagemPorStatus = { trial: 0, ativo: 0, inadimplente: 0, cancelado: 0, livre: 0 };
   let mrrContratado = 0;
   for (const e of estabelecimentos) {
     if (contagemPorStatus[e.status_assinatura] !== undefined) contagemPorStatus[e.status_assinatura] += 1;

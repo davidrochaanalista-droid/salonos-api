@@ -19,6 +19,7 @@ const pinoHttp = require('pino-http');
 
 const { autenticar } = require('./middleware/auth');
 const { exigirAdmin } = require('./middleware/exigirAdmin');
+const { verificarAssinatura } = require('./middleware/verificarAssinatura');
 const rotasEstabelecimentos = require('./routes/estabelecimentos');
 const rotasAtividades = require('./routes/atividades');
 const rotasClientes = require('./routes/clientes');
@@ -118,6 +119,10 @@ app.use(rotaHubMetricas);
 
 // ── A partir daqui, toda rota exige token válido do Supabase Auth ──
 app.use(autenticar);
+
+// Bloqueia dono de salão com todas as contas inadimplentes/canceladas
+// (pula /admin/* de propósito -- ver comentário no próprio arquivo).
+app.use(verificarAssinatura);
 
 app.use('/estabelecimentos', rotasEstabelecimentos);
 app.use('/', rotasAtividades); // já inclui o prefixo /estabelecimentos/:id/atividades internamente

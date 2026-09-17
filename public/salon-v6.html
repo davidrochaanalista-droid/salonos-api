@@ -1320,6 +1320,33 @@ window.confirmarNovaAtividade=async function(){
   }catch(erro){Toast.show(erro.message,'⚠');}
 };
 
+window.abrirModalNovoCliente=function(){
+  Modal.open('Cadastrar Cliente','<div class="mb2">'
+    +'<div class="fg"><label class="flbl">Nome</label><input class="fi" id="novoClNome" placeholder="Nome do cliente"></div>'
+    +'<div class="fg"><label class="flbl">Telefone</label><input class="fi" id="novoClTelefone" placeholder="(11) 90000-0000"></div>'
+    +'<div class="fg"><label class="flbl">Endereço (opcional)</label><input class="fi" id="novoClEndereco" placeholder="Rua, número, bairro"></div>'
+    +'<div class="fg"><label class="flbl">Aniversário (opcional)</label><input class="fi" id="novoClAniversario" type="date"></div>'
+    +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarNovoCliente()">Cadastrar</button></div>');
+};
+
+window.confirmarNovoCliente=async function(){
+  const nome=$('#novoClNome')?.value.trim();
+  const telefone=$('#novoClTelefone')?.value.trim();
+  if(!telefone){Toast.show('Informe o telefone do cliente','⚠');return;}
+  const corpo={
+    nome:nome||null,
+    telefone,
+    endereco:$('#novoClEndereco')?.value.trim()||null,
+    data_nascimento:$('#novoClAniversario')?.value||null,
+  };
+  try{
+    await chamarAPI('POST',`/estabelecimentos/${estabelecimentoAtivo.id}/clientes`,corpo);
+    Modal.close();
+    Toast.show('Cliente cadastrado!');
+    P.clientes();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
 window.abrirModalEditarAtividade=function(id){
   const a=(state.atividadesServicos||[]).find(x=>x.id===id);
   if(!a)return;
@@ -1516,7 +1543,7 @@ async clientes(){
   try{clientesReais=await chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/clientes`);}
   catch(erro){html(pg,'<div style="padding:40px;text-align:center;color:var(--rs)">Não foi possível carregar clientes: '+erro.message+'</div>');return;}
   state.clientes=clientesReais;
-  html(pg,'<div class="sech"><div><div class="sct">Ficha de <em>Clientes</em></div><div class="scsub">'+clientesReais.length+' cliente(s) cadastrado(s) - clique para abrir</div></div></div>'
+  html(pg,'<div class="sech"><div><div class="sct">Ficha de <em>Clientes</em></div><div class="scsub">'+clientesReais.length+' cliente(s) cadastrado(s) - clique para abrir</div></div><button class="btn btp sm" onclick="abrirModalNovoCliente()">+ Cadastrar cliente</button></div>'
   +'<div class="tw mb12"><div class="thead" style="grid-template-columns:2fr 1fr 1fr"><div>Cliente</div><div>Telefone</div><div>Cliente desde</div></div>'
   +(clientesReais.length?clientesReais.map(c=>{
     const cor=corPara(c.id);

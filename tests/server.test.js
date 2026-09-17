@@ -193,4 +193,9 @@ describe('Autenticação', () => {
     const res = await request(app).delete('/produtos/qualquer-id');
     expect(res.status).toBe(401);
   });
+
+  it('bloqueia POST /estabelecimentos/:id/clientes sem Authorization header', async () => {
+    const res = await request(app).post('/estabelecimentos/qualquer-id/clientes').send({ telefone: '11999999999' });
+    expect(res.status).toBe(401);
+  });
 });

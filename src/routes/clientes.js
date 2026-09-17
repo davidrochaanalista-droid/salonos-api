@@ -34,6 +34,41 @@ router.get('/estabelecimentos/:id/clientes', async (req, res) => {
   });
 });
 
+// POST /estabelecimentos/:id/clientes — cadastro manual (cliente que chegou
+// no balcão, sem passar pela conversa de onboarding do WhatsApp). Entra
+// direto com estado_onboarding='completo' -- quem cadastrou já tem
+// nome/telefone confirmados na mão, não faz sentido reabrir o fluxo de
+// perguntas que a IA usa pra quem chega pelo WhatsApp.
+router.post('/estabelecimentos/:id/clientes', async (req, res) => {
+  const { nome, telefone, endereco, data_nascimento } = req.body;
+  if (!telefone) return res.status(400).json({ erro: 'telefone é obrigatório.' });
+
+  const { data, error } = await req.supabase
+    .from('clientes')
+    .insert({
+      estabelecimento_id: req.params.id,
+      nome, telefone, endereco, data_nascimento,
+      estado_onboarding: 'completo',
+    })
+    .select('id, nome, telefone, endereco, data_nascimento, estado_onboarding, ultima_interacao_em, created_at')
+    .single();
+
+  if (error) {
+    if (error.code === '23505') return res.status(409).json({ erro: 'Já existe um cliente com esse telefone.' });
+    return res.status(500).json({ erro: error.message });
+  }
+  res.status(201).json(data);
+
+  registrarAcessoAuditoria(req.supabase, {
+    estabelecimentoId: req.params.id,
+    ator: req.user?.email || req.user?.id,
+    operacao: 'write',
+    tabela: 'clientes',
+    registroId: data.id,
+    detalhe: `Cadastrou cliente manualmente: ${nome || telefone}`,
+  });
+});
+
 // GET /clientes/:id — detalhe de um cliente, incluindo resumo de memória da IA
 router.get('/clientes/:id', async (req, res) => {
   const { data: clienteBruto, error } = await req.supabase

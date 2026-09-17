@@ -94,7 +94,7 @@ input,select{font-family:inherit;font-size:13px;outline:none;border:none;color:v
 .sm{padding:6px 11px;font-size:11.5px}
 
 .tag{display:inline-flex;padding:3px 8px;border-radius:20px;font-size:9.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase}
-.tsg{background:var(--sgl);color:var(--sg)}.trs{background:var(--rsl);color:var(--rs)}.tam{background:var(--aml);color:var(--am)}.top{background:var(--opl);color:var(--op)}
+.tsg{background:var(--sgl);color:var(--sg)}.trs{background:var(--rsl);color:var(--rs)}.tam{background:var(--aml);color:var(--am)}.top{background:var(--opl);color:var(--op)}.tgd{background:rgba(201,169,110,.15);color:var(--gd)}
 
 .tw{background:var(--panel);border:1px solid var(--ln);border-radius:var(--r);overflow:hidden}
 .th{display:grid;padding:9px 16px;border-bottom:1px solid var(--ln);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--tx3);background:var(--bg2)}
@@ -222,6 +222,7 @@ const Toast={show(tx,ic='✓'){
 const STATUS_TAG = {
   ativo: ['tsg','Ativo'], trial: ['top','Trial'],
   inadimplente: ['trs','Inadimplente'], cancelado: ['tam','Cancelado'],
+  livre: ['tgd','Livre'],
 };
 
 async function doLogin(){
@@ -312,20 +313,12 @@ const P = {
     }
     html($('#page-contas'), `
       <div class="sech"><div><div class="sct">Contas <em>da Plataforma</em></div><div class="scsub">${ADMIN.contas.length} estabelecimento(s) cadastrado(s)</div></div><button class="btn btp sm" onclick="abrirModalConvite()">+ Convidar salão</button></div>
+      <div class="lf" style="margin-bottom:12px"><input id="buscaConta" type="text" placeholder="Buscar por nome do salão, CPF ou CNPJ..." oninput="filtrarContas()"></div>
       <div class="tw">
         <div class="th" style="grid-template-columns:2fr 1fr 1fr 1fr 110px">
           <div>Conta</div><div>Cidade</div><div>Plano</div><div>Proprietário</div><div>Status</div>
         </div>
-        ${ADMIN.contas.length ? ADMIN.contas.map(x=>{
-          const [tcls,tlbl] = STATUS_TAG[x.status_assinatura] || ['tam', x.status_assinatura];
-          return `<div class="tr" style="grid-template-columns:2fr 1fr 1fr 1fr 110px" onclick="verConta('${x.id}')">
-            <div><div class="fw6">${esc(x.nome)}</div><div class="tm3" style="font-size:10.5px">desde ${new Date(x.created_at).toLocaleDateString('pt-BR')}</div></div>
-            <div class="tm2">${esc(x.cidade||'—')}</div>
-            <div class="tm2" style="text-transform:capitalize">${esc(x.plano)}</div>
-            <div class="tm2">${esc(x.proprietarios?.nome||'—')}</div>
-            <div><span class="tag ${tcls}">${esc(tlbl)}</span></div>
-          </div>`;
-        }).join('') : '<div style="padding:16px;font-size:12px" class="tm3">Nenhuma conta cadastrada ainda.</div>'}
+        <div id="contasRows">${renderLinhasContas(ADMIN.contas)}</div>
       </div>
     `);
   },
@@ -425,21 +418,59 @@ async function responderTicket(id){
 }
 
 const PLANOS = ['base', 'crescimento', 'escala'];
-const STATUS_ASSINATURA = ['trial', 'ativo', 'inadimplente', 'cancelado'];
+const STATUS_ASSINATURA = ['trial', 'ativo', 'inadimplente', 'cancelado', 'livre'];
+
+function renderLinhasContas(lista){
+  if(!lista.length) return '<div style="padding:16px;font-size:12px" class="tm3">Nenhuma conta encontrada.</div>';
+  return lista.map(x=>{
+    const [tcls,tlbl] = STATUS_TAG[x.status_assinatura] || ['tam', x.status_assinatura];
+    return `<div class="tr" style="grid-template-columns:2fr 1fr 1fr 1fr 110px" onclick="verConta('${x.id}')">
+      <div><div class="fw6">${esc(x.nome)}</div><div class="tm3" style="font-size:10.5px">desde ${new Date(x.created_at).toLocaleDateString('pt-BR')}</div></div>
+      <div class="tm2">${esc(x.cidade||'—')}</div>
+      <div class="tm2" style="text-transform:capitalize">${esc(x.plano)}</div>
+      <div class="tm2">${esc(x.proprietarios?.nome||'—')}</div>
+      <div><span class="tag ${tcls}">${esc(tlbl)}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function normalizarBusca(s){
+  return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+}
+function somenteDigitos(s){ return (s||'').replace(/\D/g,''); }
+
+function filtrarContas(){
+  const termo = $('#buscaConta')?.value.trim() || '';
+  if(!termo){ html($('#contasRows'), renderLinhasContas(ADMIN.contas)); return; }
+  const termoTexto = normalizarBusca(termo);
+  const termoDigitos = somenteDigitos(termo);
+  const filtradas = ADMIN.contas.filter(x=>{
+    if(normalizarBusca(x.nome).includes(termoTexto)) return true;
+    if(termoDigitos && x.cnpj && somenteDigitos(x.cnpj).includes(termoDigitos)) return true;
+    if(termoDigitos && x.proprietarios?.cpf && somenteDigitos(x.proprietarios.cpf).includes(termoDigitos)) return true;
+    return false;
+  });
+  html($('#contasRows'), renderLinhasContas(filtradas));
+}
+
+function enderecoCompleto(c){
+  const partes = [c.endereco, c.bairro, c.cidade, c.cep].filter(Boolean);
+  return partes.length ? partes.join(', ') : '—';
+}
 
 function verConta(id){
   const c = ADMIN.contas.find(x=>x.id===id);
   if(!c) return;
   Modal.open(c.nome, `
-    <div class="tm2" style="font-size:12.5px;line-height:1.7;margin-bottom:16px">Cidade: ${esc(c.cidade||'—')}<br>Proprietário: ${esc(c.proprietarios?.nome||'—')} (${esc(c.proprietarios?.telefone||'—')})<br>Cliente desde: ${new Date(c.created_at).toLocaleDateString('pt-BR')}</div>
+    <div class="tm2" style="font-size:12.5px;line-height:1.7;margin-bottom:16px">Endereço: ${esc(enderecoCompleto(c))}<br>CNPJ: ${esc(c.cnpj||'—')}<br>Proprietário: ${esc(c.proprietarios?.nome||'—')} (${esc(c.proprietarios?.telefone||'—')})<br>CPF: ${esc(c.proprietarios?.cpf||'—')}<br>Cliente desde: ${new Date(c.created_at).toLocaleDateString('pt-BR')}</div>
     <div class="lf"><label>Status da assinatura</label>
-      <select id="contaStatus">
+      <select id="contaStatus" onchange="aoTrocarStatusConta(this.value)">
         ${STATUS_ASSINATURA.map(s=>`<option value="${s}" ${c.status_assinatura===s?'selected':''}>${esc(STATUS_TAG[s]?.[1]||s)}</option>`).join('')}
       </select>
     </div>
     <div class="lf"><label>Plano</label>
-      <select id="contaPlano">
-        ${PLANOS.map(p=>`<option value="${p}" ${c.plano===p?'selected':''}>${esc(p)}</option>`).join('')}
+      <select id="contaPlano" ${c.status_assinatura==='livre'?'disabled':''}>
+        ${PLANOS.map(p=>`<option value="${p}" ${(c.status_assinatura==='livre'?p==='escala':c.plano===p)?'selected':''}>${esc(p)}</option>`).join('')}
       </select>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
@@ -447,6 +478,20 @@ function verConta(id){
       <button class="btn btp" onclick="salvarConta('${id}')">Salvar</button>
     </div>
   `);
+}
+
+// "Livre" é cortesia com acesso total (plano escala), sem cobrar --
+// trava o select de plano visualmente pra refletir o que o backend já
+// garante em PATCH /admin/contas/:id.
+function aoTrocarStatusConta(status){
+  const selPlano = $('#contaPlano');
+  if(!selPlano) return;
+  if(status==='livre'){
+    selPlano.value = 'escala';
+    selPlano.disabled = true;
+  } else {
+    selPlano.disabled = false;
+  }
 }
 
 async function salvarConta(id){

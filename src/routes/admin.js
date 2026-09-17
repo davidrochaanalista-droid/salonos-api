@@ -25,7 +25,7 @@ router.get('/admin/me', (req, res) => {
 router.get('/admin/contas', async (req, res) => {
   const { data, error } = await req.supabaseAdmin
     .from('estabelecimentos')
-    .select('id, nome, cidade, plano, status_assinatura, created_at, proprietarios(nome, telefone)')
+    .select('id, nome, cidade, bairro, endereco, cep, cnpj, plano, status_assinatura, created_at, proprietarios(nome, telefone, cpf)')
     .order('created_at', { ascending: false });
 
   if (error) return res.status(500).json({ erro: error.message });
@@ -40,6 +40,11 @@ router.patch('/admin/contas/:id', async (req, res) => {
   const atualizacoes = {};
   if (status_assinatura !== undefined) atualizacoes.status_assinatura = status_assinatura;
   if (plano !== undefined) atualizacoes.plano = plano;
+
+  // "Livre" é cortesia com acesso total (nível do plano "escala"),
+  // sem cobrar nada -- garante essa consistência mesmo que o admin
+  // tenha mandado outro plano junto sem querer.
+  if (atualizacoes.status_assinatura === 'livre') atualizacoes.plano = 'escala';
 
   const { data, error } = await req.supabaseAdmin
     .from('estabelecimentos')
@@ -80,7 +85,7 @@ router.get('/admin/visao', async (req, res) => {
 
   const valorPorPlano = Object.fromEntries(precos.map((p) => [p.plano, Number(p.valor_mensal)]));
 
-  const contagemPorStatus = { trial: 0, ativo: 0, inadimplente: 0, cancelado: 0 };
+  const contagemPorStatus = { trial: 0, ativo: 0, inadimplente: 0, cancelado: 0, livre: 0 };
   let mrrContratado = 0;
   for (const e of estabelecimentos) {
     if (contagemPorStatus[e.status_assinatura] !== undefined) contagemPorStatus[e.status_assinatura] += 1;
