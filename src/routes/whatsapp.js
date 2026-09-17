@@ -52,13 +52,13 @@ const FERRAMENTAS_IA = [
     type: 'function',
     function: {
       name: 'atualizar_cadastro_cliente',
-      description: 'Corrige ou atualiza o nome, endereço e/ou data de nascimento do cliente já cadastrado, quando ele pedir explicitamente pra corrigir uma informação. Só chame com o(s) campo(s) que o cliente realmente pediu pra mudar.',
+      description: 'Corrige ou atualiza o nome, endereço e/ou aniversário do cliente já cadastrado, quando ele pedir explicitamente pra corrigir uma informação. Só chame com o(s) campo(s) que o cliente realmente pediu pra mudar.',
       parameters: {
         type: 'object',
         properties: {
           nome: { type: 'string', description: 'Nome corrigido, só se o cliente pediu pra mudar o nome.' },
           endereco: { type: 'string', description: 'Endereço corrigido, só se o cliente pediu pra mudar o endereço.' },
-          data_nascimento: { type: 'string', description: 'Data de nascimento no formato YYYY-MM-DD, só se o cliente informou ou corrigiu.' },
+          data_nascimento: { type: 'string', description: 'Dia e mês de aniversário no formato MM-DD (ex: "03-25" pra 25 de março) -- nunca peça nem registre o ano, só interessa a data pra parabenizar. Só preencha se o cliente informou ou corrigiu.' },
         },
       },
     },
@@ -67,7 +67,7 @@ const FERRAMENTAS_IA = [
     type: 'function',
     function: {
       name: 'registrar_solicitacao_agendamento',
-      description: 'Registra um pedido de agendamento feito com o estabelecimento fechado (fora do horário de funcionamento), pra equipe confirmar assim que abrir. Pode registrar mais de um serviço de uma vez, se o cliente pedir vários na mesma visita (ex: unhas, cabelo e depilação). Só chame depois de já saber quais serviços o cliente quer e a preferência de dia/horário dele -- e depois de perguntar naturalmente se ele tem preferência de profissional por serviço ou se tanto faz.',
+      description: 'Registra um pedido de agendamento pra equipe revisar manualmente, sem confirmar nada na hora. Use só quando buscar_horarios_disponiveis não achar nenhum horário livre na semana, ou quando o cliente insistir num dia/horário específico que já está ocupado e não topar nenhuma das alternativas livres encontradas. Pode registrar mais de um serviço de uma vez, se o cliente pedir vários na mesma visita (ex: unhas, cabelo e depilação). Só chame depois de já saber quais serviços o cliente quer e a preferência de dia/horário dele -- e depois de perguntar naturalmente se ele tem preferência de profissional por serviço ou se tanto faz.',
       parameters: {
         type: 'object',
         properties: {
@@ -95,7 +95,7 @@ const FERRAMENTAS_IA = [
     type: 'function',
     function: {
       name: 'buscar_horarios_disponiveis',
-      description: 'Busca de verdade um horário e profissional livres, agora que o estabelecimento está aberto, pro(s) serviço(s) que o cliente quer -- encaixando todos na mesma visita, em sequência. Só chame depois de já saber quais serviços o cliente quer e ter perguntado naturalmente se ele tem preferência de profissional por serviço ou se tanto faz. Nunca invente horário -- só use o que essa ferramenta devolver de verdade.',
+      description: 'Busca de verdade um horário e profissional livres pro(s) serviço(s) que o cliente quer -- encaixando todos na mesma visita, em sequência. Funciona igual com o estabelecimento aberto ou fechado agora (a busca já considera só os dias/horários de funcionamento certos, nunca propõe um horário fora deles). Só chame depois de já saber quais serviços o cliente quer e ter perguntado naturalmente se ele tem preferência de profissional por serviço ou se tanto faz. Nunca invente horário -- só use o que essa ferramenta devolver de verdade.',
       parameters: {
         type: 'object',
         properties: {
@@ -128,6 +128,22 @@ const FERRAMENTAS_IA = [
   },
 ];
 
+// Converte "MM-DD" (o formato pedido à IA) numa data completa pra guardar
+// em clientes.data_nascimento (coluna DATE, exige ano) -- o ano é sempre
+// um placeholder fixo (2000, bissexto, cobre 29/02 sem erro), porque
+// verificarAniversario() (scheduler.js) só compara mês/dia, nunca usa o
+// ano pra calcular idade. Aceita também "DD-MM" por engano da IA (detecta
+// pelo primeiro número > 12, que só é possível sendo dia).
+function formatarAniversario(valor) {
+  const match = String(valor).trim().match(/^(\d{1,2})-(\d{1,2})$/);
+  if (!match) return null;
+  const [, a, b] = match;
+  const mes = Number(a) > 12 ? Number(b) : Number(a);
+  const dia = Number(a) > 12 ? Number(a) : Number(b);
+  if (mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+  return `2000-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+}
+
 async function executarFerramentaIA(chamada, contexto) {
   let argumentos;
   try {
@@ -143,6 +159,12 @@ async function executarFerramentaIA(chamada, contexto) {
       if (argumentos[campo]) atualizacoes[campo] = argumentos[campo];
     }
     if (!Object.keys(atualizacoes).length) return { ok: false, motivo: 'nenhum campo válido pra atualizar' };
+
+    if (atualizacoes.data_nascimento) {
+      const aniversario = formatarAniversario(atualizacoes.data_nascimento);
+      if (!aniversario) return { ok: false, motivo: 'dia/mês de aniversário inválido -- peça de novo, no formato dia e mês.' };
+      atualizacoes.data_nascimento = aniversario;
+    }
 
     const { error } = await supabase.from('clientes').update(atualizacoes).eq('id', contexto.cliente.id);
     if (error) return { ok: false, motivo: error.message };
@@ -311,9 +333,9 @@ function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instr
 
   return `Você é a atendente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}", conversando pelo WhatsApp do negócio. Agora, no horário de Brasília, é hora de dizer "${saudacaoPorHorario()}" -- use essa saudação (ou uma variação natural dela) se for cumprimentar o cliente agora, mas só no início da conversa, não repita em toda mensagem. ${primeiroNome ? `Esse cliente já é cadastrado e se chama ${primeiroNome} -- chame-o pelo primeiro nome ao cumprimentar (ex: "${saudacaoPorHorario()}, ${primeiroNome}!"), nunca pergunte o nome de novo.` : ''}
 
-${aberto
-  ? `IMPORTANTE -- AGENDAMENTO (estabelecimento aberto agora): se o assunto for agendamento, colete o(s) serviço(s) desejado(s) (o cliente pode pedir mais de um na mesma visita, ex: unhas, cabelo e depilação -- nesse caso registre todos juntos), e pergunte naturalmente se tem preferência de profissional por serviço ou se tanto faz. Assim que tiver essas informações, chame a ferramenta buscar_horarios_disponiveis -- ela busca de verdade um horário livre, nunca invente horário sozinha. Apresente o que ela devolver de forma natural (nunca peça "responda sim ou não") e pergunte se aquele horário funciona pra ele(a). Se ele topar, o agendamento já fica confirmado na hora.`
-  : `IMPORTANTE -- FORA DO HORÁRIO DE FUNCIONAMENTO: agora o estabelecimento está fechado (funciona ${estabelecimento.horario_abertura?.slice(0,5)} às ${estabelecimento.horario_fechamento?.slice(0,5)}). Avise isso ao cliente de forma leve, uma vez, sem soar como bloqueio -- e continue o atendimento normalmente. Nunca pare de ajudar só porque está fechado: se o assunto for agendamento, colete o(s) serviço(s) desejado(s) (o cliente pode pedir mais de um na mesma visita, ex: unhas, cabelo e depilação -- nesse caso registre todos juntos), a preferência de dia/horário, e pergunte naturalmente se tem preferência de profissional por serviço ou se tanto faz -- e assim que tiver essas informações, chame a ferramenta registrar_solicitacao_agendamento (nunca diga que "já agendou" ou "está confirmado" -- diga que a equipe confirma assim que abrir). Não perca o cliente por estar fora do horário.`}
+IMPORTANTE -- AGENDAMENTO (mesma regra com o estabelecimento aberto ou fechado agora -- a busca de horário já considera só os dias/horários de funcionamento certos, então funciona igual nos dois casos): se o assunto for agendamento, colete o(s) serviço(s) desejado(s) (o cliente pode pedir mais de um na mesma visita, ex: unhas, cabelo e depilação -- nesse caso registre todos juntos), e pergunte naturalmente se tem preferência de profissional por serviço ou se tanto faz. Assim que tiver essas informações, chame a ferramenta buscar_horarios_disponiveis -- ela busca de verdade um horário livre, nunca invente horário sozinha. Apresente o que ela devolver de forma natural (nunca peça "responda sim ou não") e pergunte se aquele horário funciona pra ele(a). Se ele topar, o agendamento já fica confirmado na hora -- diga isso com confiança, nunca "a equipe vai confirmar". Só chame registrar_solicitacao_agendamento (que exige revisão manual da equipe, sem confirmar nada na hora) se buscar_horarios_disponiveis não achar nenhum horário livre na semana, OU se o cliente insistir num dia/horário específico que já está ocupado e não topar nenhuma das alternativas livres encontradas -- nesse caso diga que a equipe confirma assim que possível, nunca que já está agendado.
+
+${!aberto ? `IMPORTANTE -- FORA DO HORÁRIO DE FUNCIONAMENTO: agora o estabelecimento está fechado (funciona ${estabelecimento.horario_abertura?.slice(0,5)} às ${estabelecimento.horario_fechamento?.slice(0,5)}). Avise isso ao cliente de forma leve, uma vez, sem soar como bloqueio -- e continue o atendimento normalmente, inclusive agendamento (funciona igual, ver regra acima). Não perca o cliente por estar fora do horário.` : ''}
 
 ${exigirSinal ? `IMPORTANTE -- CLIENTE COM HISTÓRICO DE FALTAS: esse cliente já faltou em mais de ${LIMITE_FALTAS_SINAL} atendimentos sem avisar. Se o assunto for agendar um novo horário, converse normalmente até fechar os detalhes (serviço, dia/horário, profissional), e só no final, antes de encerrar esse assunto, avise com gentileza (sem soar como punição) que pra confirmar esse agendamento vai ser necessário um sinal antecipado, e que a equipe vai combinar o valor e a forma de pagamento diretamente. Não invente valor nem forma de pagamento do sinal.` : ''}
 
@@ -326,7 +348,7 @@ REGRAS DE TOM (sempre):
 - Se não tiver certeza de algo, diga com honestidade que vai confirmar com a equipe -- nunca invente pra parecer seguro.
 - Se não entender a mensagem, peça esclarecimento com gentileza (ex: "só pra eu entender direitinho, você quer dizer...?"), nunca de forma seca.
 - Se o cliente pedir pra parar de receber mensagens ou demonstrar desinteresse, respeite na hora, sem insistir nem repetir a pergunta.
-- Se o cliente pedir pra corrigir nome, endereço ou data de nascimento, use a ferramenta atualizar_cadastro_cliente disponível -- nunca diga que corrigiu ou salvou algo sem realmente chamar a ferramenta.
+- Se o cliente pedir pra corrigir nome, endereço ou aniversário, use a ferramenta atualizar_cadastro_cliente disponível -- nunca diga que corrigiu ou salvou algo sem realmente chamar a ferramenta.
 - Se o cliente perguntar sobre pagar adiantado/antecipado (pra não perder tempo esperando se o salão estiver cheio, por exemplo): receba a ideia bem. ${chavePix ? 'Chame a ferramenta enviar_chave_pix pra mandar a chave/QR de verdade -- nunca digite a chave você mesma, sempre use a ferramenta. O valor continua sendo combinado com a equipe (nunca invente valor).' : 'Nunca invente chave Pix, link de pagamento ou qualquer forma de cobrar -- isso ainda não existe no sistema. Diga com honestidade que a equipe entra em contato pra combinar isso diretamente.'}
 
 SERVIÇOS OFERECIDOS:
@@ -554,27 +576,62 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
   }
 });
 
+// Regras de tom compartilhadas entre a conversa livre (montarSystemPrompt)
+// e o onboarding determinístico abaixo -- mesma persona o tempo todo, só
+// muda a instrução específica de cada etapa.
+const REGRAS_DE_TOM = `Português do Brasil, cordial e caloroso, mas objetivo -- nada de resposta robótica nem parágrafo longo. Pode usar "oi", "tudo bem?" naturalmente, mas sem gíria regional pesada (nunca "oxe", "bah", "mano", "cê"). No máximo 1 emoji por mensagem, só quando fizer sentido. Mensagens curtas, como uma pessoa digitaria no WhatsApp -- se tiver mais de uma ideia, separe cada uma num parágrafo próprio (linha em branco entre elas). Nunca invente nada que não foi informado.`;
+
+// Gera o texto de cada etapa do onboarding via IA (varia a cada
+// conversa, soa como gente conversando de verdade) em vez de um texto
+// fixo repetido sempre igual pra todo cliente -- só a instrução do que
+// perguntar/confirmar é fixa, o texto em si nunca é. Cai pro texto fixo
+// só se a chamada à IA falhar (mesmo padrão de robustez de
+// extrairCampoComIA), pra nunca deixar o cliente sem resposta.
+async function gerarMensagemOnboarding(instrucao, mensagemCliente, textoFixo) {
+  try {
+    const resposta = await groq.chat.completions.create({
+      model: MODELO_IA,
+      messages: [
+        { role: 'system', content: `Você é a atendente virtual de um salão de beleza, conversando pelo WhatsApp.\n\nREGRAS DE TOM: ${REGRAS_DE_TOM}\n\nSUA TAREFA AGORA: ${instrucao}` },
+        { role: 'user', content: mensagemCliente || '(início da conversa, cliente ainda não disse nada)' },
+      ],
+      temperature: 0.7,
+      max_tokens: 200,
+    });
+    return resposta.choices[0].message.content.trim() || textoFixo;
+  } catch (erro) {
+    console.error('Falha ao gerar mensagem de onboarding via IA, usando texto fixo:', erro.message);
+    return textoFixo;
+  }
+}
+
 // ============================================================
-// ONBOARDING DETERMINÍSTICO — nome, endereço, (aniversário opcional)
-// Telefone já é conhecido automaticamente pelo número do WhatsApp.
+// ONBOARDING — nome, endereço, (aniversário opcional)
+// Telefone já é conhecido automaticamente pelo número do WhatsApp. A
+// ORDEM/estado é determinística (sempre nome -> endereço -> completo),
+// só o TEXTO de cada etapa é gerado pela IA (ver gerarMensagemOnboarding).
 // ============================================================
 async function processarOnboarding({ cliente, mensagem, estabelecimento }) {
   switch (cliente.estado_onboarding) {
     case 'novo': {
       await supabase.from('clientes').update({ estado_onboarding: 'aguardando_nome' }).eq('id', cliente.id);
-      return `${saudacaoPorHorario()}! Seja bem-vindo(a) ao ${estabelecimento.nome} 😊\n\nPra começar, qual é o seu nome completo?`;
+      const instrucao = `Cumprimente o cliente pela primeira vez usando "${saudacaoPorHorario()}" (ou uma variação natural dela), dê as boas-vindas ao ${estabelecimento.nome}, e peça o nome completo dele(a) pra começar o cadastro. Não peça mais nada além do nome nessa mensagem.`;
+      return gerarMensagemOnboarding(instrucao, mensagem, `${saudacaoPorHorario()}! Seja bem-vindo(a) ao ${estabelecimento.nome} 😊\n\nPra começar, qual é o seu nome completo?`);
     }
 
     case 'aguardando_nome': {
       const nome = await extrairCampoComIA(mensagem, 'nome completo da pessoa');
       await supabase.from('clientes').update({ nome, estado_onboarding: 'aguardando_endereco' }).eq('id', cliente.id);
-      return `Prazer, ${nome.split(' ')[0]}! 😊\n\nAgora me conta seu endereço? A gente usa isso só pra ocasiões especiais, tipo mandar uma lembrancinha no seu aniversário.`;
+      const primeiroNome = nome.split(' ')[0];
+      const instrucao = `O cliente acabou de informar o nome (${primeiroNome}). Reaja de forma breve e simpática ao nome, e peça o endereço completo dele(a) (rua, número e bairro), explicando rapidamente que é só pra ocasiões especiais, tipo mandar uma lembrancinha no aniversário. Não peça mais nada além do endereço nessa mensagem.`;
+      return gerarMensagemOnboarding(instrucao, mensagem, `Prazer, ${primeiroNome}! 😊\n\nAgora me conta seu endereço completo (rua, número e bairro)? A gente usa isso só pra ocasiões especiais, tipo mandar uma lembrancinha no seu aniversário.`);
     }
 
     case 'aguardando_endereco': {
-      const endereco = await extrairCampoComIA(mensagem, 'endereço completo');
+      const endereco = await extrairCampoComIA(mensagem, 'endereço completo (rua, número e bairro -- mantenha tudo que a pessoa informou, não corte nenhuma parte)');
       await supabase.from('clientes').update({ endereco, estado_onboarding: 'completo' }).eq('id', cliente.id);
-      return `Perfeito, já está tudo registrado! ✅\n\nSe quiser, depois me conta sua data de nascimento também, assim a gente não esquece de você em datas especiais.\n\nAgora me conta, como posso te ajudar hoje?`;
+      const instrucao = `O cliente acabou de informar o endereço -- confirme de forma breve que o cadastro está completo. Convide (sem pressionar, é opcional) a contar o dia do aniversário dele(a) depois -- só dia e mês, sem precisar do ano -- pra não esquecerem dessa data. Por fim, pergunte como pode ajudar hoje.`;
+      return gerarMensagemOnboarding(instrucao, mensagem, `Perfeito, já está tudo registrado! ✅\n\nSe quiser, depois me conta o dia do seu aniversário também (só dia e mês, sem precisar do ano), assim a gente não esquece de você nessa data.\n\nAgora me conta, como posso te ajudar hoje?`);
     }
 
     default:
@@ -718,24 +775,26 @@ async function tratarRespostaPropostaHorario({ solicitacoesPendentes, mensagem, 
   const recusadas = solicitacoesPendentes.filter(s => !aceitas.includes(s));
 
   const confirmadas = [];
-  const pendentesEquipe = [];
   const emConflito = [];
 
   for (const s of aceitas) {
-    // Proposta feita pela equipe (ou pedido antigo sem essa marcação): a
-    // equipe já vetou esse horário manualmente ao propor -- confirma
-    // direto, mesmo comportamento de sempre, sem gate de horário aberto.
-    // Proposta de busca automática (sem revisão humana): só confirma
-    // sozinha se o salão estiver aberto agora -- se o cliente responder
-    // de noite, cai pra equipe revisar, não agenda sem ninguém por perto.
-    if (s.origem_proposta === 'busca_automatica' && !estaAberto(estabelecimento)) {
-      await supabase.from('solicitacoes_agendamento').update({ status: 'pendente' }).eq('id', s.id);
-      pendentesEquipe.push(s);
-      continue;
-    }
+    // Confirma direto sempre que aceito, seja a proposta da equipe (ela já
+    // vetou esse horário manualmente ao propor) ou de busca automática --
+    // o horário buscado já respeita os dias/horários de funcionamento do
+    // estabelecimento (ver buscarHorariosDisponiveis), então não precisa
+    // do salão estar aberto agora nesse instante pra confirmar; e
+    // confirmarSolicitacaoAgendamento recheca conflito de verdade antes de
+    // criar, então não tem risco de dois agendamentos no mesmo horário.
     const resultadoConfirmacao = await confirmarSolicitacaoAgendamento(supabase, { solicitacaoId: s.id });
-    if (resultadoConfirmacao.ok) confirmadas.push(s);
-    else emConflito.push(s);
+    if (resultadoConfirmacao.ok) {
+      confirmadas.push(s);
+    } else {
+      // Alguém ocupou esse horário nesse meio-tempo -- volta pra fila da
+      // equipe revisar (status 'pendente'), já que prometemos pro cliente
+      // que "a equipe vai te chamar com uma nova opção" logo abaixo.
+      await supabase.from('solicitacoes_agendamento').update({ status: 'pendente' }).eq('id', s.id);
+      emConflito.push(s);
+    }
   }
 
   for (const s of recusadas) {
@@ -760,10 +819,7 @@ async function tratarRespostaPropostaHorario({ solicitacoesPendentes, mensagem, 
   if (emConflito.length) {
     partes.push(`${emConflito.map(nomeServico).join(', ')} infelizmente esse horário acabou de ser ocupado aqui do nosso lado. Vou pedir pra equipe te chamar com uma nova opção.`);
   }
-  if (pendentesEquipe.length) {
-    partes.push(`${pendentesEquipe.map(nomeServico).join(', ')} já registrei -- a equipe confirma assim que abrir.`);
-  }
-  if (recusadas.length && !confirmadas.length && !emConflito.length && !pendentesEquipe.length) {
+  if (recusadas.length && !confirmadas.length && !emConflito.length) {
     partes.push(`Entendi${primeiroNome ? ', ' + primeiroNome : ''}! Vou ver outro horário que funcione melhor pra você. Assim que tiver uma opção, te aviso por aqui.`);
   }
 

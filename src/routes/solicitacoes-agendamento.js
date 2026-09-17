@@ -11,7 +11,7 @@
 
 const express = require('express');
 const { enviarMensagemWhatsApp, gerarMensagemPropostaHorario } = require('./whatsapp');
-const { buscarConflitoAgendamento } = require('../lib/disponibilidade');
+const { buscarConflitoAgendamento, estaNoPassado } = require('../lib/disponibilidade');
 const { confirmarSolicitacaoAgendamento } = require('../lib/agendamento-confirmacao');
 const router = express.Router();
 
@@ -148,6 +148,9 @@ router.post('/solicitacoes-agendamento/grupo/:grupoId/aceitar', async (req, res)
 router.post('/solicitacoes-agendamento/:id/propor-horario', async (req, res) => {
   const { data_hora_proposta, profissional_id } = req.body;
   if (!data_hora_proposta) return res.status(400).json({ erro: 'data_hora_proposta é obrigatório.' });
+  if (estaNoPassado(data_hora_proposta)) {
+    return res.status(400).json({ erro: 'Não é possível propor uma data/hora que já passou.' });
+  }
 
   const { data: solicitacao, error: errBusca } = await req.supabase
     .from('solicitacoes_agendamento')

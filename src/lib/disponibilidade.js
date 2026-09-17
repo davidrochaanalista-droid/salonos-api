@@ -30,6 +30,15 @@ async function buscarConflitoAgendamento(supabaseClient, { profissionalId, inici
   return data?.[0] || null;
 }
 
+// Usado nos pontos onde um humano digita a data/hora à mão (criar/editar
+// agendamento no painel, propor horário pra uma solicitação) -- a busca
+// automática de horário (buscarHorariosDisponiveis) já filtra o passado
+// sozinha (ver instanteEmSaoPaulo abaixo), não precisa dessa checagem.
+function estaNoPassado(dataHoraIso) {
+  const instante = new Date(dataHoraIso).getTime();
+  return !Number.isNaN(instante) && instante < Date.now();
+}
+
 const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
 const GRADE_MINUTOS = 15;
 
@@ -192,4 +201,4 @@ async function buscarHorariosDisponiveis(supabaseClient, {
   return propostas;
 }
 
-module.exports = { buscarConflitoAgendamento, buscarHorariosDisponiveis };
+module.exports = { buscarConflitoAgendamento, buscarHorariosDisponiveis, estaNoPassado };

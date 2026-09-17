@@ -10,6 +10,7 @@
 const express = require('express');
 const { enviarMensagemWhatsApp } = require('./whatsapp');
 const { registrarAcessoAuditoria } = require('../lib/auditoria');
+const { estaNoPassado } = require('../lib/disponibilidade');
 const router = express.Router();
 
 // POST /estabelecimentos/:id/agendamentos — criar agendamento
@@ -17,6 +18,9 @@ router.post('/estabelecimentos/:id/agendamentos', async (req, res) => {
   const { cliente_id, profissional_id, estabelecimento_atividade_id, inicio, fim, origem, observacao } = req.body;
   if (!cliente_id || !estabelecimento_atividade_id || !inicio || !fim) {
     return res.status(400).json({ erro: 'cliente_id, estabelecimento_atividade_id, inicio e fim são obrigatórios.' });
+  }
+  if (estaNoPassado(inicio)) {
+    return res.status(400).json({ erro: 'Não é possível criar um agendamento numa data/hora que já passou.' });
   }
 
   const { data, error } = await req.supabase
@@ -68,6 +72,9 @@ router.patch('/agendamentos/:id', async (req, res) => {
   const atualizacoes = {};
   for (const campo of camposPermitidos) {
     if (req.body[campo] !== undefined) atualizacoes[campo] = req.body[campo];
+  }
+  if (atualizacoes.inicio && estaNoPassado(atualizacoes.inicio)) {
+    return res.status(400).json({ erro: 'Não é possível remarcar um agendamento pra uma data/hora que já passou.' });
   }
 
   const { data, error } = await req.supabase
