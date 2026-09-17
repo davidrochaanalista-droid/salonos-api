@@ -591,6 +591,50 @@ no caminho, um de cada vez:
   (`proprietarios.telefone` vs. `estabelecimentos.whatsapp`) -- nenhuma
   mudança precisou ser feita, só confirmação.
 
+### Status "livre", bloqueio por inadimplência e dados de conta no admin (16/09/2026)
+
+David perguntou o que significava o status "trial" no painel-admin e se
+todas as funções ficavam liberadas nele -- a resposta expôs que
+`status_assinatura`/`plano` eram só rótulo/relatório até aqui, nada no
+backend travava nada de verdade. Três pedidos vieram disso:
+
+- **Novo status `'livre'`** (migração 30) -- acesso total, mesmo nível
+  do plano "escala", sem contar como receita. `PATCH /admin/contas/:id`
+  força `plano='escala'` sempre que `status_assinatura` vira `'livre'`,
+  mesmo que outro plano tenha sido enviado junto.
+- **Bloqueio de acesso de verdade** -- novo middleware
+  `verificarAssinatura` (`src/middleware/verificarAssinatura.js`),
+  montado logo depois de `autenticar` em `server.js`. Bloqueia (402)
+  quando **todos** os estabelecimentos do proprietário logado estão em
+  `inadimplente`/`cancelado`; `trial`, `ativo` e `livre` sempre passam,
+  e quem ainda não tem nenhum estabelecimento (onboarding recém-saído
+  do convite) também passa. **Pula `/admin/*` de propósito**: a conta
+  de teste do David é dona de um estabelecimento de teste E é admin --
+  se o estabelecimento de teste ficasse inadimplente, ele não pode se
+  trancar fora do próprio painel-admin.
+- **`painel-admin.html` → Contas**: `verConta()` agora mostra endereço
+  completo, CNPJ do salão e CPF do proprietário (antes só tinha
+  cidade). Campo de busca novo (`buscaConta`) filtra por nome do salão,
+  CPF ou CNPJ -- client-side, sem rota nova (a lista de contas já vem
+  inteira do backend).
+
+Verificado direto no banco (service key, revertido em seguida): a
+migração 30 realmente aceita `'livre'` no `status_assinatura` da conta
+de teste QA.
+
+### Cadastro manual de cliente (16/09/2026)
+
+Até aqui, cliente só entrava no sistema pela conversa de onboarding do
+WhatsApp -- não existia nenhuma rota pra cadastro manual. Adicionado
+`POST /estabelecimentos/:id/clientes` (`src/routes/clientes.js`) +
+botão "+ Cadastrar cliente" na aba Clientes de `salon-v6.html`, pro
+caso de cliente que chega no balcão sem ter mandado mensagem antes.
+Entra direto com `estado_onboarding='completo'` (quem cadastrou já
+confirmou nome/telefone na hora, não faz sentido reabrir o fluxo de
+perguntas que a IA usa no WhatsApp). Telefone duplicado no mesmo
+estabelecimento retorna 409 (constraint `unique(estabelecimento_id,
+telefone)` já existia).
+
 ### Conta de teste
 
 Existe um estabelecimento de teste ("Studio Teste QA") no Supabase de
