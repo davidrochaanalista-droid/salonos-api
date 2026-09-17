@@ -261,4 +261,30 @@ router.put('/atividades/:id/receita', async (req, res) => {
   res.json(data);
 });
 
+// DELETE /produtos/:id — tenta apagar de vez; se o produto já está numa
+// receita de serviço ou já tem lote registrado, o banco recusa por causa
+// das foreign keys (sem ON DELETE CASCADE, de propósito -- apagar de vez
+// quebraria a baixa automática de estoque já configurada). Nesse caso,
+// desativa em vez de falhar sem explicação -- mesmo padrão de
+// DELETE /atividades/:id.
+router.delete('/produtos/:id', async (req, res) => {
+  const { error } = await req.supabase
+    .from('produtos')
+    .delete()
+    .eq('id', req.params.id);
+
+  if (!error) return res.json({ ok: true, apagado: true });
+
+  if (error.code === '23503') {
+    const { error: errDesativar } = await req.supabase
+      .from('produtos')
+      .update({ ativo: false })
+      .eq('id', req.params.id);
+    if (errDesativar) return res.status(500).json({ erro: errDesativar.message });
+    return res.json({ ok: true, apagado: false, motivo: 'ja_usado' });
+  }
+
+  res.status(500).json({ erro: error.message });
+});
+
 module.exports = router;

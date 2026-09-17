@@ -32,6 +32,43 @@ router.get('/admin/contas', async (req, res) => {
   res.json(data);
 });
 
+// PATCH /admin/contas/:id — David aprova (muda status_assinatura), deixa
+// livre, ou troca o plano -- única forma de editar esses campos, o dono
+// do salão nunca escolhe o próprio status/plano.
+router.patch('/admin/contas/:id', async (req, res) => {
+  const { status_assinatura, plano } = req.body;
+  const atualizacoes = {};
+  if (status_assinatura !== undefined) atualizacoes.status_assinatura = status_assinatura;
+  if (plano !== undefined) atualizacoes.plano = plano;
+
+  const { data, error } = await req.supabaseAdmin
+    .from('estabelecimentos')
+    .update(atualizacoes)
+    .eq('id', req.params.id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json(data);
+});
+
+// POST /admin/convites — manda o link de acesso pro futuro dono do
+// salão (Supabase Auth invite nativo) -- é assim que alguém vira
+// proprietário no SalonOS agora; não existe mais auto-cadastro aberto
+// (ver public/cadastro-real.html e a pendência de desligar "Allow new
+// users to sign up" no Supabase Dashboard, documentada no CLAUDE.md).
+router.post('/admin/convites', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ erro: 'email é obrigatório.' });
+
+  const { error } = await req.supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${process.env.PUBLIC_BASE_URL}/cadastro-real.html`,
+  });
+
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json({ ok: true });
+});
+
 // GET /admin/visao — contagens por status + MRR contratado somado
 router.get('/admin/visao', async (req, res) => {
   const [{ data: estabelecimentos, error: errEst }, { data: precos, error: errPrecos }] = await Promise.all([

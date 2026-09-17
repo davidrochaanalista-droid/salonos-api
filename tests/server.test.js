@@ -75,6 +75,11 @@ describe('Autenticação', () => {
     expect(res.status).toBe(401);
   });
 
+  it('bloqueia DELETE /atividades/:id sem Authorization header', async () => {
+    const res = await request(app).delete('/atividades/qualquer-id');
+    expect(res.status).toBe(401);
+  });
+
   it('bloqueia /produtos/:id/lotes sem Authorization header', async () => {
     const res = await request(app).get('/produtos/qualquer-id/lotes');
     expect(res.status).toBe(401);
@@ -166,6 +171,26 @@ describe('Autenticação', () => {
 
   it('bloqueia /admin/hub-metricas com X-Hub-Key errada', async () => {
     const res = await request(app).get('/admin/hub-metricas').set('X-Hub-Key', 'chave-errada');
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia POST /admin/convites sem Authorization header', async () => {
+    const res = await request(app).post('/admin/convites').send({ email: 'teste@exemplo.com' });
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia PATCH /admin/contas/:id sem Authorization header', async () => {
+    const res = await request(app).patch('/admin/contas/qualquer-id').send({ status_assinatura: 'ativo' });
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia PATCH /proprietarios/me sem Authorization header', async () => {
+    const res = await request(app).patch('/proprietarios/me').send({ nome: 'Teste' });
+    expect(res.status).toBe(401);
+  });
+
+  it('bloqueia DELETE /produtos/:id sem Authorization header', async () => {
+    const res = await request(app).delete('/produtos/qualquer-id');
     expect(res.status).toBe(401);
   });
 });

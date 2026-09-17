@@ -482,11 +482,124 @@ painel-admin + agendamento self-service), todos corrigidos:
    (`notificarConfirmacaoGrupo`), mesmo espírito do que
    `tratarRespostaPropostaHorario` já fazia no caminho conversacional.
 
+### Pagamento antecipado (Pix + gateways), suporte, auditoria e hub OmniFlow (15/09/2026)
+
+Construído e deployado em produção: chave Pix solta (WhatsApp manda
+copia-e-cola sem gateway, `src/lib/pix.js`), gateway de verdade com baixa
+automática de comanda via webhook (`src/lib/gateways/{mercadopago,asaas,
+efi}.js`, credenciais cifradas por estabelecimento, `POST /comandas/:id/
+cobrar-pix` + `POST /webhooks/pix/:gateway/:estabelecimentoId`), central
+de tickets dono↔admin (`src/routes/tickets.js` + `/admin/tickets`), log
+de auditoria de acesso a dado sensível de cliente/LGPD (`src/lib/
+auditoria.js`, instrumentado em clientes/agenda/whatsapp-conexao/
+whatsapp), e `GET /admin/hub-metricas` (segredo compartilhado, não login)
+pro painel interno da agência OmniFlow Studio acompanhar contas/MRR.
+Isso resolve os itens 2, 7 e 8 da lista de pendências abaixo — mantidos
+ali só como histórico, não estão mais em aberto.
+
+Pendente ainda: testar os 3 gateways de ponta a ponta em sandbox
+(nenhum foi testado com dinheiro/API real do provedor ainda).
+
+### Cadastro só por convite + aprovação/plano pelo admin (16/09/2026)
+
+Achado testando o cadastro de ponta a ponta: `cadastro-real.html` tinha
+uma aba "Criar conta" aberta pra qualquer visitante (`signUp()` direto
+com a anon key) -- vulnerabilidade real, qualquer pessoa virava dono de
+salão sozinha. Substituído por convite:
+
+- `POST /admin/convites` (admin.js) — David manda o link de acesso via
+  `supabaseAdmin.auth.admin.inviteUserByEmail()` (mecanismo nativo do
+  Supabase Auth, não um sistema de token construído do zero).
+- `cadastro-real.html` — aba "Criar conta" removida, só sobrou login.
+  Quem chega pelo link de convite (detectado pelo hash `type=invite` na
+  URL, capturado ANTES de `createClient()` porque o supabase-js processa
+  e pode limpar esse hash de forma assíncrona) vê uma tela "Defina sua
+  senha" -- chama `updateUser({password})` + `PATCH /proprietarios/me`
+  (rota nova, precisou de policy de UPDATE nova em `proprietarios`,
+  migração 29 -- só existia policy de SELECT desde a migração 13).
+- `painel-admin.html` — botão "+ Convidar salão" na página Contas;
+  `verConta()` deixou de ser só leitura, ganhou `<select>` de
+  status_assinatura/plano + `PATCH /admin/contas/:id` (David aprova
+  depois do pagamento, deixa livre, ou troca o plano).
+
+**⚠️ Pendência do David, fora do meu alcance**: desligar "Allow new
+users to sign up" em Authentication → Providers → Email no Supabase
+Dashboard. Sem isso, mesmo com a aba escondida, alguém ainda consegue
+chamar `supabase.auth.signUp()` direto pelo console do navegador com a
+anon key pública (que é pública de propósito, sempre foi) -- é a
+Supabase, não o front, que precisa recusar cadastro não-convidado.
+
+### Correções pós-teste real de cadastro + fim dos dados fake de Multi-Unidades (16/09/2026)
+
+David testou o fluxo de convite/cadastro de ponta a ponta pelo celular e
+notebook (conta `davidcoitinho231@gmail.com`) e foi achando problemas reais
+no caminho, um de cada vez:
+
+- **Convite redirecionando pra localhost / `ERR_CONNECTION_REFUSED`** —
+  não era `PUBLIC_BASE_URL` (já estava certo no Railway). Causa real:
+  Authentication → URL Configuration no Supabase Dashboard, **Site URL**
+  e **Redirect URLs** ainda apontavam pro padrão (localhost) e sobrescrevem
+  silenciosamente o `redirectTo` passado em `inviteUserByEmail()` se o
+  domínio não estiver na allowlist. Corrigido pelo David no Dashboard.
+- **Não dava pra reenviar convite pro mesmo e-mail** —
+  `inviteUserByEmail()` recusa se o e-mail já existe em `auth.users`,
+  mesmo não confirmado. Resolvido com um script pontual (service key)
+  que apagou a linha de `proprietarios` (FK bloqueava `deleteUser`
+  direto) e depois o usuário órfão em `auth.users` -- não ficou nada
+  permanente no código, foi limpeza pontual de um teste travado.
+- **Botão "Ir para o painel" só dava `alert()`** em vez de navegar --
+  fix de uma linha em `cadastro-real.html` (era sobra de um placeholder).
+- **Dias de funcionamento não tinham UI nenhuma** -- o backend/coluna
+  `dias_funcionamento` já existia e era usado, mas ninguém nunca
+  construiu o seletor. Adicionado em `salon-v6.html` → Configurações:
+  toggles de dia da semana, salvos junto com o resto de
+  `salvarConfigSalao()`.
+- **"Gestão Multi-Unidades/Franquias" mostrando número inventado** --
+  David perguntou "o que são esses números?" ao ver "Studio Moema",
+  "Studio ABC", "R$ 39.940 de faturamento", "9 profissionais" -- tudo
+  hardcoded num modal (`D.units`, array mockado no topo do arquivo).
+  Substituído por um modal real a partir de `todosEstabelecimentos`
+  (lista de verdade vinda do login, antes só se usava `estabelecimentos[0]`
+  e o resto era descartado). **Isso expôs um padrão maior**: existem
+  ainda **8 modais com dado fake** no registro `M` de `salon-v6.html`
+  (`despesa`, `fechamento`, `pagamento`, `nfe`, `estqin`, `vendap`,
+  `novaFunc`, `googleReserve`, `qrportal`) -- a maioria só mostra
+  `Toast.show()` de "sucesso" sem chamar API nenhuma. **Decisão do
+  David: não mexer agora**, foco em testar pagamento de verdade
+  primeiro; `nfe` especificamente não pode ser tocado porque ele está
+  validando a necessidade com os donos de salão (ver item 3 das
+  pendências). Ver pendência nova abaixo.
+- **Automação "Reativar Clientes" marcada como "(configurável)" mas sem
+  jeito de configurar** -- o backend já aceitava `configuracao.dias_inatividade`
+  via `PATCH /automacoes/:id`, só faltava o botão/modal no frontend.
+  Adicionado botão "Configurar" (só aparece nas automações com
+  `configuravel:true`) + `abrirModalConfigurarAutomacao()`. Confirmado
+  nessa checagem que as 8 automações da tela são todas reais (nenhuma é
+  decorativa): confirmação 24h, lembrete 2h, reativação e aniversário
+  rodam pelo motor de 15 em 15 min (`scheduler.js`, chamado de verdade
+  em `server.js`); retorno por ciclo também, usando `ciclo_recompra_dias`
+  configurado por serviço; upsell no agendamento e lista de espera são
+  gatilhos inline em `agenda.js`; avaliação pós-atendimento dispara em
+  `fechar_comanda` e já nasce ativa por padrão.
+- **Estoque de produtos sem editar/excluir** -- editar já existia
+  (`abrirModalEditarProduto`), faltava excluir. Adicionado
+  `DELETE /produtos/:id` (mesmo padrão de fallback de `DELETE /atividades/:id`:
+  tenta apagar de vez, se bater em FK de receita/lote desativa em vez de
+  falhar) + botão "Excluir" no modal de edição.
+- Confirmado (David perguntou): telefone do proprietário (cadastro
+  pessoal) e WhatsApp do salão já são campos **corretamente separados**
+  (`proprietarios.telefone` vs. `estabelecimentos.whatsapp`) -- nenhuma
+  mudança precisou ser feita, só confirmação.
+
 ### Conta de teste
 
 Existe um estabelecimento de teste ("Studio Teste QA") no Supabase de
-produção, criado nesta sessão pra QA manual no navegador, logado com a
-mesma conta usada no cadastro real (`davidrocha.coitinho@gmail.com`).
+produção, criado antes desta sessão pra QA manual no navegador, logado
+com a mesma conta usada no cadastro real (`davidrocha.coitinho@gmail.com`).
+Uma segunda conta de teste (`davidrocha.coitinho+salonosteste@gmail.com`,
+criada via auto-cadastro antes dele ser removido) ficou abandonada,
+e-mail nunca confirmado — não usar. Teste de ponta a ponta do fluxo de
+convite deve ser feito criando conta nova através de um convite real.
 Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
 
 ## Pendências reais restantes
@@ -498,18 +611,10 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
    verdade, importação de contatos funcionou (depois do fix do bug
    `remoteJid`). O motor de automações/gatilho de avaliação já pode
    enviar mensagem de verdade a partir de agora (antes só logava).
-2. **Pagamento antecipado / sinal** — cliente perguntou "e se quiser pagar
-   antecipado?" (14/09), ainda **não escopado nem construído**. Hoje só
-   existe o aviso de que "vai precisar de sinal" pra cliente com histórico
-   de falta (`LIMITE_FALTAS_SINAL`, ver seção acima) -- é só um aviso em
-   texto, não cobra nada de verdade. Falta decidir: qual gateway (Pix
-   direto, Mercado Pago, Asaas, Stripe?), como confirmar o pagamento
-   (webhook do gateway?), o que acontece se o cliente não pagar a tempo.
-   Também seria a base pra um "sinal obrigatório" de verdade (não só pra
-   quem já faltou) se o dono quiser reduzir falta em geral -- ver
-   recomendação dada ao usuário nesse dia. **Decisão (14/09): fica "em
-   breve" por enquanto** -- David vai validar primeiro com os donos de
-   salão se isso é prioridade antes de escopar de verdade.
+2. **Pagamento antecipado / sinal — RESOLVIDO em 15/09**: chave Pix
+   solta + 3 gateways (Mercado Pago/Asaas/Efí) com baixa automática de
+   comanda. Ver seção "Pagamento antecipado (Pix + gateways)..." acima.
+   Falta só testar os gateways em sandbox de verdade.
 3. **Nota fiscal (NFS-e)** — "tem cliente que pede nota" (14/09), ainda
    **não escopado nem construído**. Área regulada (emissão de NFS-e
    depende de integração com prefeitura/provedor tipo NFE.io, eNotas,
@@ -532,19 +637,32 @@ Credenciais não ficam neste arquivo — perguntar ao usuário se precisar.
    admin inserido, login testado no navegador com dado real de
    Contas/Visão Geral. Financeiro/Suporte/Auditoria ficam "em breve"
    por decisão explícita (ver seção acima).
-7. **Log de auditoria real (LGPD)** — pendência nova, identificada ao
-   escopar o painel-admin: exige instrumentar leitura/escrita/exportação
-   de dado sensível em todas as rotas existentes (mudança grande,
-   cross-cutting). Não escopado ainda.
-8. **Central de suporte (tickets)** — pendência nova, identificada ao
-   escopar o painel-admin: precisa de tabela/rotas novas, feature nova
-   (não é "tornar real o que já existe"). Não escopado ainda.
+7. **Log de auditoria real (LGPD) — RESOLVIDO em 15/09**: ver seção
+   "Pagamento antecipado (Pix + gateways)..." acima.
+8. **Central de suporte (tickets) — RESOLVIDO em 15/09**: ver mesma
+   seção acima.
 9. **Agendamento self-service com múltiplos serviços — RESOLVIDO em
    14/09**: ver seção "Agendamento self-service com múltiplos serviços
    via WhatsApp" acima. Testado de verdade (webhook + Groq real) nos
    dois caminhos (salão aberto: agenda direto; salão fechado: equipe
    confirma). Não testado ainda: conflito de horário real (corrida) e
    recusa parcial (cliente aceita só parte dos serviços propostos).
+10. **Desligar "Allow new users to sign up" no Supabase Dashboard —
+    RESOLVIDO em 16/09**: David confirmou que já desligou.
+11. **8 modais com dado fake ainda no ar** (`despesa`, `fechamento`,
+    `pagamento`, `nfe`, `estqin`, `vendap`, `novaFunc`, `googleReserve`,
+    `qrportal`, registro `M` em `salon-v6.html`) -- achado em 16/09 ao
+    corrigir o modal `unidades` (que tinha o mesmo problema, já
+    resolvido). **Decisão explícita do David: não mexer agora**, foco
+    em testar pagamento real primeiro. `nfe` não pode ser tocado até ele
+    validar a necessidade com os donos de salão (mesmo motivo do item 3).
+12. **Reverificação de e-mail a cada login/expiração de sessão** --
+    pedido novo do David (16/09): "toda vez que o dono sair do sistema
+    ou expirar a sessão, o dono tem que fazer a verificação do email por
+    segurança". Ainda **não escopado nem iniciado** -- é uma camada de
+    segurança adicional, diferente do fluxo de convite (item acima), que
+    ficou pra depois por decisão consciente de terminar uma coisa de
+    cada vez.
 
 ## Ordem sugerida pra continuar
 

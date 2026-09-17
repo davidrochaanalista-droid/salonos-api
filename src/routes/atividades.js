@@ -55,7 +55,7 @@ router.get('/estabelecimentos/:id/atividades', async (req, res) => {
 // POST /estabelecimentos/:id/atividades — adota uma atividade do catálogo, ou cadastra customizada
 // Body: { atividade_catalogo_id? , nome, descricao?, duracao_min?, preco }
 router.post('/estabelecimentos/:id/atividades', async (req, res) => {
-  const { atividade_catalogo_id, nome, descricao, duracao_min, preco } = req.body;
+  const { atividade_catalogo_id, nome, descricao, duracao_min, preco, preco_variavel } = req.body;
   if (!nome || preco === undefined) {
     return res.status(400).json({ erro: 'nome e preco são obrigatórios.' });
   }
@@ -65,7 +65,7 @@ router.post('/estabelecimentos/:id/atividades', async (req, res) => {
     .insert({
       estabelecimento_id: req.params.id,
       atividade_catalogo_id: atividade_catalogo_id || null,
-      nome, descricao, duracao_min, preco,
+      nome, descricao, duracao_min, preco, preco_variavel,
     })
     .select()
     .single();
@@ -128,6 +128,32 @@ router.patch('/atividades/:id', async (req, res) => {
 
   if (error) return res.status(500).json({ erro: error.message });
   res.json(data);
+});
+
+// DELETE /atividades/:id — tenta apagar de vez; se o serviço já foi
+// usado em algum lugar (agendamento, comanda, atendimento, automação,
+// receita...), o banco recusa por causa das foreign keys (nenhuma tem
+// ON DELETE CASCADE, de propósito -- apagar de vez quebraria o
+// histórico de comandas já fechadas). Nesse caso, desativa em vez de
+// falhar sem explicação.
+router.delete('/atividades/:id', async (req, res) => {
+  const { error } = await req.supabase
+    .from('estabelecimento_atividades')
+    .delete()
+    .eq('id', req.params.id);
+
+  if (!error) return res.json({ ok: true, apagado: true });
+
+  if (error.code === '23503') {
+    const { error: errDesativar } = await req.supabase
+      .from('estabelecimento_atividades')
+      .update({ ativo: false })
+      .eq('id', req.params.id);
+    if (errDesativar) return res.status(500).json({ erro: errDesativar.message });
+    return res.json({ ok: true, apagado: false, motivo: 'ja_usado' });
+  }
+
+  res.status(500).json({ erro: error.message });
 });
 
 module.exports = router;

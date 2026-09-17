@@ -95,41 +95,84 @@ const SUPABASE_ANON_KEY = 'sb_publishable_WGAnLGQxexd89d0dOJhpTg_KoIGWVaX';
 const API_BASE_URL = '';
 // ============================================================
 
+// Capturado ANTES de createClient() -- o supabase-js processa o hash da
+// URL de convite de forma assíncrona e pode limpá-lo da barra de
+// endereço; ler window.location.hash aqui em cima garante que ainda
+// temos o valor original na hora de decidir, em init() (abaixo), se a
+// sessão que acabou de aparecer veio de um link de convite ou de uma
+// sessão já existente salva no navegador.
+const VEIO_DE_CONVITE = window.location.hash.includes('type=invite');
+
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const app = document.getElementById('app');
 
-let estado = { tela: 'auth', modoAuth: 'login', erro: null, carregando: false, segmentos: [], estabelecimento: null, atividades: [], catalogoSugerido: null, catalogoSelecionado: null };
+let estado = { tela: 'auth', erro: null, carregando: false, segmentos: [], estabelecimento: null, atividades: [], catalogoSugerido: null, catalogoSelecionado: null };
 
 function render() {
   if (estado.tela === 'auth') return renderAuth();
+  if (estado.tela === 'definir-senha') return renderDefinirSenha();
   if (estado.tela === 'criar-estabelecimento') return renderCriarEstabelecimento();
   if (estado.tela === 'catalogo') return renderCatalogo();
   if (estado.tela === 'completo') return renderCompleto();
 }
 
-// ── TELA 1: LOGIN / CADASTRO ──
-function renderAuth() {
-  const isLogin = estado.modoAuth === 'login';
+// ── TELA "defina sua senha" — só alcançável chegando por um link de
+// convite de verdade (David manda pelo painel-admin, POST
+// /admin/convites). Não existe mais auto-cadastro aberto: a sessão já
+// vem pronta do próprio link de convite do Supabase Auth, falta só
+// senha + nome/telefone reais (o trigger criar_proprietario_no_signup já
+// criou a linha em proprietarios no momento do convite, sem essa
+// metadata ainda). ──
+function renderDefinirSenha() {
   app.innerHTML = `
-    <div class="step-title">Bem-vindo(a)${isLogin ? ' de volta' : ''} <em>ao SalonOS</em></div>
-    <div class="step-sub">${isLogin ? 'Entre para gerenciar seu estabelecimento.' : 'Crie sua conta para cadastrar seu estabelecimento.'}</div>
-    <div class="toggle">
-      <button class="${isLogin ? 'active' : ''}" onclick="mudarModoAuth('login')">Já tenho conta</button>
-      <button class="${!isLogin ? 'active' : ''}" onclick="mudarModoAuth('cadastro')">Criar conta</button>
-    </div>
+    <div class="step-title">Bem-vindo(a) <em>ao SalonOS</em></div>
+    <div class="step-sub">Falta só definir sua senha pra começar a cadastrar seu estabelecimento.</div>
     ${estado.erro ? `<div class="msg erro">${estado.erro}</div>` : ''}
-    ${!isLogin ? `<div class="fg"><label class="bl">Seu nome</label><input class="fi" id="fNome" placeholder="Seu nome completo"></div>` : ''}
-    ${!isLogin ? `<div class="fg"><label class="bl">Seu telefone</label><input class="fi" id="fTelefone" placeholder="(11) 90000-0000"></div>` : ''}
-    <div class="fg"><label class="bl">E-mail</label><input class="fi" id="fEmail" type="email" placeholder="voce@email.com"></div>
-    <div class="fg"><label class="bl">Senha</label><input class="fi" id="fSenha" type="password" placeholder="Mínimo 6 caracteres"></div>
-    <button class="btn btp" id="btnAuth" onclick="submeterAuth()">${isLogin ? 'Entrar' : 'Criar conta'}</button>
+    <div class="fg"><label class="bl">Seu nome</label><input class="fi" id="fNome" placeholder="Seu nome completo"></div>
+    <div class="fg"><label class="bl">Seu telefone</label><input class="fi" id="fTelefone" placeholder="(11) 90000-0000"></div>
+    <div class="fg"><label class="bl">Crie uma senha</label><input class="fi" id="fSenha" type="password" placeholder="Mínimo 6 caracteres"></div>
+    <button class="btn btp" id="btnDefinirSenha" onclick="submeterDefinirSenha()">Continuar</button>
   `;
 }
 
-function mudarModoAuth(modo) {
-  estado.modoAuth = modo;
-  estado.erro = null;
-  render();
+async function submeterDefinirSenha() {
+  const nome = document.getElementById('fNome').value.trim();
+  const telefone = document.getElementById('fTelefone').value.trim();
+  const senha = document.getElementById('fSenha').value;
+  const btn = document.getElementById('btnDefinirSenha');
+
+  if (!nome || !telefone || !senha) { estado.erro = 'Preencha nome, telefone e senha.'; return render(); }
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    const { error: errSenha } = await sb.auth.updateUser({ password: senha });
+    if (errSenha) throw errSenha;
+
+    const resultado = await chamarAPI('PATCH', '/proprietarios/me', { nome, telefone });
+    if (!resultado) return; // chamarAPI já tratou o erro e re-renderizou
+
+    await verificarSessaoEContinuar();
+  } catch (e) {
+    estado.erro = traduzirErroAuth(e.message);
+    render();
+  }
+}
+
+// ── TELA 1: LOGIN — única forma de acesso pra quem já tem conta.
+// Não existe mais aba de auto-cadastro; quem ainda não tem conta
+// recebe um link de convite de verdade (ver renderDefinirSenha). ──
+function renderAuth() {
+  app.innerHTML = `
+    <div class="step-title">Bem-vindo(a) de volta <em>ao SalonOS</em></div>
+    <div class="step-sub">Entre para gerenciar seu estabelecimento.</div>
+    ${estado.erro ? `<div class="msg erro">${estado.erro}</div>` : ''}
+    <div class="fg"><label class="bl">E-mail</label><input class="fi" id="fEmail" type="email" placeholder="voce@email.com"></div>
+    <div class="fg"><label class="bl">Senha</label><input class="fi" id="fSenha" type="password" placeholder="Mínimo 6 caracteres"></div>
+    <button class="btn btp" id="btnAuth" onclick="submeterAuth()">Entrar</button>
+    <div class="txs center" style="margin-top:14px">Não tem conta? Peça um convite pra equipe do SalonOS.</div>
+  `;
 }
 
 async function submeterAuth() {
@@ -143,22 +186,8 @@ async function submeterAuth() {
   btn.innerHTML = '<div class="spinner"></div>';
 
   try {
-    if (estado.modoAuth === 'login') {
-      const { error } = await sb.auth.signInWithPassword({ email, password: senha });
-      if (error) throw error;
-    } else {
-      const nome = document.getElementById('fNome').value.trim();
-      const telefone = document.getElementById('fTelefone').value.trim();
-      if (!nome || !telefone) throw new Error('Preencha nome e telefone.');
-
-      // metadata vai para raw_user_meta_data — lido pelo trigger criar_proprietario_no_signup
-      // (ver 01-schema-fase1.sql, seção 8) para já criar o registro em `proprietarios`
-      const { error } = await sb.auth.signUp({
-        email, password: senha,
-        options: { data: { nome, telefone } },
-      });
-      if (error) throw error;
-    }
+    const { error } = await sb.auth.signInWithPassword({ email, password: senha });
+    if (error) throw error;
 
     await verificarSessaoEContinuar();
   } catch (e) {
@@ -169,8 +198,8 @@ async function submeterAuth() {
 
 function traduzirErroAuth(msg) {
   if (msg.includes('Invalid login credentials')) return 'E-mail ou senha incorretos.';
-  if (msg.includes('already registered')) return 'Este e-mail já tem uma conta — tente entrar em vez de criar.';
   if (msg.includes('Password should be')) return 'A senha precisa ter pelo menos 6 caracteres.';
+  if (msg.includes('Email not confirmed')) return 'Seu e-mail ainda não foi confirmado — confira sua caixa de entrada (e o spam) e clique no link que mandamos antes de entrar.';
   return msg;
 }
 
@@ -335,7 +364,7 @@ function renderCompleto() {
       ${estado.atividades.length > 6 ? `<div class="txs" style="margin-top:8px">+ ${estado.atividades.length - 6} outros — edite todos no painel completo.</div>` : ''}
       <div class="divider"></div>
     ` : ''}
-    <button class="btn btp" onclick="alert('Abra salon-v6.html para acessar o painel operacional completo.')">Ir para o painel</button>
+    <button class="btn btp" onclick="window.location.href='salon-v6.html'">Ir para o painel</button>
   `;
 }
 
@@ -365,9 +394,17 @@ async function chamarAPI(metodo, caminho, corpo) {
   }
 }
 
-// ── Inicialização: se já existe sessão ativa, pula direto para checar estabelecimento ──
+// ── Inicialização: chegando por link de convite, o próprio supabase-js
+// já processa o hash da URL e cria a sessão sozinho antes deste ponto
+// (detectSessionInUrl, padrão) -- por isso VEIO_DE_CONVITE (capturado
+// antes, no topo) é o que decide se essa sessão nova é "defina sua
+// senha" ou uma sessão já normal salva no navegador. ──
 (async function init() {
   const { data: { session } } = await sb.auth.getSession();
+  if (session && VEIO_DE_CONVITE) {
+    estado.tela = 'definir-senha';
+    return render();
+  }
   if (session) {
     await verificarSessaoEContinuar();
   } else {

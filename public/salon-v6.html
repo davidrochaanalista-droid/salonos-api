@@ -141,6 +141,7 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
 .btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:var(--rs2);font-size:12px;font-weight:500;cursor:pointer;transition:all var(--t) var(--ez);white-space:nowrap;border:none}.btp{background:linear-gradient(135deg,#1A1510,#2C1F18);color:var(--wh)}.btp:hover{background:linear-gradient(135deg,#2C1F18,#3A2820);transform:translateY(-1px);box-shadow:0 4px 16px rgba(26,21,16,.25)}.btg{background:linear-gradient(135deg,var(--gd),var(--gdd));color:var(--wh)}.btg:hover{background:linear-gradient(135deg,var(--gdd),#8A6838);transform:translateY(-1px);box-shadow:0 4px 16px rgba(201,169,110,.35)}.btgh{background:var(--cr2);color:var(--ink2);border:1px solid var(--bd)}.btgh:hover{background:var(--cr3)}.bto{background:transparent;color:var(--ink2);border:1px solid var(--bd2)}.bto:hover{background:var(--cr2)}.btre{background:var(--rsl);color:var(--rs);border:1px solid rgba(192,80,74,.15)}.btre:hover{background:rgba(192,80,74,.2)}.btv{background:rgba(122,90,154,.12);color:var(--vi);border:1px solid rgba(122,90,154,.2)}.btv:hover{background:rgba(122,90,154,.2)}.sm{padding:5px 10px;font-size:11.5px}.xs{padding:3px 8px;font-size:11px}
 .tog{position:relative;width:36px;height:19px;flex-shrink:0}.tog input{opacity:0;width:0;height:0;position:absolute}.togt{position:absolute;inset:0;background:var(--cr3);border:1px solid var(--bd2);border-radius:20px;cursor:pointer;transition:all var(--t)}.togk{position:absolute;width:13px;height:13px;top:2px;left:2px;border-radius:50%;background:var(--ink3);transition:transform var(--t),background var(--t);pointer-events:none}.tog input:checked~.togt{background:var(--sgl);border-color:var(--sg)}.tog input:checked~.togk{transform:translateX(17px);background:var(--sg)}
 .fg{margin-bottom:12px}.fg:last-child{margin-bottom:0}.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}.flbl{display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:5px}.fi{width:100%;background:var(--cr);border:1px solid var(--bd2);border-radius:var(--rs2);padding:8px 11px;color:var(--ink);font-size:13px;transition:border-color var(--t),box-shadow var(--t)}.fi:focus{border-color:var(--gd);box-shadow:0 0 0 3px rgba(201,169,110,.1)}.fi::placeholder{color:var(--ink4)}textarea.fi{resize:vertical;min-height:68px;line-height:1.5}
+.dia-toggle{width:42px;padding:7px 0;border-radius:var(--rs2);border:1px solid var(--bd2);background:var(--cr);color:var(--ink3);font-size:12px;font-weight:600;cursor:pointer;transition:all var(--t)}.dia-toggle.active{background:var(--gd);border-color:var(--gd);color:#fff}
 .mbd{position:fixed;inset:0;background:rgba(26,26,26,.42);backdrop-filter:blur(8px);z-index:900;display:none;align-items:center;justify-content:center;padding:20px}.mbd.open{display:flex}.mbox{background:var(--wh);border:1px solid var(--bd);border-radius:var(--rl);width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 28px 80px rgba(26,26,26,.2);animation:mIn .2s var(--ez)}.mbox.wide{max-width:700px}
 @keyframes mIn{from{opacity:0;transform:scale(.97) translateY(8px)}to{opacity:1;transform:scale(1)}}
 .mh{padding:17px 20px 13px;border-bottom:1px solid var(--bd);display:flex;align-items:flex-start;justify-content:space-between}.mt2{font-family:var(--fd);font-size:19px;font-weight:400;font-style:italic;letter-spacing:-.2px}.mclose{width:26px;height:26px;border-radius:var(--rs2);background:var(--cr2);border:1px solid var(--bd);display:grid;place-items:center;font-size:13px;color:var(--ink3);cursor:pointer;transition:all var(--t);flex-shrink:0}.mclose:hover{background:var(--cr3);color:var(--ink)}.mb2{padding:18px 20px}.mf{padding:12px 20px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:7px}
@@ -194,7 +195,7 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
 <!-- TOPBAR -->
 <header class="topbar" id="topbar" style="display:none">
   <div class="brand"><div class="bmark">&#9986;</div><div><div class="bname">Salon<em>OS</em></div><div class="bsub" id="unitLabel">Studio Beleza Pro</div></div></div>
-  <div class="usw" onclick="openM('unidades')"><div class="udot"></div><span id="unitName">Studio Principal</span><span style="color:var(--ink3)">&#9660;</span></div>
+  <div class="usw" onclick="abrirModalUnidades()"><div class="udot"></div><span id="unitName">Studio Principal</span><span style="color:var(--ink3)">&#9660;</span></div>
   <nav class="tnav" id="nav">
     <div class="nb active" data-page="agenda">Agenda</div>
     <div class="nb" data-page="clientes">Clientes</div>
@@ -259,6 +260,7 @@ const API_BASE_URL = '';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let estabelecimentoAtivo = null;
+let todosEstabelecimentos = []; // lista real do dono (pode ter mais de um) -- ver abrirModalUnidades()
 let caixaChannel = null;
 let comandaAtual = null;
 let atividadesCache = [];
@@ -288,7 +290,6 @@ function renderEmBreve(pageId,titulo,sub){
 }
 
 const D={
-  units:[{id:1,nm:'Studio Principal',city:'Jardins, SP',active:true},{id:2,nm:'Studio Moema',city:'Moema, SP',active:false},{id:3,nm:'Studio ABC',city:'Santo Andre',active:false}],
   staff:[
     {id:1,nm:'Camila Souza',rl:'Colorista',in:'CS',c:'#8B7A55',bg:'rgba(139,122,85,.18)',st:'ativo',cm:45,at:38,re:5720,cv:2574,rt:4.9,mt:7000,tl:'(11)98800-1122'},
     {id:2,nm:'Renata Lima',rl:'Cabeleireira',in:'RL',c:'#4A7A62',bg:'rgba(74,122,98,.18)',st:'ativo',cm:40,at:31,re:3720,cv:1488,rt:4.7,mt:5000,tl:'(11)97711-3344'},
@@ -314,6 +315,11 @@ const $$=s=>[...document.querySelectorAll(s)];
 const html=(el,mk)=>{el.innerHTML=mk;return el};
 const R=v=>'R$ '+v.toLocaleString('pt-BR');
 const escHtml=v=>(v==null?'':String(v)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// Mesmas siglas que o backend usa em estaAberto() (src/routes/whatsapp.js,
+// DIAS_SEMANA) -- precisa bater exatamente, é comparação de string direta.
+const DIAS_SEMANA_LABELS=[{valor:'dom',label:'Dom'},{valor:'seg',label:'Seg'},{valor:'ter',label:'Ter'},{valor:'qua',label:'Qua'},{valor:'qui',label:'Qui'},{valor:'sex',label:'Sex'},{valor:'sab',label:'Sáb'}];
+const DIAS_FUNCIONAMENTO_PADRAO=['seg','ter','qua','qui','sex'];
 
 async function atualizarHero(){
   try{
@@ -360,6 +366,7 @@ async function doLogin(){
     if(error)throw error;
     const estabelecimentos=await chamarAPI('GET','/estabelecimentos');
     if(!estabelecimentos.length)throw new Error('Nenhum estabelecimento cadastrado para este login.');
+    todosEstabelecimentos=estabelecimentos;
     estabelecimentoAtivo=estabelecimentos[0];
     $('#unitLabel').textContent=estabelecimentoAtivo.nome;
     $('#unitName').textContent=estabelecimentoAtivo.nome;
@@ -452,27 +459,6 @@ function openM(id){
       <div class="frow"><div class="fg"><label class="flbl">Quantidade</label><input class="fi" type="number" value="1"></div><div class="fg"><label class="flbl">Pagamento</label><select class="fi"><option>Pix</option><option>Dinheiro</option><option>Débito</option><option>Crédito</option></select></div></div>
     </div>
     <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="Modal.close();Toast.show('Venda registrada!')">Registrar venda</button></div>`},
-
-    unidades:{t:'Gestão Multi-Unidades / Franquias',b:`<div class="mb2">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
-        ${D.units.map(u=>`<div style="background:${u.active?'rgba(201,169,110,.05)':'var(--cr2)'};border:${u.active?'2px solid var(--gd)':'1px solid var(--bd)'};border-radius:var(--r);padding:13px;cursor:pointer;text-align:center" onclick="switchUnit(${u.id});Modal.close()">
-          <div style="font-family:var(--fd);font-size:14px;margin-bottom:2px${u.active?';font-style:italic;color:var(--gdd)':''}">${u.nm}</div>
-          <div style="font-size:10px;color:var(--ink3);margin-bottom:8px">${u.city}</div>
-          ${u.active?'<span class="tag tgd">Ativo</span>':'<span class="tag tik">Trocar</span>'}
-        </div>`).join('')}
-      </div>
-      <div style="background:var(--cr2);border:1px solid var(--bd);border-radius:var(--r);padding:14px;margin-bottom:12px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:10px">Consolidado — Todas as Unidades</div>
-        <div class="sr" style="padding:5px 0"><span class="srl">Receita total</span><span class="srv gd2">R$ 39.940</span></div>
-        <div class="sr" style="padding:5px 0"><span class="srl">MRR total</span><span class="srv sg2">R$ 9.550</span></div>
-        <div class="sr" style="padding:5px 0;border:none"><span class="srl">Profissionais</span><span class="srv">9 ativas</span></div>
-      </div>
-      <div class="lr" onclick="Toast.show(\'Abrindo cadastro de nova unidade...\');Modal.close()">
-        <div class="av avsq" style="background:var(--cr2);color:var(--ink3)">+</div>
-        <div><div class="lrn">Cadastrar nova unidade / franquia</div><div class="lrm">Expandir para nova cidade ou filial</div></div>
-      </div>
-    </div>
-    <div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button><button class="btn btp" onclick="window.open('painel-proprietario.html','_blank')">Painel do Proprietário</button></div>`},
 
     novaFunc:{t:'Cadastrar Funcionaria',b:`<div class="mb2">
       <div class="frow"><div class="fg"><label class="flbl">Nome completo</label><input class="fi" placeholder="Nome"></div><div class="fg"><label class="flbl">Cargo</label><select class="fi"><option>Cabeleireira</option><option>Colorista</option><option>Manicure</option><option>Esteticista</option></select></div></div>
@@ -581,11 +567,39 @@ function clientDetail(c){
   </div>`,true);
 }
 
-function switchUnit(id){
-  const u=D.units.find(x=>x.id===id);if(!u)return;
-  D.units.forEach(x=>x.active=x.id===id);
-  $('#unitLabel').textContent=u.nm;$('#unitName').textContent=u.nm;
-  Toast.show('Trocado para '+u.nm);
+// Lista real de estabelecimentos do proprietário logado (não dado
+// inventado) -- se ele só tem um, mostra isso honestamente em vez de
+// fingir que existe rede de franquia. Ver database/01-schema-fase1.sql:
+// um proprietário pode ter mais de um estabelecimento de verdade.
+window.abrirModalUnidades=function(){
+  Modal.open('Meus Estabelecimentos','<div class="mb2">'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:14px">'
+    +todosEstabelecimentos.map(u=>{
+      const ativo=u.id===estabelecimentoAtivo.id;
+      return '<div style="background:'+(ativo?'rgba(201,169,110,.05)':'var(--cr2)')+';border:'+(ativo?'2px solid var(--gd)':'1px solid var(--bd)')+';border-radius:var(--r);padding:13px;cursor:pointer;text-align:center" onclick="switchUnit(\''+u.id+'\')">'
+        +'<div style="font-family:var(--fd);font-size:14px;margin-bottom:2px'+(ativo?';font-style:italic;color:var(--gdd)':'')+'">'+escHtml(u.nome)+'</div>'
+        +'<div style="font-size:10px;color:var(--ink3);margin-bottom:8px">'+escHtml(u.cidade||'—')+'</div>'
+        +(ativo?'<span class="tag tgd">Ativo</span>':'<span class="tag tik">Trocar</span>')
+        +'</div>';
+    }).join('')
+    +'</div>'
+    +(todosEstabelecimentos.length<2?'<div class="tsm tm2">Você só tem um estabelecimento cadastrado -- fale com o suporte se quiser abrir uma nova unidade.</div>':'')
+    +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button><button class="btn btp" onclick="window.open(\'painel-proprietario.html\',\'_blank\')">Painel do Proprietário</button></div>');
+};
+
+window.switchUnit=function(id){
+  const u=todosEstabelecimentos.find(x=>x.id===id);
+  if(!u)return;
+  estabelecimentoAtivo=u;
+  $('#unitLabel').textContent=u.nome;
+  $('#unitName').textContent=u.nome;
+  Modal.close();
+  Toast.show('Trocado para '+u.nome);
+  // estabelecimentoAtivo só vive em memória (não tem em localStorage/URL) --
+  // por isso re-renderiza a página atual em vez de recarregar (um reload
+  // perderia a troca e voltaria pro primeiro estabelecimento da lista).
+  const paginaAtual=$('.nb.active')?.dataset.page;
+  if(paginaAtual)Router.go(paginaAtual);
 }
 
 // ============================================================
@@ -671,6 +685,22 @@ window.alternarAutomacao=async function(id,ativa){
     Toast.show('Não foi possível atualizar: '+erro.message);
     P.automacoes();
   }
+};
+
+window.abrirModalConfigurarAutomacao=function(id,configuracao){
+  Modal.open('Reativar Clientes Sumidos','<div class="mb2">'
+    +'<div class="fg"><label class="flbl">Dias sem aparecer pra considerar "sumido"</label><input class="fi" id="cfgAutoDiasInatividade" type="number" value="'+(configuracao?.dias_inatividade||45)+'"></div>'
+    +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarConfigurarAutomacao(\''+id+'\')">Salvar</button></div>');
+};
+
+window.confirmarConfigurarAutomacao=async function(id){
+  const dias=Number($('#cfgAutoDiasInatividade')?.value||45);
+  try{
+    await chamarAPI('PATCH',`/automacoes/${id}`,{configuracao:{dias_inatividade:dias}});
+    Modal.close();
+    Toast.show('Configuração salva!');
+    P.automacoes();
+  }catch(erro){Toast.show(erro.message,'⚠');}
 };
 
 // ============================================================
@@ -900,8 +930,13 @@ window.confirmarNovoProfissional=async function(){
 // ============================================================
 // CONFIG — salvar dados reais do estabelecimento
 // ============================================================
+window.alternarDiaFuncionamento=function(btn){
+  btn.classList.toggle('active');
+};
+
 window.salvarConfigSalao=async function(){
   const btn=$('#cfgSalvarBtn');
+  const diasSelecionados=$$('#cfgDiasSemana .dia-toggle.active').map(b=>b.dataset.dia);
   const corpo={
     nome:$('#cfgNome')?.value.trim(),
     whatsapp:$('#cfgWhatsapp')?.value.trim(),
@@ -909,6 +944,7 @@ window.salvarConfigSalao=async function(){
     endereco:$('#cfgEndereco')?.value.trim(),
     horario_abertura:$('#cfgAbertura')?.value||null,
     horario_fechamento:$('#cfgFechamento')?.value||null,
+    dias_funcionamento:diasSelecionados,
     chave_pix:$('#cfgChavePix')?.value.trim()||null,
     gateway_pagamento:$('#cfgGateway')?.value||null,
   };
@@ -1050,7 +1086,16 @@ window.abrirModalEditarProduto=function(id){
     +'<div class="frow"><div class="fg"><label class="flbl">Unidade</label><input class="fi" id="editProdutoUnidade" value="'+esc(p.unidade||'un')+'"></div><div class="fg"><label class="flbl">Custo unitário</label><input class="fi" id="editProdutoCusto" type="number" step="0.01" value="'+(p.custo_unitario||0)+'"></div></div>'
     +'<div class="frow"><div class="fg"><label class="flbl">Quantidade em estoque</label><input class="fi" id="editProdutoQuantidade" type="number" step="0.01" value="'+(p.quantidade_em_estoque||0)+'"></div><div class="fg"><label class="flbl">Estoque mínimo</label><input class="fi" id="editProdutoMinimo" type="number" step="0.01" value="'+(p.estoque_minimo||0)+'"></div></div>'
     +'<div class="fg"><label class="flbl">Validade</label><input class="fi" id="editProdutoValidade" type="date" value="'+esc(p.validade)+'"></div>'
-    +'</div><div class="mf"><button class="btn btgh sm" onclick="abrirModalLotesProduto(\''+p.id+'\',\''+nomeSeguro+'\')">Gerenciar lotes</button><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarEditarProduto(\''+p.id+'\')">Salvar alterações</button></div>');
+    +'</div><div class="mf"><button class="btn btre sm" onclick="excluirProduto(\''+p.id+'\')">Excluir</button><button class="btn btgh sm" onclick="abrirModalLotesProduto(\''+p.id+'\',\''+nomeSeguro+'\')">Gerenciar lotes</button><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarEditarProduto(\''+p.id+'\')">Salvar alterações</button></div>');
+};
+
+window.excluirProduto=async function(id){
+  try{
+    const resultado=await chamarAPI('DELETE',`/produtos/${id}`);
+    Modal.close();
+    Toast.show(resultado.apagado?'Produto excluído!':'Esse produto já está numa receita de serviço ou tem lote registrado, então foi desativado em vez de apagado (pra não quebrar a baixa automática de estoque).');
+    P.estoque();
+  }catch(erro){Toast.show(erro.message,'⚠');}
 };
 
 let lotesContexto={id:null,nome:''};
@@ -1249,6 +1294,32 @@ window.confirmarImportarContatos=async function(){
   }catch(erro){Toast.show(erro.message,'⚠');}
 };
 
+window.abrirModalNovaAtividade=function(){
+  Modal.open('Adicionar Serviço','<div class="mb2">'
+    +'<div class="fg"><label class="flbl">Nome</label><input class="fi" id="novoAtvNome" placeholder="Ex: Corte Feminino"></div>'
+    +'<div class="frow"><div class="fg"><label class="flbl">Preço</label><input class="fi" id="novoAtvPreco" type="number" step="0.01" placeholder="60"></div><div class="fg"><label class="flbl">Duração (min)</label><input class="fi" id="novoAtvDuracao" type="number" placeholder="45"></div></div>'
+    +'<label class="tsm tm2" style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer"><input type="checkbox" id="novoAtvPrecoVariavel"> Preço variável (mostra "a partir de")</label>'
+    +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarNovaAtividade()">Adicionar</button></div>');
+};
+
+window.confirmarNovaAtividade=async function(){
+  const nome=$('#novoAtvNome')?.value.trim();
+  const preco=Number($('#novoAtvPreco')?.value||0);
+  if(!nome){Toast.show('Informe o nome do serviço','⚠');return;}
+  const corpo={
+    nome,
+    preco,
+    duracao_min:$('#novoAtvDuracao')?.value?Number($('#novoAtvDuracao').value):null,
+    preco_variavel:$('#novoAtvPrecoVariavel')?.checked,
+  };
+  try{
+    await chamarAPI('POST',`/estabelecimentos/${estabelecimentoAtivo.id}/atividades`,corpo);
+    Modal.close();
+    Toast.show('Serviço adicionado!');
+    P.servicos();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
 window.abrirModalEditarAtividade=function(id){
   const a=(state.atividadesServicos||[]).find(x=>x.id===id);
   if(!a)return;
@@ -1259,7 +1330,7 @@ window.abrirModalEditarAtividade=function(id){
     +'<div class="fg"><label class="flbl">Ciclo de retorno (dias)</label><input class="fi" id="editAtvCiclo" type="number" value="'+(a.ciclo_recompra_dias||'')+'" placeholder="Ex: 30 — de quanto em quanto tempo a cliente costuma repetir este serviço"></div>'
     +'<label class="tsm tm2" style="display:flex;align-items:center;gap:8px;margin-top:12px;cursor:pointer"><input type="checkbox" id="editAtvPrecoVariavel" '+(a.preco_variavel?'checked':'')+'> Preço variável (mostra "a partir de" — ex: progressiva, que varia com o tamanho do cabelo)</label>'
     +'<label class="tsm tm2" style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer"><input type="checkbox" id="editAtvAtivo" '+(a.ativo!==false?'checked':'')+'> Serviço ativo (some da agenda se desmarcado)</label>'
-    +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarEditarAtividade(\''+a.id+'\')">Salvar alterações</button></div>');
+    +'</div><div class="mf"><button class="btn btre sm" onclick="excluirAtividade(\''+a.id+'\')">Excluir</button><button class="btn btgh sm" onclick="Modal.close()">Cancelar</button><button class="btn btp" onclick="confirmarEditarAtividade(\''+a.id+'\')">Salvar alterações</button></div>');
 };
 
 window.confirmarEditarAtividade=async function(id){
@@ -1275,6 +1346,15 @@ window.confirmarEditarAtividade=async function(id){
     await chamarAPI('PATCH',`/atividades/${id}`,corpo);
     Modal.close();
     Toast.show('Serviço atualizado!');
+    P.servicos();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
+window.excluirAtividade=async function(id){
+  try{
+    const resultado=await chamarAPI('DELETE',`/atividades/${id}`);
+    Modal.close();
+    Toast.show(resultado.apagado?'Serviço excluído!':'Esse serviço já foi usado em atendimentos, então foi desativado em vez de apagado (pra não perder o histórico).');
     P.servicos();
   }catch(erro){Toast.show(erro.message,'⚠');}
 };
@@ -1500,7 +1580,7 @@ automacoes(){
     const info={
       confirmacao_24h:{ico:'📱',nm:'Confirmação 24h antes',desc:'Lembrete de WhatsApp 24h antes do horário marcado.'},
       lembrete_2h:{ico:'⏰',nm:'Lembrete 2h antes',desc:'Segundo lembrete, mais perto do horário — reduz falta sem aviso.'},
-      reativacao_clientes:{ico:'🎯',nm:'Reativar Clientes Sumidos',desc:'Mensagem pra quem não volta há muito tempo (configurável).'},
+      reativacao_clientes:{ico:'🎯',nm:'Reativar Clientes Sumidos',desc:'Mensagem pra quem não volta há muito tempo (configurável).',configuravel:true},
       aniversario:{ico:'🎂',nm:'Oferta de Aniversário',desc:'Mensagem especial no aniversário do cliente.'},
       retorno_ciclo:{ico:'🔁',nm:'Retorno por Ciclo',desc:'Sugere reagendar um serviço quando o ciclo esperado dele passa (configure o ciclo em cada serviço).'},
       upsell_agendamento:{ico:'✨',nm:'Upsell no Agendamento',desc:'Sugere um serviço extra assim que você agenda algo pro cliente.'},
@@ -1518,6 +1598,7 @@ automacoes(){
         return'<div class="auto-card"><div class="auto-icon" style="background:var(--cr2)">'+meta.ico+'</div>'
           +'<div class="auto-body"><div class="auto-name">'+meta.nm+'</div><div class="auto-desc">'+meta.desc+'</div>'
           +'<div class="auto-metrics"><div class="auto-metric"><strong>'+a.disparos_30d+'</strong> disparo(s) nos últimos 30 dias</div></div></div>'
+          +(meta.configuravel?'<button class="btn btgh sm" onclick=\'abrirModalConfigurarAutomacao(&quot;'+a.id+'&quot;,'+JSON.stringify(a.configuracao||{})+')\'>Configurar</button>':'')
           +'<label class="tog"><input type="checkbox" '+(a.ativa?'checked':'')+' onchange="alternarAutomacao(\''+a.id+'\',this.checked)"><div class="togt"></div><div class="togk"></div></label>'
           +'</div>';
       }).join(''));
@@ -1636,7 +1717,7 @@ async servicos(){
       +'</div>';
   }).join(''):'<div style="padding:16px;font-size:12px;color:var(--ink3)">Nenhum serviço cadastrado ainda.</div>';
 
-  html(pg,'<div class="sech"><div><div class="sct">Serviços <em>Oferecidos</em></div><div class="scsub">'+atividades.length+' serviço(s) — clique num serviço pra editar preço, duração ou o ciclo de retorno usado pela automação "Retorno por Ciclo"</div></div></div>'
+  html(pg,'<div class="sech"><div><div class="sct">Serviços <em>Oferecidos</em></div><div class="scsub">'+atividades.length+' serviço(s) — clique num serviço pra editar preço, duração, ciclo de retorno, ou desativar (o serviço não é apagado de vez pra não perder o histórico de comandas já fechadas com ele)</div></div><button class="btn btp sm" onclick="abrirModalNovaAtividade()">+ Adicionar serviço</button></div>'
     +'<div class="tw"><div class="thead" style="grid-template-columns:2fr 1fr 1fr 1.4fr 1fr"><div>Serviço</div><div>Preço</div><div>Duração</div><div>Ciclo de retorno</div><div>Status</div></div>'
     +linhas+'</div>');
 },
@@ -1700,6 +1781,7 @@ config(){
     {t:'Horario de Funcionamento',rs:[
       {l:'Abertura',d:'Primeiro horario disponivel',ct:'<input class="fi" style="width:110px" type="time" id="cfgAbertura" value="'+(e.horario_abertura||'').slice(0,5)+'">'},
       {l:'Fechamento',d:'Ultimo horario disponivel',ct:'<input class="fi" style="width:110px" type="time" id="cfgFechamento" value="'+(e.horario_fechamento||'').slice(0,5)+'">'},
+      {l:'Dias abertos',d:'A IA do WhatsApp usa isso pra saber se o salao esta aberto agora',ct:'<div id="cfgDiasSemana" style="display:flex;gap:6px;flex-wrap:wrap">'+DIAS_SEMANA_LABELS.map(d=>'<button type="button" class="dia-toggle'+((e.dias_funcionamento||DIAS_FUNCIONAMENTO_PADRAO).includes(d.valor)?' active':'')+'" data-dia="'+d.valor+'" onclick="alternarDiaFuncionamento(this)">'+d.label+'</button>').join('')+'</div>'},
     ]},
     {t:'Pagamento',rs:[
       {l:'Chave Pix',d:'Usada pela IA pra mandar Copia-e-Cola no WhatsApp quando a cliente topa pagar adiantado — sem gateway, sem baixa automática, só um numero pro dono conferir no proprio banco',ct:'<input class="fi" style="width:260px" id="cfgChavePix" value="'+escHtml(e.chave_pix||'')+'" placeholder="CPF, e-mail, telefone ou chave aleatoria"><div id="cfgPixPreview"></div>'},
