@@ -780,14 +780,13 @@ sem documentar desde 16/09. Achados, na ordem:
 8. **Central de suporte (tickets) — RESOLVIDO em 15/09**: ver mesma
    seção acima.
 9. **Agendamento self-service com múltiplos serviços — RESOLVIDO em
-   14/09**: ver seção "Agendamento self-service com múltiplos serviços
-   via WhatsApp" acima. Testado de verdade (webhook + Groq real) nos
-   dois caminhos (salão aberto: agenda direto; salão fechado: equipe
-   confirma). **Conflito de horário e recusa parcial -- cobertos por
-   teste em 17/09** (ver seção "Achados de sessão não documentada..."
-   acima), com dublês, sem bater em rede real. Ainda falta o teste de
-   conversa real via WhatsApp de ponta a ponta (ver Ordem sugerida
-   item 2).
+   14/09, teste de conversa real de ponta a ponta em 18/09**: ver seção
+   "Sessão de 18/09..." acima pra lista completa de bugs achados e
+   corrigidos nesse teste real (fora do horário virou igual ao aberto,
+   `propor-horario` mandando pra instância errada, mensagens cortadas
+   por `max_tokens`, saudação repetida, etc.). Fluxo aberto e fechado
+   já não se distinguem mais (mesma lógica pros dois, só muda o aviso
+   de "estamos fechados" no tom).
 10. **Desligar "Allow new users to sign up" no Supabase Dashboard —
     RESOLVIDO em 16/09**: David confirmou que já desligou.
 11. **8 "modais com dado fake" -- eram código morto, removido em
@@ -845,6 +844,134 @@ sem documentar desde 16/09. Achados, na ordem:
     sem DDI, não só esse caso -- corrigido pra todos de uma vez por
     estar no choke point. Instância de teste do Harry Studio desconectada
     depois do teste (mesmo cuidado do incidente de 13/09).
+14. **`pareceNome()` não pega frase completa que não é nome** -- achado
+    de verdade em 18/09 (ver seção "Sessão de 18/09..." abaixo): um
+    cliente respondeu "só manda pro cara aqui" quando a IA perguntou o
+    nome, e isso *passou* na checagem (tem letra de sobra) e virou o
+    nome cadastrado. `pareceNome()` (`src/routes/whatsapp.js`) hoje só
+    filtra lixo sem nenhuma letra de verdade (tipo "?", ","), não julga
+    se o texto *parece* um nome de pessoa. Resolver isso direito
+    provavelmente exige pedir pra própria IA julgar plausibilidade (ela
+    já faz a extração via `extrairCampoComIA`), não só um regex -- não
+    corrigido ainda, mesma raiz do incidente de 13/09 com contato
+    confuso.
+
+## Sessão de 18/09 — teste de conversa real ponta a ponta, vários bugs achados e corrigidos
+
+Sessão longa testando o motor de agendamento via WhatsApp com conversa
+real de verdade pela primeira vez (item 2 da "Ordem sugerida" abaixo,
+finalmente destravado). WhatsApp do Harry Studio conectado de novo,
+clientes reais (Andrea, Erika Fernandes) testando o fluxo completo.
+Achados, na ordem que apareceram:
+
+- **Agendamento sem revisão de data no passado**: `POST
+  /estabelecimentos/:id/agendamentos`, `PATCH /agendamentos/:id` e
+  `POST /solicitacoes-agendamento/:id/propor-horario` aceitavam
+  qualquer data, inclusive no passado, sem avisar nada. `estaNoPassado()`
+  nova em `src/lib/disponibilidade.js`, aplicada nos 3 pontos onde um
+  humano digita data/hora à mão -- a busca automática
+  (`buscarHorariosDisponiveis`) já se protegia sozinha.
+
+- **Agendamento fora do horário virou igual ao horário aberto**: antes,
+  cliente pedindo horário com o salão fechado sempre caía pra
+  `registrar_solicitacao_agendamento` (revisão manual da equipe), mesmo
+  quando o horário pedido estava livre. Agora `buscar_horarios_disponiveis`
+  é tentada sempre (aberto ou fechado -- ela já respeita os dias/horários
+  reais de funcionamento), só cai pra revisão manual se não achar vaga
+  ou o cliente insistir num horário específico ocupado. Uma trava mais
+  funda também travava isso: o código só confirmava um horário de busca
+  automática aceito pelo cliente se o salão estivesse aberto *no exato
+  momento da resposta* -- removida (`confirmarSolicitacaoAgendamento` já
+  recheca conflito de verdade antes de criar, a trava era redundante).
+
+- **Endereço/aniversário**: onboarding passou a pedir endereço completo
+  (rua, número, bairro) explicitamente. `data_nascimento` virou
+  aniversário só (dia e mês, nunca ano) em toda a superfície --
+  `formatarAniversario()` nova valida MM-DD/DD-MM e usa ano-placeholder
+  fixo (2000); `verificarAniversario()` já só comparava mês/dia, sem
+  migração necessária.
+
+- **Onboarding gerado pela IA**: as 3 mensagens do cadastro (saudação,
+  pedir endereço, confirmar) viraram texto gerado pela Groq a cada
+  conversa (`gerarMensagemOnboarding`) em vez de string fixa repetida
+  igual pra todo cliente -- a ordem/estado continua determinística, cai
+  pro texto fixo só se a IA falhar.
+
+- **Nome inválido no onboarding**: cliente respondendo só "?", "," etc.
+  quando a IA pergunta o nome virava literalmente o nome cadastrado.
+  `pareceNome()` nova exige pelo menos 2 letras de verdade -- se não
+  bater, não avança o estado, pergunta de novo. **Limite conhecido**:
+  não pega frase completa que não é nome (achado de verdade nessa
+  sessão: um cliente respondeu "só manda pro cara aqui" e isso *passou*
+  na checagem, virou o nome -- pareceNome só filtra lixo sem letra
+  nenhuma, não julga se parece um nome plausível). Ainda não corrigido,
+  ver Pendências.
+
+- **Bug real: `propor-horario` mandava pra instância WhatsApp errada**:
+  a rota usava `req.params.id` (o ID da própria solicitação) como
+  `estabelecimentoId` no lugar de `solicitacao.estabelecimento_id` --
+  Evolution API recusava com 404 ("instância não existe"), falha
+  silenciosa (só logava no servidor). Uma cliente real (Erika) ficou
+  esperando uma proposta que nunca chegou. Corrigido, reenviada
+  manualmente pra ela depois do fix.
+
+- **Bug real: mensagens da IA cortadas/vazias por `max_tokens` baixo**:
+  `gerarMensagemPropostaHorario` chegou a devolver texto vazio
+  (`resposta.choices[0].message.content` sem fallback pro texto fixo
+  quando a Groq responde OK mas com conteúdo vazio -- só o `catch` de
+  erro lançado tinha fallback) e depois, já com o fallback certo, ainda
+  cortou no meio ("Oi Erika, desculpe," e parou). Causa: `openai/gpt-oss-120b`
+  é um modelo "reasoning", gasta parte do orçamento de tokens pensando
+  antes de responder -- `max_tokens: 150`/`200`/`60` (várias chamadas
+  curtas no arquivo) baixo demais pra sobrar espaço pra resposta de
+  verdade. Todos os `max_tokens` de geração de texto curto subiram pra
+  200-400, e todo `.content.trim()` sem `?.` virou protegido.
+
+- **Proposta de horário "confirmava" sem esperar resposta do cliente**:
+  achado testando ao vivo -- a mensagem gerada às vezes soava como
+  confirmação em vez de pergunta (sem instrução negativa explícita
+  proibindo isso), e no painel (`salon-v6.html`) o botão "Aceitar"
+  continuava aparecendo mesmo com a solicitação em "aguardando
+  resposta" -- clicar nele confirmava na hora sem o cliente ter dito
+  nada. Corrigidos os dois: instrução negativa explícita na IA +
+  `gerarMensagemPropostaHorario` agora recebe o horário/pedido original
+  pra montar a desculpa certa; botão Aceitar só aparece quando nenhum
+  item do grupo está em "aguardando resposta".
+
+- **IA cumprimentava de novo no meio da conversa**: depois de uma
+  correção de cadastro (nome/endereço/aniversário) via
+  `atualizar_cadastro_cliente`, a próxima resposta às vezes começava
+  com "Boa noite, [nome]!" de novo, como se a conversa tivesse
+  recomeçado -- não é bug de rastreio de telefone (conferido: cada
+  número tem cliente único no banco, sem duplicata), é a instrução de
+  saudação no `montarSystemPrompt` sendo mal aplicada pela IA depois de
+  um tool call. Corrigida: só cumprimenta se o histórico da conversa
+  estiver vazio (primeira mensagem de verdade), nunca depois de
+  qualquer coisa já ter acontecido na conversa.
+
+- **Tom/markdown**: reforço de "sempre educada e cordial, mesmo com
+  cliente direto/informal" e proibição explícita de markdown
+  (`**negrito**`) nos 3 pontos que geram texto -- WhatsApp não
+  renderiza, aparece com os asteriscos literais na tela (achado real:
+  `**Corte Masculino**` apareceu assim pro cliente).
+
+- **Agenda do painel só mostrava hoje**: agendamento de verdade criado
+  pelo WhatsApp self-service (Andrea, confirmado no banco) não aparecia
+  em lugar nenhum porque era pro dia seguinte e a tela nunca tinha
+  jeito de navegar pra outro dia. Adicionado ◀/▶/"Hoje" no cabeçalho da
+  agenda (`salon-v6.html`), `state.agendaData` persiste entre reloads.
+
+- **"3 agendamentos" não era bug**: depois dos testes, o dia 18/09
+  ficou com 3 agendamentos reais (Andrea + 2 da Erika testando busca
+  automática duas vezes) -- não duplicação, só dado de teste acumulado.
+  Os 2 da Erika foram cancelados manualmente depois (`status: cancelado`)
+  pra deixar a agenda limpa com só o agendamento real.
+
+Todos os fixes de código: `npm test` 45/45 a cada passo. Mudanças de
+`salon-v6.html` são HTML/frontend, sem cobertura automatizada.
+Commits, em ordem: `08e017b`, `01bd12f`, `b7c5703`, `38ef335`,
+`ca87644`, `6e81fc1`, `c411da6`, `ab0c023`, `dbebfa7` -- todos com push
+e `railway up`.
 
 ## Ordem sugerida pra continuar
 
@@ -853,15 +980,14 @@ sem documentar desde 16/09. Achados, na ordem:
    já rodada, agendamento self-service testado ponta a ponta (item 9).
    Falta só testar conflito real/recusa parcial se quiser mais
    confiança antes de usar em produção com clientes de verdade.
-2. Testar o motor de agendamento via WhatsApp ponta a ponta com número
-   real com calma (conexão já validada, mas registrar_solicitacao_agendamento,
-   aceitar/propor horário, checagem de conflito, lembrete 2h e aviso de
-   sinal ainda não passaram por um teste de conversa real -- ver avisos
-   de "não testado dentro do webhook real" nas seções acima). **Tentativa
-   iniciada em 14/09 e pausada por decisão do usuário**: QR code chegou a
-   ser gerado (instância `salon_02b907b6-...`, ver `estabelecimento_id` do
-   Studio Teste QA), mas ninguém escaneou -- confirmado que a instância
-   ficou em `connecting`, não `open`, nenhum risco de repetir o incidente
-   de contato pessoal. Retomar quando o usuário quiser.
-3. Validar com donos de salão se pagamento antecipado/sinal (item 2) e
-   nota fiscal (item 3) são prioridade antes de escopar de verdade.
+2. ~~Testar o motor de agendamento via WhatsApp ponta a ponta com
+   número real~~ -- RESOLVIDO em 18/09, ver seção "Sessão de 18/09..."
+   acima. Achou e corrigiu vários bugs reais só visíveis numa conversa
+   de verdade (não em teste com dublê).
+3. Corrigir o limite conhecido do `pareceNome()` (Pendências item 14) --
+   próximo candidato natural, já que é a mesma classe de risco do
+   incidente de 13/09 (contato/resposta confusa virando dado cadastrado
+   sem ninguém perceber).
+4. Validar com donos de salão se pagamento antecipado/sinal (Pendências
+   item 2) e nota fiscal (Pendências item 3) são prioridade antes de
+   escopar de verdade.
