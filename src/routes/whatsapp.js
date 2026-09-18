@@ -597,9 +597,9 @@ async function gerarMensagemOnboarding(instrucao, mensagemCliente, textoFixo) {
         { role: 'user', content: mensagemCliente || '(início da conversa, cliente ainda não disse nada)' },
       ],
       temperature: 0.7,
-      max_tokens: 200,
+      max_tokens: 400,
     });
-    return resposta.choices[0].message.content.trim() || textoFixo;
+    return resposta.choices[0].message.content?.trim() || textoFixo;
   } catch (erro) {
     console.error('Falha ao gerar mensagem de onboarding via IA, usando texto fixo:', erro.message);
     return textoFixo;
@@ -671,9 +671,9 @@ async function extrairCampoComIA(mensagemBruta, descricaoCampo) {
         { role: 'user', content: mensagemBruta },
       ],
       temperature: 0,
-      max_tokens: 60,
+      max_tokens: 200,
     });
-    const valor = resposta.choices[0].message.content.trim();
+    const valor = resposta.choices[0].message.content?.trim();
     return valor || mensagemBruta.trim();
   } catch {
     return mensagemBruta.trim();
@@ -704,10 +704,10 @@ async function atualizarMemoria({ estabelecimentoId, clienteId, memoriaAtual }) 
       { role: 'user', content: `Resumo anterior: ${resumoAnterior}\n\nConversa recente:\n${transcricao}\n\nGere o resumo atualizado, em português, sem gíria, direto.` },
     ],
     temperature: 0.3,
-    max_tokens: 200,
+    max_tokens: 400,
   });
 
-  const novoResumo = resposta.choices[0].message.content.trim();
+  const novoResumo = resposta.choices[0].message.content?.trim() || resumoAnterior;
 
   await supabase.from('whatsapp_memoria_cliente').upsert(
     { estabelecimento_id: estabelecimentoId, cliente_id: clienteId, resumo: novoResumo, total_interacoes: (memoriaAtual?.total_interacoes || 0) + 1, ultima_atualizacao: new Date().toISOString() },
@@ -766,7 +766,7 @@ async function tratarRespostaPropostaHorario({ solicitacoesPendentes, mensagem, 
         tools: FERRAMENTA_RESPOSTA_PROPOSTA,
         tool_choice: 'required',
         temperature: 0.2,
-        max_tokens: 200,
+        max_tokens: 400,
       });
       const chamada = resposta.choices[0].message.tool_calls?.[0];
       const argumentos = JSON.parse(chamada.function.arguments);
@@ -875,7 +875,7 @@ async function gerarMensagemPropostaHorario({ nomeCliente, nomeServico, dataHora
         { role: 'user', content: `Escreva a mensagem${primeiroNome ? ' pra ' + primeiroNome : ''} pedindo desculpa porque ${pedidoOriginal ? `o horário que pediu (${pedidoOriginal})` : 'o horário que pediu'} pra "${nomeServico || 'o atendimento'}" está ocupado, propondo ${dataFormatada} como alternativa, e perguntando se pode ser.` },
       ],
       temperature: 0.5,
-      max_tokens: 150,
+      max_tokens: 400,
     });
     return resposta.choices[0].message.content?.trim() || textoFixo;
   } catch (erro) {
