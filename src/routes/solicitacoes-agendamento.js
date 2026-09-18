@@ -188,6 +188,8 @@ router.post('/solicitacoes-agendamento/:id/propor-horario', async (req, res) => 
     nomeCliente: solicitacao.clientes?.nome,
     nomeServico: solicitacao.estabelecimento_atividades?.nome,
     dataHoraProposta: data_hora_proposta,
+    dataHoraSolicitada: solicitacao.data_hora_solicitada,
+    pedidoCliente: solicitacao.pedido_cliente,
   }).then(texto =>
     enviarMensagemWhatsApp({ telefone: solicitacao.clientes?.telefone, texto, estabelecimentoId: req.params.id })
   ).catch(erro => console.error('Falha ao propor horário por WhatsApp:', erro.message));

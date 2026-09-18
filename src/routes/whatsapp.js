@@ -829,24 +829,36 @@ async function tratarRespostaPropostaHorario({ solicitacoesPendentes, mensagem, 
 // Mensagem enviada quando a equipe propõe um horário alternativo pelo
 // painel -- gerada pela IA (mesmo tom do resto do atendimento), não é
 // um template fixo tipo "responda sim ou não".
-async function gerarMensagemPropostaHorario({ nomeCliente, nomeServico, dataHoraProposta }) {
+// IMPORTANTE: essa mensagem é uma PERGUNTA, o agendamento ainda NÃO foi
+// criado (só é criado de verdade se o cliente responder que aceita, ver
+// tratarRespostaPropostaHorario) -- achado testando de verdade: sem uma
+// instrução negativa explícita proibindo tom de confirmação, a IA às
+// vezes escrevia como se já estivesse tudo certo, confundindo o cliente.
+async function gerarMensagemPropostaHorario({ nomeCliente, nomeServico, dataHoraProposta, dataHoraSolicitada, pedidoCliente }) {
   const dataFormatada = new Date(dataHoraProposta).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
   const primeiroNome = nomeCliente?.split(' ')[0] || '';
+  // Nem sempre dá pra saber um horário exato que o cliente pediu (ele pode
+  // ter só dito "sábado de manhã", sem hora certa) -- nesse caso usa o
+  // texto livre do pedido em vez de tentar formatar uma data que não existe.
+  const pedidoOriginal = dataHoraSolicitada
+    ? new Date(dataHoraSolicitada).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+    : pedidoCliente || null;
+  const textoFixo = `Desculpa${primeiroNome ? ', ' + primeiroNome : ''}! ${pedidoOriginal ? `O horário que você pediu (${pedidoOriginal})` : 'O horário que você pediu'} pra ${nomeServico || 'o atendimento'} infelizmente está ocupado, mas temos ${dataFormatada} disponível. Pode ser?`;
 
   try {
     const resposta = await groq.chat.completions.create({
       model: MODELO_IA,
       messages: [
-        { role: 'system', content: 'Você é a atendente virtual de um salão, escrevendo pelo WhatsApp. Tom cordial e caloroso, mensagem curta (2-3 frases), no máximo 1 emoji. Nunca peça "responda sim ou não" -- escreva como uma pessoa perguntaria naturalmente se aquele horário funciona.' },
-        { role: 'user', content: `Escreva uma mensagem${primeiroNome ? ' pra ' + primeiroNome : ''} avisando que o horário que pediu não estava disponível, mas propondo ${dataFormatada} pra "${nomeServico || 'o atendimento'}", perguntando se funciona pra ela(e).` },
+        { role: 'system', content: 'Você é a atendente virtual de um salão, escrevendo pelo WhatsApp. Tom cordial e caloroso, mensagem curta (2-3 frases), no máximo 1 emoji. Essa mensagem é uma PERGUNTA -- o cliente ainda não respondeu nada e o agendamento ainda não existe. Comece pedindo desculpa, diga que o horário pedido está ocupado, proponha a alternativa, e pergunte se funciona (nunca "responda sim ou não", pergunte como uma pessoa perguntaria). NUNCA diga que já está confirmado, agendado, marcado ou "tudo certo" -- isso só acontece depois que o cliente responder que aceita.' },
+        { role: 'user', content: `Escreva a mensagem${primeiroNome ? ' pra ' + primeiroNome : ''} pedindo desculpa porque ${pedidoOriginal ? `o horário que pediu (${pedidoOriginal})` : 'o horário que pediu'} pra "${nomeServico || 'o atendimento'}" está ocupado, propondo ${dataFormatada} como alternativa, e perguntando se pode ser.` },
       ],
-      temperature: 0.6,
+      temperature: 0.5,
       max_tokens: 150,
     });
     return resposta.choices[0].message.content;
   } catch (erro) {
     console.error('Falha ao gerar mensagem de proposta de horário, usando texto padrão:', erro.message);
-    return `${primeiroNome ? primeiroNome + ', o' : 'O'} horário que você pediu não estava disponível, mas que tal ${dataFormatada} pra ${nomeServico || 'o atendimento'}? Me avisa se funciona pra você!`;
+    return textoFixo;
   }
 }
 

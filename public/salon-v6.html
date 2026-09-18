@@ -1386,17 +1386,27 @@ async agenda(){
           return '<div class="lrm" style="color:var(--am)">'+nomeServico+comProfissional+' — aguardando resposta sobre '+fmtDataHora(s.data_hora_proposta)+'</div>';
         }
         // data_hora_proposta pode estar preenchida aqui mesmo em pendente --
-        // acontece quando o cliente aceitou um horário achado pela busca
-        // automática mas o salão estava fechado nesse momento (ver
-        // tratarRespostaPropostaHorario em whatsapp.js): a equipe já tem um
-        // horário pronto pra revisar/aceitar, não precisa propor do zero.
+        // acontece quando um horário que o cliente já tinha aceitado acabou
+        // sendo ocupado por outra pessoa antes da confirmação de verdade
+        // (ver o bloco emConflito em tratarRespostaPropostaHorario,
+        // whatsapp.js): a equipe vê o horário que caiu e decide se propõe
+        // esse mesmo de novo (se abriu de novo) ou um outro.
         const horarioConhecido=s.data_hora_solicitada||s.data_hora_proposta;
         return '<div class="lrm">'+nomeServico+comProfissional+(horarioConhecido?' ('+fmtDataHora(horarioConhecido)+')':'')+' <button class="btn btgh xs" style="margin-left:6px" onclick="abrirPropostaHorario(\''+s.id+'\')">Propor horário</button></div>';
       }).join('');
-      const podeAceitarDireto=itens.some(s=>s.data_hora_solicitada||s.data_hora_proposta);
+      // status 'horario_proposto' = já mandamos uma proposta e estamos
+      // esperando a resposta do cliente -- nunca mostra "Aceitar" enquanto
+      // qualquer item do grupo estiver nesse estado, senão a equipe confirma
+      // sozinha sem o cliente ter dito nada (bug real reportado testando ao
+      // vivo: a equipe clicava Aceitar por engano enquanto o cliente ainda
+      // nem tinha respondido a proposta). "Aceitar tudo" só aparece quando
+      // NENHUM item do grupo está aguardando resposta -- senão a chamada em
+      // lote confirmaria até os que ainda não foram respondidos.
+      const nenhumAguardandoResposta=itens.every(s=>s.status!=='horario_proposto');
+      const podeAceitarDireto=nenhumAguardandoResposta&&itens.some(s=>s.data_hora_solicitada||s.data_hora_proposta);
       const botaoAceitar=itens.length>1
         ?(podeAceitarDireto?'<button class="btn btp xs" style="flex-shrink:0" onclick="aceitarGrupoSolicitacao(\''+chave+'\')">Aceitar tudo</button>':'')
-        :((itens[0].data_hora_solicitada||itens[0].data_hora_proposta)?'<button class="btn btp xs" style="flex-shrink:0" onclick="aceitarSolicitacaoAgendamento(\''+itens[0].id+'\')">Aceitar</button>':'');
+        :(podeAceitarDireto?'<button class="btn btp xs" style="flex-shrink:0" onclick="aceitarSolicitacaoAgendamento(\''+itens[0].id+'\')">Aceitar</button>':'');
       return '<div class="lr" style="align-items:flex-start"><div style="flex:1"><div class="lrn">'+nomeCliente+'</div><div class="tsm tm2" style="margin:2px 0 6px">pediu: "'+escHtml(primeiro.pedido_cliente)+'"</div>'+linhasServico+'</div>'+botaoAceitar+'</div>';
     }).join('')+'</div></div>'):'';
   html(pg,blocoSolicitacoes+'<div class="gsplit"><div>'
