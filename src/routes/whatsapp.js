@@ -621,6 +621,15 @@ async function processarOnboarding({ cliente, mensagem, estabelecimento }) {
 
     case 'aguardando_nome': {
       const nome = await extrairCampoComIA(mensagem, 'nome completo da pessoa');
+      if (!pareceNome(nome)) {
+        // Não avança o estado -- fica pedindo até vir algo que pareça nome
+        // de verdade. Achado testando de verdade: sem essa checagem, uma
+        // resposta tipo "?" ou "," virava o nome cadastrado do cliente sem
+        // ninguém perceber (mesma raiz do incidente com contato pessoal
+        // confuso registrado no CLAUDE.md).
+        const instrucao = `O cliente respondeu "${mensagem}" quando você perguntou o nome dele(a), mas isso não parece um nome de verdade. Com gentileza, diga que não entendeu e peça o nome completo de novo.`;
+        return gerarMensagemOnboarding(instrucao, mensagem, `Desculpa, não entendi -- pode me confirmar seu nome completo?`);
+      }
       await supabase.from('clientes').update({ nome, estado_onboarding: 'aguardando_endereco' }).eq('id', cliente.id);
       const primeiroNome = nome.split(' ')[0];
       const instrucao = `O cliente acabou de informar o nome (${primeiroNome}). Reaja de forma breve e simpática ao nome, e peça o endereço completo dele(a) (rua, número e bairro), explicando rapidamente que é só pra ocasiões especiais, tipo mandar uma lembrancinha no aniversário. Não peça mais nada além do endereço nessa mensagem.`;
@@ -638,6 +647,18 @@ async function processarOnboarding({ cliente, mensagem, estabelecimento }) {
       await supabase.from('clientes').update({ estado_onboarding: 'completo' }).eq('id', cliente.id);
       return 'Como posso te ajudar?';
   }
+}
+
+// Sanidade mínima pra aceitar algo como nome de pessoa: pelo menos 2
+// letras de verdade. Filtra "?", ",", "kkkk", números soltos, mensagem
+// vazia, etc. -- extrairCampoComIA cai pro texto bruto quando a IA falha
+// ou não extrai nada, então sem essa checagem esse tipo de resposta virava
+// o nome cadastrado do cliente direto.
+function pareceNome(valor) {
+  const texto = String(valor || '').trim();
+  if (texto.length < 2) return false;
+  const letras = texto.replace(/[^a-zA-ZÀ-ÖØ-öø-ÿ]/g, '');
+  return letras.length >= 2;
 }
 
 async function extrairCampoComIA(mensagemBruta, descricaoCampo) {
@@ -855,7 +876,7 @@ async function gerarMensagemPropostaHorario({ nomeCliente, nomeServico, dataHora
       temperature: 0.5,
       max_tokens: 150,
     });
-    return resposta.choices[0].message.content;
+    return resposta.choices[0].message.content?.trim() || textoFixo;
   } catch (erro) {
     console.error('Falha ao gerar mensagem de proposta de horário, usando texto padrão:', erro.message);
     return textoFixo;
