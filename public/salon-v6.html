@@ -286,7 +286,7 @@ let todosEstabelecimentos = []; // lista real do dono (pode ter mais de um) -- v
 let caixaChannel = null;
 let comandaAtual = null;
 let atividadesCache = [];
-const state = { agendamentosHoje: [], clientes: [] };
+const state = { agendamentosHoje: [], clientes: [], agendaData: null };
 
 async function chamarAPI(metodo, caminho, corpo) {
   const { data: { session } } = await sb.auth.getSession();
@@ -1336,12 +1336,30 @@ const Router={
   }
 };
 
+window.mudarDiaAgenda=function(deltaDias){
+  const base=state.agendaData?new Date(state.agendaData):new Date();
+  base.setDate(base.getDate()+deltaDias);
+  state.agendaData=base.toISOString();
+  P.agenda();
+};
+window.irParaHojeAgenda=function(){
+  state.agendaData=null;
+  P.agenda();
+};
+
 const P={
 async agenda(){
   const pg=$('#page-agenda');
   html(pg,'<div style="padding:40px;text-align:center;color:var(--ink3)">Carregando agenda...</div>');
-  const inicioDia=new Date();inicioDia.setHours(0,0,0,0);
-  const fimDia=new Date();fimDia.setHours(23,59,59,999);
+  // Sem isso, agendamento pra qualquer dia que não seja hoje (ex: feito
+  // pelo cliente via WhatsApp self-service, comum vir marcado pro dia
+  // seguinte) nunca aparecia aqui -- a tela sempre buscava só o dia atual,
+  // sem jeito nenhum de navegar. state.agendaData persiste entre reloads
+  // da própria tela (criar/cancelar agendamento chama P.agenda() de novo
+  // sem argumento, precisa continuar no mesmo dia que a pessoa tava vendo).
+  const diaExibido=state.agendaData?new Date(state.agendaData):new Date();
+  const inicioDia=new Date(diaExibido);inicioDia.setHours(0,0,0,0);
+  const fimDia=new Date(diaExibido);fimDia.setHours(23,59,59,999);
   let agendamentos=[],profissionais=[],solicitacoes=[];
   try{
     [agendamentos,profissionais,solicitacoes]=await Promise.all([
@@ -1364,7 +1382,8 @@ async agenda(){
   const ticketMedio=precos.length?Math.round(precos.reduce((a,b)=>a+b,0)/precos.length):0;
   const times=[];for(let h=8;h<20;h++){times.push(String(h).padStart(2,'0')+':00');times.push(String(h).padStart(2,'0')+':30');}
   const horaLocal=iso=>{const d=new Date(iso);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
-  const dataHoje=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+  const dataHoje=diaExibido.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'});
+  const ehHoje=inicioDia.toDateString()===new Date().toDateString();
   const fmtDataHora=iso=>new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
   const gruposSolicitacao=new Map();
   solicitacoesAbertas.forEach(s=>{
@@ -1410,7 +1429,11 @@ async agenda(){
       return '<div class="lr" style="align-items:flex-start"><div style="flex:1"><div class="lrn">'+nomeCliente+'</div><div class="tsm tm2" style="margin:2px 0 6px">pediu: "'+escHtml(primeiro.pedido_cliente)+'"</div>'+linhasServico+'</div>'+botaoAceitar+'</div>';
     }).join('')+'</div></div>'):'';
   html(pg,blocoSolicitacoes+'<div class="gsplit"><div>'
-  +'<div class="sech"><div><div class="sct">Agenda <em>de Hoje</em></div><div class="scsub">'+dataHoje+' - '+validos.length+' agendamento(s) - por profissional</div></div><div class="scacts"><button class="btn btp sm" onclick="abrirModalNovoAgendamento()">+ Agendar</button></div></div>'
+  +'<div class="sech"><div><div class="sct">Agenda'+(ehHoje?' <em>de Hoje</em>':'')+'</div><div class="scsub">'+dataHoje+' - '+validos.length+' agendamento(s) - por profissional</div></div><div class="scacts" style="align-items:center;gap:8px">'
+  +'<button class="btn btgh sm" onclick="mudarDiaAgenda(-1)" title="Dia anterior">◀</button>'
+  +(ehHoje?'':'<button class="btn btgh sm" onclick="irParaHojeAgenda()">Hoje</button>')
+  +'<button class="btn btgh sm" onclick="mudarDiaAgenda(1)" title="Próximo dia">▶</button>'
+  +'<button class="btn btp sm" onclick="abrirModalNovoAgendamento()">+ Agendar</button></div></div>'
   +'<div class="card mb12" style="overflow:hidden"><div style="display:grid;grid-template-columns:repeat(3,1fr);background:var(--bd)">'
   +[[String(validos.length),'Agendamentos hoje'],[R(ticketMedio),'Ticket médio'],[confirmados.length+' de '+validos.length,'Confirmados/concluídos']].map(([v,l],i)=>'<div style="background:var(--cr);padding:10px 13px;text-align:center;'+(i?'border-left:1px solid var(--bd)':'')+'"><div style="font-family:var(--fd);font-size:17px;font-weight:300">'+v+'</div><div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.6px;margin-top:2px">'+l+'</div></div>').join('')
   +'</div></div>'
