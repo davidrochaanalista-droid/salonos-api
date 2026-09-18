@@ -865,6 +865,8 @@ sem documentar desde 16/09. Achados, na ordem:
       nome de verdade. `max_tokens` subiu de 60 pra 200 e a checagem
       virou `startsWith` em vez de igualdade exata.
 
+    Commit `de9a202`, publicado em produção (deployment `65f08e6c`).
+
 ## Sessão de 18/09 — teste de conversa real ponta a ponta, vários bugs achados e corrigidos
 
 Sessão longa testando o motor de agendamento via WhatsApp com conversa
