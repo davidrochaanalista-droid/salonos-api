@@ -844,17 +844,26 @@ sem documentar desde 16/09. Achados, na ordem:
     sem DDI, não só esse caso -- corrigido pra todos de uma vez por
     estar no choke point. Instância de teste do Harry Studio desconectada
     depois do teste (mesmo cuidado do incidente de 13/09).
-14. **`pareceNome()` não pega frase completa que não é nome** -- achado
-    de verdade em 18/09 (ver seção "Sessão de 18/09..." abaixo): um
-    cliente respondeu "só manda pro cara aqui" quando a IA perguntou o
-    nome, e isso *passou* na checagem (tem letra de sobra) e virou o
-    nome cadastrado. `pareceNome()` (`src/routes/whatsapp.js`) hoje só
-    filtra lixo sem nenhuma letra de verdade (tipo "?", ","), não julga
-    se o texto *parece* um nome de pessoa. Resolver isso direito
-    provavelmente exige pedir pra própria IA julgar plausibilidade (ela
-    já faz a extração via `extrairCampoComIA`), não só um regex -- não
-    corrigido ainda, mesma raiz do incidente de 13/09 com contato
-    confuso.
+14. **`pareceNome()` não pegava frase completa que não é nome --
+    RESOLVIDO em 18/09**: `extrairNomeOuNull()` nova (`src/routes/whatsapp.js`)
+    substitui `extrairCampoComIA` na etapa de nome do onboarding -- pede
+    pra própria IA julgar se a mensagem contém um nome de pessoa de
+    verdade (não só filtrar por ter letra), extraindo o nome mesmo de
+    dentro de uma frase ("meu nome é Andrea" -> "Andrea") e já
+    devolvendo capitalizado. `pareceNome()` continua como segunda
+    camada (defesa em profundidade). Testado ao vivo contra a Groq real
+    com bateria de casos -- 2 bugs a mais achados e corrigidos no
+    caminho:
+    - Nome em minúscula sendo rejeitado ("joão"/"ana"/"pedro" ->
+      `NAO_E_NOME`, mas "João"/"Ana"/"Pedro" passavam) -- no WhatsApp
+      quase ninguém usa maiúscula, seria um falso-positivo grave
+      (rejeitar nome válido de verdade). Prompt agora pede
+      explicitamente pra capitalizar e avisa que minúscula é normal.
+    - O sentinela `NAO_E_NOME` saía cortado (`"NAO_E_N"`) pelo mesmo
+      motivo do bug de `max_tokens` documentado acima -- uma comparação
+      `===` exata deixaria passar o sentinela truncado como se fosse um
+      nome de verdade. `max_tokens` subiu de 60 pra 200 e a checagem
+      virou `startsWith` em vez de igualdade exata.
 
 ## Sessão de 18/09 — teste de conversa real ponta a ponta, vários bugs achados e corrigidos
 
@@ -984,10 +993,8 @@ e `railway up`.
    número real~~ -- RESOLVIDO em 18/09, ver seção "Sessão de 18/09..."
    acima. Achou e corrigiu vários bugs reais só visíveis numa conversa
    de verdade (não em teste com dublê).
-3. Corrigir o limite conhecido do `pareceNome()` (Pendências item 14) --
-   próximo candidato natural, já que é a mesma classe de risco do
-   incidente de 13/09 (contato/resposta confusa virando dado cadastrado
-   sem ninguém perceber).
+3. ~~Corrigir o limite conhecido do `pareceNome()`~~ -- RESOLVIDO em
+   18/09, ver Pendências item 14.
 4. Validar com donos de salão se pagamento antecipado/sinal (Pendências
    item 2) e nota fiscal (Pendências item 3) são prioridade antes de
    escopar de verdade.

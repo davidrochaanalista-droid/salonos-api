@@ -621,8 +621,8 @@ async function processarOnboarding({ cliente, mensagem, estabelecimento }) {
     }
 
     case 'aguardando_nome': {
-      const nome = await extrairCampoComIA(mensagem, 'nome completo da pessoa');
-      if (!pareceNome(nome)) {
+      const nome = await extrairNomeOuNull(mensagem);
+      if (!nome || !pareceNome(nome)) {
         // Não avança o estado -- fica pedindo até vir algo que pareça nome
         // de verdade. Achado testando de verdade: sem essa checagem, uma
         // resposta tipo "?" ou "," virava o nome cadastrado do cliente sem
@@ -660,6 +660,38 @@ function pareceNome(valor) {
   if (texto.length < 2) return false;
   const letras = texto.replace(/[^a-zA-ZÀ-ÖØ-öø-ÿ]/g, '');
   return letras.length >= 2;
+}
+
+// pareceNome() sozinha só filtra lixo sem nenhuma letra de verdade
+// (tipo "?", ","); não julga se o texto *parece* um nome de pessoa --
+// achado de verdade em 18/09: um cliente respondeu "só manda pro cara
+// aqui" quando a IA perguntou o nome, tem letra de sobra, passava batido
+// e virava o nome cadastrado. Aqui a própria IA julga plausibilidade
+// (frase/pergunta/comentário nunca é nome, mesmo tendo letras), não só
+// conta caracteres. Retorna null sempre que não tiver certeza -- nunca
+// aceita nome "no chute" (se a chamada falhar, também retorna null, mais
+// seguro que aceitar a mensagem bruta como se fosse nome).
+async function extrairNomeOuNull(mensagemBruta) {
+  try {
+    const resposta = await groq.chat.completions.create({
+      model: MODELO_IA,
+      messages: [
+        { role: 'system', content: `A mensagem do usuário é a resposta dele quando perguntado "qual é o seu nome completo?". Extraia o nome de pessoa que ele informou, mesmo que tenha vindo dentro de uma frase (ex: "meu nome é Andrea" -> "Andrea"; "pode me chamar de João" -> "João"; "sou a Erika Fernandes" -> "Erika Fernandes"), e devolva o nome já capitalizado direito, mesmo que o cliente tenha digitado tudo em minúscula (ex: "joão" -> "João", "ana paula" -> "Ana Paula") -- no WhatsApp quase ninguém usa maiúscula, isso é normal e NÃO é motivo pra rejeitar. Responda só com o nome extraído, nada mais. Só responda exatamente NAO_E_NOME (sem mais nada) se a mensagem realmente NÃO contiver nome nenhum de pessoa -- for uma pergunta, comentário, frase aleatória sem nome, risada ("kkkk"), emoji, ou pontuação sozinha.` },
+        { role: 'user', content: mensagemBruta },
+      ],
+      temperature: 0,
+      max_tokens: 200,
+    });
+    const valor = resposta.choices[0].message.content?.trim();
+    // startsWith, não === -- modelo reasoning pode gastar tokens pensando e
+    // cortar o sentinela no meio (achado de verdade: "NAO_E_N" em vez de
+    // "NAO_E_NOME"), o que faria uma comparação exata falhar silenciosamente
+    // e aceitar o sentinela cortado como se fosse um nome de verdade.
+    if (!valor || valor.startsWith('NAO_E_NOME') || valor.startsWith('NAO_E_N')) return null;
+    return valor;
+  } catch {
+    return null;
+  }
 }
 
 async function extrairCampoComIA(mensagemBruta, descricaoCampo) {
