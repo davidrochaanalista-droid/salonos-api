@@ -984,6 +984,84 @@ Commits, em ordem: `08e017b`, `01bd12f`, `b7c5703`, `38ef335`,
 `ca87644`, `6e81fc1`, `c411da6`, `ab0c023`, `dbebfa7` -- todos com push
 e `railway up`.
 
+## Sessão de 21/09 — no-show automático, gênero/tema claro-escuro, limpeza de raiz
+
+- **Arquivos soltos na raiz do repo** (`02-whatsapp-ia-servico.js`,
+  `05-migracao-agendamentos.sql`, `06-migracao-no-show-automatico.sql`,
+  2 `README-fase1*.md` duplicados, `analise-comparativa-mercado-2026.md`,
+  3 `.zip`) -- apareceram sem ninguém lembrar a origem exata; confirmados
+  como saída de uma sessão externa/isolada que nunca escreveu de fato
+  nesse repo. Achado sério: `analise-comparativa-mercado-2026.md` alegava
+  ter criado `src/routes/agendamentos.js` (**não existe**) e que
+  `src/routes/profissionais.js` "estava faltando desde a migração 03"
+  (na verdade já existia desde 10/09, antes dessa sessão externa). As duas
+  migrações soltas (05/06) foram escritas contra um schema **diferente**
+  do real (assumiam tabela `agendamentos` própria com `data_horario`/
+  `valor_previsto`/`politica_pagamento_id`, status `'pendente'`/`'no_show'`
+  -- a tabela real usa `inicio`/`fim`, status já inclui `'nao_compareceu'`
+  desde a migração 05 de verdade). A 05 solta rodou e quebrou (`create
+  table if not exists` é no-op contra a tabela já existente, então só o
+  `create index` numa coluna inexistente tentou rodar e falhou); a 06
+  solta "rodou sem erro" mas só criou uma função morta (Postgres não
+  valida coluna referenciada dentro de um corpo `plpgsql` até a função ser
+  chamada -- `politicas_pagamento` nunca existiu). Todos os 9 arquivos
+  apagados depois de confirmar com o David.
+- **Migração 33 -- marcação automática de no-show**
+  (`database/33-no-show-automatico.sql`, substitui a função morta da 06
+  solta via `create or replace function marcar_agendamentos_no_show`, mesma
+  assinatura): fecha um gap real -- agendamento que passava do horário
+  (`fim`) sem check-in ficava `agendado`/`confirmado` pra sempre, sem
+  nenhum job que virasse `nao_compareceu` sozinho (a IA do WhatsApp já
+  avisa cliente com histórico de falta que vai precisar de sinal,
+  `LIMITE_FALTAS_SINAL`, mas "histórico de falta" só existia se alguém
+  marcasse na mão). `taxa_no_show_pct` em `estabelecimentos` (mesmo padrão
+  simples de `gateway_pagamento`, sem tabela de "políticas" separada) +
+  `taxa_no_show` calculada (nunca cobrada sozinha) em `agendamentos` se o
+  serviço tiver preço fixo (não `preco_variavel`). Novo scheduler
+  `src/lib/marcarNoShow.js` (mesmo padrão dos outros dois: roda 1x no
+  boot + `setInterval` de 1h), ligado em `server.js`. Migração rodada e
+  verificada em produção (colunas confirmadas via query direta).
+- **Gênero do proprietário + tema claro/escuro** (`database/34-genero-
+  proprietario.sql`, pedido explícito do David): campo `genero`
+  (`masculino`/`feminino`, nulo = trata como feminino, ninguém que já
+  tinha conta muda de visual sozinho) em `proprietarios`. Masculino troca
+  o tom de `cadastro-real.html`/`painel-proprietario.html`/`salon-v6.html`
+  pra um visual mais escuro (mesmos tokens de cor de cada arquivo, valores
+  trocados sob `html.tema-escuro` -- nenhum componente precisou ser
+  reescrito; `--rose` vira um steel/grafite neutro em vez de outro rosa).
+  Campo aparece na tela de convite (`cadastro-real.html`, com
+  pré-visualização em tempo real) e, pra quem já tinha conta antes da
+  migração, em `salon-v6.html` → Config → nova seção "Sua Conta" (salva
+  junto do botão "Salvar configurações" já existente, aplica o tema na
+  hora sem recarregar).
+  **Bug achado testando no navegador**: a tela de login (`.lw`) é sempre
+  escura por design (gradiente fixo `#1A1510`→`#2C1F1A`) e usa `var(--wh)`
+  como branco fixo pro texto -- sem tratar isso, quem tem tema escuro
+  ativo e desloga veria o texto de login ficar invisível (branco
+  escurecido pelo tema, sobre fundo que já era escuro). Corrigido nos dois
+  pontos de logout (`salon-v6.html`, `painel-proprietario.html`):
+  removem a classe `tema-escuro` ao voltar pra tela de login.
+- **Gotcha real de deploy**: os commits desse dia (`851c47a`, `90f1648`,
+  `0fc425a`) ficaram só no repo local por um tempo -- David testou direto
+  no Railway (produção) e "nada mudou" porque nunca tinha sido dado
+  `git push`/`railway up`. Sempre confirmar se o código já foi enviado
+  antes de investigar "por que não mudou nada" num ambiente publicado.
+- **Gotcha do Railway CLI, atualizado**: `railway login --browserless`
+  falhou **5 vezes seguidas** nesta sessão, sempre caindo em
+  `davidrocha.analista@gmail.com` mesmo em aba anônima -- não é só cache
+  de navegador como a nota antiga (item "Deploy em produção" acima)
+  sugeria; o código de ativação por chat também expira rápido demais
+  (menos de ~1min) pra esse relay funcionar. **O que funcionou**: pedir
+  pro David rodar `railway login` (sem `--browserless`) **direto no
+  terminal dele** via `!<comando>` no prompt do Claude Code -- abre o
+  navegador local, ele troca de conta com calma lá, sem prazo curto nem
+  relay. Preferir esse caminho primeiro da próxima vez. Depois do login
+  certo, projeto precisou de `railway link -p salonos-api` de novo
+  (logout/login limpa o link local) e `railway up -c --service
+  salonos-api` (múltiplos serviços no projeto -- Evolution API/Postgres/
+  Redis/salonos-api -- `--service` é obrigatório ou o comando falha
+  pedindo pra escolher).
+
 ## Ordem sugerida pra continuar
 
 1. ~~Migrações 22 e 23~~ -- RESOLVIDO, testado no navegador (ver
