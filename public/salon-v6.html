@@ -300,6 +300,7 @@ sb.auth.onAuthStateChange((evento)=>{
 });
 
 let estabelecimentoAtivo = null;
+let proprietarioAtivo = null; // dado do dono logado (nome/telefone/genero) -- ver aba Config, seção "Sua Conta"
 let todosEstabelecimentos = []; // lista real do dono (pode ter mais de um) -- ver abrirModalUnidades()
 let caixaChannel = null;
 let comandaAtual = null;
@@ -415,7 +416,7 @@ async function doLogin(){
 }
 
 function entrarNoApp(estabelecimentos){
-  chamarAPI('GET','/proprietarios/me').then(owner=>aplicarTemaPorGenero(owner?.genero)).catch(()=>{});
+  chamarAPI('GET','/proprietarios/me').then(owner=>{proprietarioAtivo=owner;aplicarTemaPorGenero(owner?.genero);}).catch(()=>{});
   todosEstabelecimentos=estabelecimentos;
   estabelecimentoAtivo=estabelecimentos[0];
   $('#unitLabel').textContent=estabelecimentoAtivo.nome;
@@ -862,12 +863,18 @@ window.salvarConfigSalao=async function(){
     const client_secret=$('#cfgEfiClientSecret')?.value.trim();
     if(client_id||client_secret||efiCertificadoBase64)corpo.gateway_credenciais={client_id,client_secret,certificado_base64:efiCertificadoBase64};
   }
+  const genero=$('#cfgGenero')?.value;
   if(btn)btn.textContent='Salvando...';
   try{
     const atualizado=await chamarAPI('PATCH',`/estabelecimentos/${estabelecimentoAtivo.id}`,corpo);
     estabelecimentoAtivo=Object.assign(estabelecimentoAtivo,atualizado);
     $('#unitLabel').textContent=estabelecimentoAtivo.nome;
     $('#unitName').textContent=estabelecimentoAtivo.nome;
+    if(genero&&genero!==proprietarioAtivo?.genero){
+      const owner=await chamarAPI('PATCH','/proprietarios/me',{genero});
+      proprietarioAtivo=owner;
+      aplicarTemaPorGenero(owner.genero);
+    }
     Toast.show('Configuracoes salvas!');
     if(estabelecimentoAtivo.chave_pix)carregarPrevisaoPix();
   }catch(erro){
@@ -1751,8 +1758,15 @@ planos(){
 
 config(){
   const e=estabelecimentoAtivo||{};
+  const p=proprietarioAtivo||{};
   const gw=e.gateway_pagamento||'';
   const secs=[
+    {t:'Sua Conta',rs:[
+      {l:'Genero',d:'Define o tom do painel: masculino usa um visual mais escuro, feminino mantem o nude/rose atual',ct:'<select class="fi" style="width:200px" id="cfgGenero">'
+        +'<option value="feminino"'+(p.genero!=='masculino'?' selected':'')+'>Feminino</option>'
+        +'<option value="masculino"'+(p.genero==='masculino'?' selected':'')+'>Masculino</option>'
+        +'</select>'},
+    ]},
     {t:'Informacoes do Salao',rs:[
       {l:'Nome do salao',d:'Como aparece para as clientes',ct:'<input class="fi" style="width:200px" id="cfgNome" value="'+(e.nome||'')+'">'},
       {l:'WhatsApp',d:'Numero principal',ct:'<input class="fi" style="width:200px" id="cfgWhatsapp" value="'+(e.whatsapp||'')+'">'},
