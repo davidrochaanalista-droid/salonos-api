@@ -41,6 +41,7 @@ const rotasAdmin = require('./routes/admin'); // painel-admin.html — ver exigi
 const rotaHubMetricas = require('./routes/hub-metricas'); // GET /admin/hub-metricas -- chamada pelo backend do hub OmniFlow Studio, não por usuário logado
 const { iniciarScheduler } = require('./lib/automacoes/scheduler');
 const { iniciarSchedulerVencimento } = require('./lib/lembretesAssinatura');
+const { iniciarSchedulerNoShow } = require('./lib/marcarNoShow');
 const rotaWhatsapp = require('./routes/whatsapp'); // wrapper do 02-whatsapp-ia-servico.js — ver nota no final deste arquivo
 const rotaAvaliacoes = require('./routes/avaliacoes'); // pública -- cliente sem login avalia via link
 
@@ -162,6 +163,7 @@ if (require.main === module) {
   app.listen(PORTA, () => console.log(`SalonOS API rodando na porta ${PORTA}`));
   iniciarScheduler();
   iniciarSchedulerVencimento();
+  iniciarSchedulerNoShow();
 }
 
 module.exports = app;
