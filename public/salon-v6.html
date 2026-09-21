@@ -70,6 +70,23 @@
   --r:12px;--rs2:8px;--rl:18px;
   --ez:cubic-bezier(.4,0,.2,1);--t:160ms;--tm:300ms
 }
+/* Tom escuro quando o proprietário se cadastra como masculino (database/
+   34-genero-proprietario.sql) -- mesmas variáveis, valores trocados, então
+   nenhum componente abaixo precisa saber que o tema mudou. --cr/--cr2/--cr3
+   não precisam ser redeclarados aqui: já são var(--nude) etc., resolvidos
+   de novo no elemento com o valor escuro. O rosé (--rose) vira um
+   steel/grafite neutro em vez de recolorir pra outro rosa. */
+html.tema-escuro{
+  --nude:#1E1B1D;--nude2:#171416;--nude3:#2A2528;--wh:#262226;
+  --gd:#C9A96E;--gdl:#E4C990;--gdd:#B08A4E;--gdg:rgba(201,169,110,.22);
+  --rose:#7C8A9A;--rosedark:#5C6878;--roselight:rgba(124,138,154,.16);
+  --ink:#EDE8E4;--ink2:#C7BFB8;--ink3:#8F857D;--ink4:#4A423C;
+  --rs:#E0665F;--rsl:rgba(224,102,95,.14);--sg:#5FAE82;--sgl:rgba(95,174,130,.14);
+  --am:#D9A73D;--aml:rgba(217,167,61,.14);--sk:#5B93D9;--skl:rgba(91,147,217,.14);--vi:#9B7FC4;
+  --bd:rgba(255,255,255,.09);--bd2:rgba(255,255,255,.16);
+  --sh:0 1px 4px rgba(0,0,0,.35),0 6px 28px rgba(0,0,0,.45);
+  --sh2:0 4px 20px rgba(0,0,0,.4),0 28px 64px rgba(0,0,0,.5);
+}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:14px;-webkit-font-smoothing:antialiased}
 body{font-family:var(--fb);background:var(--nude);color:var(--ink);min-height:100vh;overflow-x:hidden}
@@ -98,6 +115,7 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
 .lp-i{font-size:20px;margin-bottom:4px}.lp-n{font-size:11px;color:rgba(255,255,255,.6);font-weight:500}.lp-r{font-size:10px;color:rgba(255,255,255,.35)}
 /* TOPBAR */
 .topbar{position:fixed;top:0;left:0;right:0;height:56px;background:rgba(242,232,225,.95);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border-bottom:1px solid rgba(201,169,110,.2);display:flex;align-items:center;justify-content:space-between;padding:0 22px;z-index:500;gap:10px}
+html.tema-escuro .topbar{background:rgba(30,27,29,.95)}
 .brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .bmark{width:32px;height:32px;background:linear-gradient(135deg,#1A1510,#3A2820);border-radius:7px;display:grid;place-items:center;color:var(--gd);font-size:15px;transform:rotate(-5deg);flex-shrink:0;box-shadow:0 2px 8px rgba(201,169,110,.3)}
 .bname{font-family:var(--fd);font-size:19px;font-weight:400}.bname em{font-style:italic;color:var(--gdd)}.bsub{font-size:10px;color:var(--ink3);margin-top:1px}
@@ -303,6 +321,9 @@ async function chamarAPI(metodo, caminho, corpo) {
 const PALETA_STAFF=[{c:'#8B7A55',bg:'rgba(139,122,85,.18)'},{c:'#4A7A62',bg:'rgba(74,122,98,.18)'},{c:'#7A5A8A',bg:'rgba(122,90,138,.18)'},{c:'#6A7A9A',bg:'rgba(106,122,154,.18)'},{c:'#9A6F00',bg:'rgba(154,111,0,.15)'},{c:'#3A6EA8',bg:'rgba(58,110,168,.18)'}];
 function corPara(id){let h=0;for(const ch of String(id))h=(h*31+ch.charCodeAt(0))>>>0;return PALETA_STAFF[h%PALETA_STAFF.length];}
 function iniciais(nome){return(nome||'?').trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();}
+// Tom claro/escuro conforme o gênero cadastrado (database/34-genero-
+// proprietario.sql) -- mesma função em cadastro-real.html e painel-proprietario.html.
+function aplicarTemaPorGenero(genero){document.documentElement.classList.toggle('tema-escuro',genero==='masculino');}
 function renderEmBreve(pageId,titulo,sub){
   html($('#'+pageId),'<div class="sech"><div><div class="sct">'+titulo+'</div><div class="scsub">'+sub+'</div></div></div>'
   +'<div class="card"><div class="cardb" style="text-align:center;padding:44px 20px;color:var(--ink3)">'
@@ -394,6 +415,7 @@ async function doLogin(){
 }
 
 function entrarNoApp(estabelecimentos){
+  chamarAPI('GET','/proprietarios/me').then(owner=>aplicarTemaPorGenero(owner?.genero)).catch(()=>{});
   todosEstabelecimentos=estabelecimentos;
   estabelecimentoAtivo=estabelecimentos[0];
   $('#unitLabel').textContent=estabelecimentoAtivo.nome;
@@ -1857,7 +1879,13 @@ function init(){
     if(caixaChannel){sb.removeChannel(caixaChannel);caixaChannel=null;}
     await sb.auth.signOut();
     estabelecimentoAtivo=null;comandaAtual=null;
-    $('#topbar').style.display='none';$('#heroBar').style.display='none';$('#mainWrap').style.display='none';$('#lw').style.display='flex';$('#lw').classList.remove('hide');Toast.show('Sessao encerrada. Ate logo!');
+    $('#topbar').style.display='none';$('#heroBar').style.display='none';$('#mainWrap').style.display='none';$('#lw').style.display='flex';$('#lw').classList.remove('hide');
+    // A tela de login (.lw) é sempre escura por design, independente do
+    // tema do dono -- ela usa var(--wh) como branco fixo. Sem isso, um
+    // dono com genero=masculino deslogando veria o texto de login
+    // invisível (branco escurecido pelo tema sobre fundo já escuro).
+    document.documentElement.classList.remove('tema-escuro');
+    Toast.show('Sessao encerrada. Ate logo!');
   });
   $('#mclose').addEventListener('click',Modal.close);
   $('#mbd').addEventListener('click',e=>{if(e.target===$('#mbd'))Modal.close();});

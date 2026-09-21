@@ -18,6 +18,17 @@
   --fd:'Cormorant Garamond',Georgia,serif;--fb:'DM Sans',system-ui,sans-serif;
   --r:12px;--rs2:8px;--ez:cubic-bezier(.4,0,.2,1);
 }
+/* Tom escuro quando o proprietário se cadastra como masculino (database/
+   34-genero-proprietario.sql) -- mesmas variáveis, valores trocados, então
+   nenhum componente abaixo precisa saber que o tema mudou. */
+html.tema-escuro{
+  --nude:#1E1B1D;--nude2:#171416;--nude3:#2A2528;--wh:#262226;
+  --gd:#C9A96E;--gdd:#B08A4E;--gdg:rgba(201,169,110,.22);
+  --ink:#EDE8E4;--ink2:#C7BFB8;--ink3:#8F857D;--ink4:#4A423C;
+  --rs:#E0665F;--rsl:rgba(224,102,95,.14);--sg:#5FAE82;--sgl:rgba(95,174,130,.14);
+  --bd:rgba(255,255,255,.09);--bd2:rgba(255,255,255,.16);
+  --sh:0 1px 4px rgba(0,0,0,.35),0 6px 28px rgba(0,0,0,.45);
+}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:14px}
 body{font-family:var(--fb);background:var(--nude);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -130,14 +141,22 @@ function renderDefinirSenha() {
     ${estado.erro ? `<div class="msg erro">${estado.erro}</div>` : ''}
     <div class="fg"><label class="bl">Seu nome</label><input class="fi" id="fNome" placeholder="Seu nome completo"></div>
     <div class="fg"><label class="bl">Seu telefone</label><input class="fi" id="fTelefone" placeholder="(11) 90000-0000"></div>
+    <div class="fg"><label class="bl">Gênero</label>
+      <select class="fi" id="fGenero" onchange="aplicarTemaPorGenero(this.value)">
+        <option value="feminino">Feminino</option>
+        <option value="masculino">Masculino</option>
+      </select>
+    </div>
     <div class="fg"><label class="bl">Crie uma senha</label><input class="fi" id="fSenha" type="password" placeholder="Mínimo 6 caracteres"></div>
     <button class="btn btp" id="btnDefinirSenha" onclick="submeterDefinirSenha()">Continuar</button>
   `;
+  aplicarTemaPorGenero(document.getElementById('fGenero').value);
 }
 
 async function submeterDefinirSenha() {
   const nome = document.getElementById('fNome').value.trim();
   const telefone = document.getElementById('fTelefone').value.trim();
+  const genero = document.getElementById('fGenero').value;
   const senha = document.getElementById('fSenha').value;
   const btn = document.getElementById('btnDefinirSenha');
 
@@ -150,7 +169,7 @@ async function submeterDefinirSenha() {
     const { error: errSenha } = await sb.auth.updateUser({ password: senha });
     if (errSenha) throw errSenha;
 
-    const resultado = await chamarAPI('PATCH', '/proprietarios/me', { nome, telefone });
+    const resultado = await chamarAPI('PATCH', '/proprietarios/me', { nome, telefone, genero });
     if (!resultado) return; // chamarAPI já tratou o erro e re-renderizou
 
     await verificarSessaoEContinuar();
@@ -203,10 +222,21 @@ function traduzirErroAuth(msg) {
   return msg;
 }
 
+// ── Tom claro/escuro conforme o gênero cadastrado (database/34-genero-
+// proprietario.sql) -- masculino vira escuro, feminino (ou sem cadastro
+// ainda) mantém o nude/rosé padrão. Mesma função em painel-proprietario.html
+// e salon-v6.html. ──
+function aplicarTemaPorGenero(genero) {
+  document.documentElement.classList.toggle('tema-escuro', genero === 'masculino');
+}
+
 // ── Depois do login/cadastro: checa se já existe estabelecimento ──
 async function verificarSessaoEContinuar() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { estado.erro = 'Sessão não encontrada — tente entrar novamente.'; return render(); }
+
+  const owner = await chamarAPI('GET', '/proprietarios/me');
+  aplicarTemaPorGenero(owner?.genero);
 
   const estabelecimentos = await chamarAPI('GET', '/estabelecimentos');
 
