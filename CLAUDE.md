@@ -1163,6 +1163,45 @@ logado como `davidrocha.coitinho@gmail.com` e permaneceu assim pro resto
 desta sessão (`railway whoami` confirmado antes de cada deploy) -- não
 precisou repetir o processo.
 
+### Cadastro rápido pelo admin + convites com link visível (24/09/2026)
+
+Depois do login separado por salão (seção acima), David pediu duas coisas
+a mais em cima do fluxo de convite:
+
+- **`POST /admin/convites` agora devolve o link, não só "enviado"**: o
+  motivo -- às vezes o cliente não tá com notebook/celular na hora, e o
+  David quer preencher o cadastro por ele ali mesmo. `inviteUserByEmail`
+  não devolve o link na resposta (só cria o usuário e manda o e-mail),
+  então a rota gera um segundo link tipo `'recovery'` pro mesmo e-mail
+  logo em seguida -- funciona porque o usuário já existe nesse ponto.
+  `cadastro-real.html` (`VEIO_DE_CONVITE`) passou a tratar `type=recovery`
+  igual a `type=invite` na tela "defina sua senha" só por causa disso.
+- **Convites pendentes, persistente** (`GET /admin/convites-pendentes`):
+  o link acima só aparecia uma vez no modal -- se o David saísse da tela,
+  sumia. Nova lista na página Contas mostra todo proprietário com
+  `nome=''` (convidado que nunca completou a tela 1) com um botão "Ver
+  link" que re-gera um link novo a qualquer momento. `POST /admin/convites`
+  também passou a tolerar "e-mail já convidado antes" em vez de falhar,
+  já que re-clicar "Ver link" bate nesse mesmo endpoint de novo.
+- **Cadastro rápido** (`POST /admin/cadastro-rapido`, botão "Cadastro
+  rápido" ao lado de "+ Convidar salão"): cria proprietário +
+  estabelecimento + login do salão numa tacada só, sem convite/e-mail/link
+  nenhum -- pedido explícito do David, pra cadastrar cliente na hora,
+  presencialmente. Mesmo modelo de dois logins de sempre (login do salão
+  marcado `user_metadata:{tipo:'login_salao'}`, não vira proprietário --
+  migração 36 continua valendo aqui), catálogo do segmento pré-cadastrado
+  igual ao fluxo normal. Usa `req.supabaseAdmin` (não `req.supabase`)
+  porque o proprietário novo não é o David logado -- RLS bloquearia pelo
+  caminho comum. Rollback em cascata se qualquer passo falhar (apaga os
+  `auth.users` já criados antes de devolver erro).
+
+Testado localmente replicando a sequência exata das rotas direto contra
+o Supabase (sem passar pelo Express -- as rotas exigem sessão de admin
+de verdade, que não fica salva em lugar nenhum do repo): proprietário
+criado com nome/telefone/gênero corretos vindo do `user_metadata`, CPF
+setado à parte, login do salão confirmado SEM linha em `proprietarios`
+(migração 36 segurando), catálogo pré-cadastrado. `npm test` 45/45.
+
 ## Ordem sugerida pra continuar
 
 1. ~~Migrações 22 e 23~~ -- RESOLVIDO, testado no navegador (ver
@@ -1181,11 +1220,14 @@ precisou repetir o processo.
    escopar de verdade.
 5. Login separado por salão (migrações 35/36) -- RESOLVIDO em 24/09 pra
    cadastro novo, testado ponta a ponta local com convite real. **Ainda
-   não testado em produção com convite de verdade** (só local). Falta,
-   se o David quiser: (a) confirmar em produção com um convite real; (b)
-   decidir se/quando adicionar retrofit pra Harry Studio e Studio Teste
-   QA ganharem login de salão também (decisão explícita: fora de escopo
-   por ora); (c) testar "esqueci minha senha" ponta a ponta com e-mail de
-   verdade (só verificado estruturalmente nesta sessão -- bati rate limit
-   de e-mail do Supabase testando reverificação de sessão, coisa não
-   relacionada, e não cheguei a clicar um link de recuperação real).
+   não testado em produção com convite de verdade** (só local, e via
+   chamada direta contra o Supabase pro cadastro rápido/convite com link
+   -- nenhum dos dois foi clicado de ponta a ponta pelo navegador em
+   produção ainda). Falta, se o David quiser: (a) confirmar em produção
+   com um convite ou cadastro rápido real; (b) decidir se/quando
+   adicionar retrofit pra Harry Studio e Studio Teste QA ganharem login
+   de salão também (decisão explícita: fora de escopo por ora); (c)
+   testar "esqueci minha senha" ponta a ponta com e-mail de verdade (só
+   verificado estruturalmente nesta sessão -- bati rate limit de e-mail
+   do Supabase testando reverificação de sessão, coisa não relacionada, e
+   não cheguei a clicar um link de recuperação real).
