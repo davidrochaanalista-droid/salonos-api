@@ -13,7 +13,7 @@ const router = express.Router();
 router.get('/proprietarios/me', async (req, res) => {
   const { data, error } = await req.supabase
     .from('proprietarios')
-    .select('nome, telefone, genero, created_at')
+    .select('nome, telefone, cpf, genero, created_at')
     .eq('user_id', req.user.id)
     .single();
 
@@ -21,14 +21,14 @@ router.get('/proprietarios/me', async (req, res) => {
   res.json(data);
 });
 
-// PATCH /proprietarios/me — completa nome/telefone/genero reais depois de
+// PATCH /proprietarios/me — completa nome/telefone/cpf/genero reais depois de
 // definir senha via convite (ver cadastro-real.html) -- o trigger
 // criar_proprietario_no_signup já cria a linha no momento do convite,
 // mas sem metadata nenhuma. Exige a policy de update da migração 29.
 // genero é usado só pra escolher o tom do layout (claro/escuro) nas
 // telas do estabelecimento -- ver database/34-genero-proprietario.sql.
 router.patch('/proprietarios/me', async (req, res) => {
-  const camposPermitidos = ['nome', 'telefone', 'genero'];
+  const camposPermitidos = ['nome', 'telefone', 'cpf', 'genero'];
   const atualizacoes = {};
   for (const campo of camposPermitidos) {
     if (req.body[campo] !== undefined) atualizacoes[campo] = req.body[campo];
@@ -38,7 +38,7 @@ router.patch('/proprietarios/me', async (req, res) => {
     .from('proprietarios')
     .update(atualizacoes)
     .eq('user_id', req.user.id)
-    .select('nome, telefone, genero, created_at')
+    .select('nome, telefone, cpf, genero, created_at')
     .single();
 
   if (error) return res.status(500).json({ erro: error.message });

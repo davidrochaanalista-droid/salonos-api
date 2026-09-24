@@ -11,9 +11,7 @@
  * de salão, que continuam usando req.supabase (escopado por RLS).
  */
 
-const { createClient } = require('@supabase/supabase-js');
-
-const clienteServiceRole = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+const clienteServiceRole = require('../lib/supabaseAdmin');
 
 async function exigirAdmin(req, res, next) {
   const { data, error } = await clienteServiceRole

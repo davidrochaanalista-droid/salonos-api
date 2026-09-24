@@ -117,13 +117,12 @@ const VEIO_DE_CONVITE = window.location.hash.includes('type=invite');
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const app = document.getElementById('app');
 
-let estado = { tela: 'auth', erro: null, carregando: false, segmentos: [], estabelecimento: null, atividades: [], catalogoSugerido: null, catalogoSelecionado: null };
+let estado = { tela: 'auth', erro: null, carregando: false, segmentos: [], estabelecimento: null, atividades: [] };
 
 function render() {
   if (estado.tela === 'auth') return renderAuth();
   if (estado.tela === 'definir-senha') return renderDefinirSenha();
   if (estado.tela === 'criar-estabelecimento') return renderCriarEstabelecimento();
-  if (estado.tela === 'catalogo') return renderCatalogo();
   if (estado.tela === 'completo') return renderCompleto();
 }
 
@@ -134,13 +133,20 @@ function render() {
 // senha + nome/telefone reais (o trigger criar_proprietario_no_signup já
 // criou a linha em proprietarios no momento do convite, sem essa
 // metadata ainda). ──
-function renderDefinirSenha() {
+async function renderDefinirSenha() {
+  if (estado.emailConvite === undefined) {
+    app.innerHTML = `<div class="center txs">Carregando...</div>`;
+    const { data: { user } } = await sb.auth.getUser();
+    estado.emailConvite = user?.email || '';
+  }
   app.innerHTML = `
     <div class="step-title">Bem-vindo(a) <em>ao SalonOS</em></div>
-    <div class="step-sub">Falta só definir sua senha pra começar a cadastrar seu estabelecimento.</div>
+    <div class="step-sub">Este é o seu login de proprietário — dá acesso ao painel de rede (todas as suas unidades). Falta só completar o cadastro.</div>
     ${estado.erro ? `<div class="msg erro">${estado.erro}</div>` : ''}
+    <div class="fg"><label class="bl">E-mail</label><input class="fi" value="${escHtml(estado.emailConvite)}" disabled></div>
     <div class="fg"><label class="bl">Seu nome</label><input class="fi" id="fNome" placeholder="Seu nome completo"></div>
     <div class="fg"><label class="bl">Seu telefone</label><input class="fi" id="fTelefone" placeholder="(11) 90000-0000"></div>
+    <div class="fg"><label class="bl">CPF</label><input class="fi" id="fCpf" placeholder="000.000.000-00"></div>
     <div class="fg"><label class="bl">Gênero</label>
       <select class="fi" id="fGenero" onchange="aplicarTemaPorGenero(this.value)">
         <option value="feminino">Feminino</option>
@@ -153,9 +159,16 @@ function renderDefinirSenha() {
   aplicarTemaPorGenero(document.getElementById('fGenero').value);
 }
 
+function escHtml(txt) {
+  const div = document.createElement('div');
+  div.textContent = txt ?? '';
+  return div.innerHTML;
+}
+
 async function submeterDefinirSenha() {
   const nome = document.getElementById('fNome').value.trim();
   const telefone = document.getElementById('fTelefone').value.trim();
+  const cpf = document.getElementById('fCpf').value.trim();
   const genero = document.getElementById('fGenero').value;
   const senha = document.getElementById('fSenha').value;
   const btn = document.getElementById('btnDefinirSenha');
@@ -169,7 +182,7 @@ async function submeterDefinirSenha() {
     const { error: errSenha } = await sb.auth.updateUser({ password: senha });
     if (errSenha) throw errSenha;
 
-    const resultado = await chamarAPI('PATCH', '/proprietarios/me', { nome, telefone, genero });
+    const resultado = await chamarAPI('PATCH', '/proprietarios/me', { nome, telefone, cpf, genero });
     if (!resultado) return; // chamarAPI já tratou o erro e re-renderizou
 
     await verificarSessaoEContinuar();
@@ -255,7 +268,7 @@ async function verificarSessaoEContinuar() {
 function renderCriarEstabelecimento() {
   app.innerHTML = `
     <div class="step-title">Seu <em>estabelecimento</em></div>
-    <div class="step-sub">Essas informações aparecem para as suas clientes e nos lembretes automáticos por WhatsApp.</div>
+    <div class="step-sub">Essas informações aparecem para as suas clientes e nos lembretes automáticos por WhatsApp. O resto (cidade, bairro, CEP) você completa depois em Config, dentro do painel do salão.</div>
     ${estado.erro ? `<div class="msg erro">${estado.erro}</div>` : ''}
     <div class="fg"><label class="bl">Nome do estabelecimento</label><input class="fi" id="fNomeEst" placeholder="Ex: Studio Beleza Pro"></div>
     <div class="fg"><label class="bl">Segmento</label>
@@ -263,15 +276,13 @@ function renderCriarEstabelecimento() {
         ${estado.segmentos.map(s => `<option value="${s.id}">${s.icone} ${s.nome}</option>`).join('')}
       </select>
     </div>
+    <div class="fg"><label class="bl">CNPJ</label><input class="fi" id="fCnpj" placeholder="00.000.000/0001-00"></div>
     <div class="fg"><label class="bl">WhatsApp do estabelecimento</label><input class="fi" id="fWhatsapp" placeholder="(11) 90000-0000"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="fg"><label class="bl">Cidade</label><input class="fi" id="fCidade" placeholder="São Paulo"></div>
-      <div class="fg"><label class="bl">Bairro</label><input class="fi" id="fBairro" placeholder="Jardins"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px">
-      <div class="fg"><label class="bl">CEP</label><input class="fi" id="fCep" placeholder="00000-000"></div>
-      <div class="fg"><label class="bl">Endereço</label><input class="fi" id="fEndereco" placeholder="Rua, número"></div>
-    </div>
+    <div class="fg"><label class="bl">Endereço</label><input class="fi" id="fEndereco" placeholder="Rua, número"></div>
+    <div class="divider"></div>
+    <div class="txs tm2" style="margin-bottom:10px">Login do salão -- separado do seu login de proprietário, é o que a equipe usa no dia a dia (não dá acesso ao painel de rede).</div>
+    <div class="fg"><label class="bl">E-mail do salão</label><input class="fi" id="fEmailSalao" type="email" placeholder="salao@email.com"></div>
+    <div class="fg"><label class="bl">Senha do salão</label><input class="fi" id="fSenhaSalao" type="password" placeholder="Mínimo 6 caracteres"></div>
     <button class="btn btp" id="btnCriarEst" onclick="submeterEstabelecimento()">Cadastrar estabelecimento</button>
   `;
 }
@@ -279,92 +290,27 @@ function renderCriarEstabelecimento() {
 async function submeterEstabelecimento() {
   const nome = document.getElementById('fNomeEst').value.trim();
   const segmento_id = document.getElementById('fSegmento').value;
+  const cnpj = document.getElementById('fCnpj').value.trim();
   const whatsapp = document.getElementById('fWhatsapp').value.trim();
-  const cidade = document.getElementById('fCidade').value.trim();
-  const bairro = document.getElementById('fBairro').value.trim();
-  const cep = document.getElementById('fCep').value.trim();
   const endereco = document.getElementById('fEndereco').value.trim();
+  const email_salao = document.getElementById('fEmailSalao').value.trim();
+  const senha_salao = document.getElementById('fSenhaSalao').value;
   const btn = document.getElementById('btnCriarEst');
 
-  if (!nome || !whatsapp) { estado.erro = 'Nome e WhatsApp são obrigatórios.'; return render(); }
+  if (!nome || !whatsapp || !email_salao || !senha_salao) {
+    estado.erro = 'Nome, WhatsApp, e-mail e senha do salão são obrigatórios.';
+    return render();
+  }
 
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner"></div>';
 
-  const novoEstabelecimento = await chamarAPI('POST', '/estabelecimentos', { nome, segmento_id, whatsapp, cidade, bairro, cep, endereco });
+  const novoEstabelecimento = await chamarAPI('POST', '/estabelecimentos', { nome, segmento_id, cnpj, whatsapp, endereco, email_salao, senha_salao });
   if (!novoEstabelecimento) { btn.disabled = false; btn.textContent = 'Cadastrar estabelecimento'; return; }
 
   estado.estabelecimento = novoEstabelecimento;
   estado.erro = null;
-  estado.tela = 'catalogo';
-  render();
-}
-
-// ── TELA 3: MARCAR QUAIS SERVIÇOS DO CATÁLOGO O ESTABELECIMENTO OFERECE ──
-// A IA/catálogo sugere tudo que é comum no segmento, mas cada estabelecimento
-// oferece um subconjunto — por isso vem pré-marcado (não pré-adotado) e a
-// dona confirma/desmarca antes de qualquer coisa ir pro banco.
-async function renderCatalogo() {
-  if (!estado.catalogoSugerido) {
-    app.innerHTML = `<div class="center txs">Carregando catálogo sugerido...</div>`;
-    estado.catalogoSugerido = await chamarAPI('GET', `/atividades-catalogo?segmento_id=${estado.estabelecimento.segmento_id}`) || [];
-    estado.catalogoSelecionado = new Set(estado.catalogoSugerido.map(a => a.id));
-  }
-
-  app.innerHTML = `
-    <div class="step-title">Seus <em>serviços</em></div>
-    <div class="step-sub">Marcamos os serviços mais comuns do seu segmento. Desmarque o que você não oferece, ou deixe todos marcados.</div>
-    ${estado.erro ? `<div class="msg erro">${estado.erro}</div>` : ''}
-    ${estado.catalogoSugerido.length ? `
-      <div class="cat-lista">
-        ${estado.catalogoSugerido.map(a => `
-          <label class="cat-row">
-            <input type="checkbox" ${estado.catalogoSelecionado.has(a.id) ? 'checked' : ''} onchange="alternarAtividadeCatalogo('${a.id}', this.checked)">
-            <div style="flex:1">
-              <div class="cat-nome">${a.nome}</div>
-              ${a.descricao_curta ? `<div class="cat-desc">${a.descricao_curta}</div>` : ''}
-            </div>
-            <div class="cat-preco">R$ ${a.preco_sugerido_min}–${a.preco_sugerido_max}</div>
-          </label>
-        `).join('')}
-      </div>
-    ` : `<div class="txs" style="margin-bottom:16px">Nenhum serviço sugerido pra esse segmento ainda — cadastre manualmente depois.</div>`}
-    <button class="btn btg" id="btnAdotar" onclick="confirmarServicosSelecionados()">Confirmar serviços selecionados</button>
-    <div class="divider"></div>
-    <button class="btn btgh" onclick="pularCatalogo()">Pular — vou cadastrar manualmente depois</button>
-  `;
-}
-
-function alternarAtividadeCatalogo(id, marcado) {
-  if (marcado) estado.catalogoSelecionado.add(id);
-  else estado.catalogoSelecionado.delete(id);
-}
-
-async function confirmarServicosSelecionados() {
-  const btn = document.getElementById('btnAdotar');
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner"></div>';
-
-  const selecionados = estado.catalogoSugerido.filter(a => estado.catalogoSelecionado.has(a.id));
-  const atividadesCriadas = [];
-  for (const a of selecionados) {
-    const criada = await chamarAPI('POST', `/estabelecimentos/${estado.estabelecimento.id}/atividades`, {
-      atividade_catalogo_id: a.id,
-      nome: a.nome,
-      descricao: a.descricao_curta,
-      duracao_min: a.duracao_padrao_min,
-      preco: a.preco_sugerido_min,
-    });
-    if (criada) atividadesCriadas.push(criada);
-  }
-
-  estado.atividades = atividadesCriadas;
-  estado.tela = 'completo';
-  render();
-}
-
-function pularCatalogo() {
-  estado.atividades = [];
+  await carregarAtividades();
   estado.tela = 'completo';
   render();
 }

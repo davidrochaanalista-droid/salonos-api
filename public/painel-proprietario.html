@@ -340,13 +340,13 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
 .lb{background:rgba(242,232,225,.06);border:1px solid rgba(201,169,110,.2);border-radius:20px;padding:44px 40px;width:100%;max-width:400px;backdrop-filter:blur(20px)}
 .llogo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
 .lmark{width:34px;height:34px;background:var(--gd);border-radius:8px;display:grid;place-items:center;font-size:16px;color:var(--ink);flex-shrink:0}
-.lbrand{font-family:var(--fd);font-size:24px;color:var(--wh);letter-spacing:-.5px}.lbrand em{font-style:italic;color:var(--gd)}
-.lh{font-family:var(--fd);font-size:28px;font-weight:300;color:var(--wh);margin-bottom:6px}.lh em{font-style:italic;color:var(--gd)}
+.lbrand{font-family:var(--fd);font-size:24px;color:#FFFFFF;letter-spacing:-.5px}.lbrand em{font-style:italic;color:var(--gd)}
+.lh{font-family:var(--fd);font-size:28px;font-weight:300;color:#FFFFFF;margin-bottom:6px}.lh em{font-style:italic;color:var(--gd)}
 .lsub{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:24px;line-height:1.5}
 .lf{margin-bottom:13px}.lf label{display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.4);margin-bottom:6px}
-.lf input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 14px;color:var(--wh);font-size:13px;font-family:var(--fb)}
+.lf input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 14px;color:#FFFFFF;font-size:13px;font-family:var(--fb)}
 .lf input:focus{border-color:var(--gd);outline:none}.lf input::placeholder{color:rgba(255,255,255,.25)}
-.lbtn{width:100%;background:var(--gd);color:var(--ink);border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:var(--fb);margin-top:6px}
+.lbtn{width:100%;background:var(--gd);color:#1A1510;border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:var(--fb);margin-top:6px}
 .lbtn:hover{background:var(--gdd)}.lbtn:disabled{opacity:.6;cursor:not-allowed}
 .lerro{background:var(--rsl);color:var(--rs);border-radius:8px;padding:10px 13px;font-size:12px;margin-bottom:14px;line-height:1.5}
 </style>
@@ -363,6 +363,28 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
     <div class="lf"><label>E-mail</label><input type="email" id="lwEmail" placeholder="contato@seusalao.com"></div>
     <div class="lf"><label>Senha</label><input type="password" id="lwSenha" placeholder="Digite sua senha"></div>
     <button class="lbtn" id="lwBtn" onclick="doLogin()">Entrar</button>
+    <div class="txs center" style="margin-top:14px;cursor:pointer;color:var(--gd)" onclick="abrirEsqueciSenha()">Esqueci minha senha</div>
+  </div>
+</div>
+<div class="lw" id="lwEsqueci" style="display:none">
+  <div class="lb">
+    <div class="llogo"><div class="lmark">✂</div><div class="lbrand">Salon<em>OS</em></div></div>
+    <div class="lh">Recuperar <em>senha</em></div>
+    <div class="lsub">Informe o e-mail do seu login de proprietário -- mandamos um link pra você definir uma senha nova.</div>
+    <div id="esqueciErro"></div>
+    <div class="lf"><label>E-mail</label><input type="email" id="esqueciEmail" placeholder="contato@seusalao.com"></div>
+    <button class="lbtn" id="esqueciBtn" onclick="enviarLinkRecuperacao()">Enviar link de recuperação</button>
+    <button class="btn btgh sm wf" style="justify-content:center;margin-top:10px" onclick="voltarParaLogin()">Voltar</button>
+  </div>
+</div>
+<div class="lw" id="lwNovaSenha" style="display:none">
+  <div class="lb">
+    <div class="llogo"><div class="lmark">✂</div><div class="lbrand">Salon<em>OS</em></div></div>
+    <div class="lh">Defina uma <em>nova senha</em></div>
+    <div class="lsub">Escolha uma nova senha pro seu login de proprietário.</div>
+    <div id="novaSenhaErro"></div>
+    <div class="lf"><label>Nova senha</label><input type="password" id="novaSenhaInput" placeholder="Mínimo 6 caracteres"></div>
+    <button class="lbtn" id="novaSenhaBtn" onclick="submeterNovaSenha()">Salvar nova senha e entrar</button>
   </div>
 </div>
 
@@ -455,6 +477,10 @@ const SUPABASE_URL = 'https://shekztrtkaknyudvzttf.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_WGAnLGQxexd89d0dOJhpTg_KoIGWVaX';
 // Vazio de propósito -- ver mesma nota em salon-v6.html.
 const API_BASE_URL = '';
+// Ler window.location.hash AQUI, antes do createClient() -- ele processa e
+// pode limpar esse hash de forma assíncrona (mesmo cuidado documentado em
+// cadastro-real.html/salon-v6.html).
+const VEIO_DE_RECUPERACAO_SENHA = window.location.hash.includes('type=recovery');
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function chamarAPI(metodo, caminho, corpo) {
@@ -523,6 +549,14 @@ async function doLogin() {
     if (error) throw error;
     await carregarDados();
   } catch (erro) {
+    // Garante que a casca do painel (de uma sessão anterior bem-sucedida
+    // na mesma aba) não fique visível por trás -- ex: login do salão
+    // barrado pelo bloqueio de carregarDados() depois de um login de
+    // proprietário já ter mostrado o painel nessa mesma aba.
+    $('#topbar').style.display = 'none';
+    $('#heroSection').style.display = 'none';
+    $('#mainWrap').style.display = 'none';
+    $('#lw').style.display = '';
     $('#lwErro').innerHTML = `<div class="lerro">${erro.message === 'Invalid login credentials' ? 'E-mail ou senha incorretos.' : erro.message}</div>`;
   } finally {
     btn.disabled = false;
@@ -530,7 +564,84 @@ async function doLogin() {
   }
 }
 
+function abrirEsqueciSenha() {
+  $('#esqueciEmail').value = $('#lwEmail').value.trim();
+  $('#esqueciErro').innerHTML = '';
+  $('#lw').style.display = 'none';
+  $('#lwEsqueci').style.display = 'flex';
+}
+
+function voltarParaLogin() {
+  $('#lwEsqueci').style.display = 'none';
+  $('#lw').style.display = 'flex';
+}
+
+// Sempre mostra a mesma mensagem de sucesso, exista ou não o e-mail --
+// resetPasswordForEmail já não denuncia isso na resposta, de propósito
+// (evita enumeração de conta: alguém descobrir quais e-mails têm cadastro
+// só testando "esqueci senha").
+async function enviarLinkRecuperacao() {
+  const email = $('#esqueciEmail').value.trim();
+  const btn = $('#esqueciBtn');
+  $('#esqueciErro').innerHTML = '';
+  if (!email) { $('#esqueciErro').innerHTML = `<div class="lerro">Preencha o e-mail.</div>`; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  try {
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/painel-proprietario.html' });
+    if (error) throw error;
+    Toast.show('Se esse e-mail tiver conta, um link de recuperação foi enviado.');
+    voltarParaLogin();
+  } catch (erro) {
+    $('#esqueciErro').innerHTML = `<div class="lerro">${erro.message || 'Não foi possível enviar o link.'}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enviar link de recuperação';
+  }
+}
+
+// Chegou pelo link de recuperação (VEIO_DE_RECUPERACAO_SENHA, capturado no
+// topo do arquivo) -- sb já tem sessão válida assim que o SDK processa o
+// hash sozinho, só falta escolher a senha nova antes de entrar.
+async function submeterNovaSenha() {
+  const senha = $('#novaSenhaInput').value;
+  const btn = $('#novaSenhaBtn');
+  $('#novaSenhaErro').innerHTML = '';
+  if (!senha || senha.length < 6) { $('#novaSenhaErro').innerHTML = `<div class="lerro">A senha precisa ter pelo menos 6 caracteres.</div>`; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+  try {
+    const { error } = await sb.auth.updateUser({ password: senha });
+    if (error) throw error;
+    // Por segurança, não entra direto -- desloga e exige login de novo com
+    // a senha nova, em vez de aproveitar a sessão da recuperação.
+    await sb.auth.signOut();
+    $('#lwNovaSenha').style.display = 'none';
+    $('#lw').style.display = 'flex';
+    Toast.show('Senha atualizada! Entre com a nova senha.');
+  } catch (erro) {
+    $('#novaSenhaErro').innerHTML = `<div class="lerro">${erro.message || 'Não foi possível salvar a nova senha.'}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Salvar nova senha e entrar';
+  }
+}
+
 async function carregarDados() {
+  // Bloqueio de verdade pro login de um salão específico (database/35-login-
+  // salao.sql): esse login nunca tem linha em proprietarios, então essa
+  // chamada sempre falha pra ele -- sem essa checagem logo no início, o
+  // código antigo só caía num fallback silencioso ("—") e continuava
+  // renderizando a casca do painel de rede pra quem não devia ver isso.
+  const owner = await chamarAPI('GET', '/proprietarios/me').catch(() => null);
+  if (!owner) {
+    await sb.auth.signOut();
+    throw new Error('Este login não tem acesso ao painel de proprietário -- use o login do salão no painel do dia a dia.');
+  }
+  aplicarTemaPorGenero(owner.genero);
+
   const estabelecimentos = await chamarAPI('GET', '/estabelecimentos');
   const anoMes = anoMesAtual();
   const resumos = await Promise.all(
@@ -555,14 +666,8 @@ async function carregarDados() {
     };
   });
 
-  try {
-    const owner = await chamarAPI('GET', '/proprietarios/me');
-    const planoLabel = D.saloes.length > 1 ? 'Multi-Unidades' : (D.saloes[0]?.plano ? `Plano ${D.saloes[0].plano}` : '');
-    D.owner = { nm: owner.nome, plan: planoLabel, since: formatarDesde(owner.created_at) };
-    aplicarTemaPorGenero(owner.genero);
-  } catch {
-    D.owner = { nm: '—', plan: '', since: '' };
-  }
+  const planoLabel = D.saloes.length > 1 ? 'Multi-Unidades' : (D.saloes[0]?.plano ? `Plano ${D.saloes[0].plano}` : '');
+  D.owner = { nm: owner.nome, plan: planoLabel, since: formatarDesde(owner.created_at) };
 
   $('#ownerAv').textContent = iniciais(D.owner.nm) || '—';
   $('#ownerNm').textContent = D.owner.nm || '—';
@@ -1492,7 +1597,15 @@ function init() {
 
 async function verificarSessaoEContinuar() {
   const { data: { session } } = await sb.auth.getSession();
-  if (session) await carregarDados();
+  if (!session) return;
+  try {
+    await carregarDados();
+  } catch (erro) {
+    // Sessão de um login de salão persistida de antes (ex: aba deixada
+    // aberta) -- carregarDados() já deu signOut, só falta mostrar por quê
+    // em vez de deixar a página em branco.
+    $('#lwErro').innerHTML = `<div class="lerro">${erro.message}</div>`;
+  }
 }
 
 document.addEventListener('DOMContentLoaded', verificarSessaoEContinuar);

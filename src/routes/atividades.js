@@ -74,6 +74,33 @@ router.post('/estabelecimentos/:id/atividades', async (req, res) => {
   res.status(201).json(data);
 });
 
+// Adota TODAS as atividades sugeridas do catálogo de um segmento de uma vez
+// -- usado pelo atalho abaixo (dono aciona manualmente) e pelo auto-seed do
+// cadastro novo (POST /estabelecimentos, tela 2 -- ver estabelecimentos.js).
+// proprietário ajusta preço/remove depois; usamos o piso da faixa sugerida
+// como ponto de partida.
+async function adotarCatalogoCompleto(supabase, estabelecimentoId, segmentoId) {
+  const { data: catalogo, error: errCat } = await supabase
+    .from('atividades_catalogo')
+    .select('*')
+    .eq('segmento_id', segmentoId);
+  if (errCat) throw new Error(errCat.message);
+  if (!catalogo.length) return [];
+
+  const inserts = catalogo.map(a => ({
+    estabelecimento_id: estabelecimentoId,
+    atividade_catalogo_id: a.id,
+    nome: a.nome,
+    descricao: a.descricao_curta,
+    duracao_min: a.duracao_padrao_min,
+    preco: a.preco_sugerido_min,
+  }));
+
+  const { data, error } = await supabase.from('estabelecimento_atividades').insert(inserts).select();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 // POST /estabelecimentos/:id/atividades/adotar-catalogo-completo — atalho para
 // o cadastro inicial: adota TODAS as atividades sugeridas do segmento de uma vez,
 // o proprietário depois remove/edita o que não quiser (fluxo descrito no README-fase1.md, Decisão 1)
@@ -86,29 +113,12 @@ router.post('/estabelecimentos/:id/atividades/adotar-catalogo-completo', async (
 
   if (errEst || !estabelecimento) return res.status(404).json({ erro: 'Estabelecimento não encontrado.' });
 
-  const { data: catalogo, error: errCat } = await req.supabase
-    .from('atividades_catalogo')
-    .select('*')
-    .eq('segmento_id', estabelecimento.segmento_id);
-
-  if (errCat) return res.status(500).json({ erro: errCat.message });
-
-  const inserts = catalogo.map(a => ({
-    estabelecimento_id: req.params.id,
-    atividade_catalogo_id: a.id,
-    nome: a.nome,
-    descricao: a.descricao_curta,
-    duracao_min: a.duracao_padrao_min,
-    preco: a.preco_sugerido_min, // proprietário ajusta depois; usamos o piso da faixa como ponto de partida
-  }));
-
-  const { data, error } = await req.supabase
-    .from('estabelecimento_atividades')
-    .insert(inserts)
-    .select();
-
-  if (error) return res.status(500).json({ erro: error.message });
-  res.status(201).json(data);
+  try {
+    const data = await adotarCatalogoCompleto(req.supabase, req.params.id, estabelecimento.segmento_id);
+    res.status(201).json(data);
+  } catch (erro) {
+    res.status(500).json({ erro: erro.message });
+  }
 });
 
 // PATCH /atividades/:id — editar preço/duração/status de uma atividade já vinculada
@@ -157,3 +167,4 @@ router.delete('/atividades/:id', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.adotarCatalogoCompleto = adotarCatalogoCompleto;

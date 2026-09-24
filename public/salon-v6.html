@@ -101,13 +101,13 @@ input,select,textarea{font-family:inherit;font-size:14px;outline:none;border:non
 .lb{background:rgba(242,232,225,.06);border:1px solid rgba(201,169,110,.2);border-radius:20px;padding:44px 40px;width:100%;max-width:400px;position:relative;z-index:1;backdrop-filter:blur(20px)}
 .llogo{display:flex;align-items:center;gap:10px;margin-bottom:28px}
 .lmark{width:34px;height:34px;background:var(--gd);border-radius:8px;display:grid;place-items:center;font-size:16px;color:var(--ink);flex-shrink:0}
-.lbrand{font-family:var(--fd);font-size:24px;color:var(--wh);letter-spacing:-.5px}.lbrand em{font-style:italic;color:var(--gd)}
-.lh{font-family:var(--fd);font-size:28px;font-weight:300;color:var(--wh);margin-bottom:6px}.lh em{font-style:italic;color:var(--gd)}
+.lbrand{font-family:var(--fd);font-size:24px;color:#FFFFFF;letter-spacing:-.5px}.lbrand em{font-style:italic;color:var(--gd)}
+.lh{font-family:var(--fd);font-size:28px;font-weight:300;color:#FFFFFF;margin-bottom:6px}.lh em{font-style:italic;color:var(--gd)}
 .lsub{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:24px;line-height:1.5}
 .lf{margin-bottom:13px}.lf label{display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.4);margin-bottom:6px}
-.lf input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 14px;color:var(--wh);font-size:13px;transition:border-color var(--t);font-family:var(--fb)}
+.lf input{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:11px 14px;color:#FFFFFF;font-size:13px;transition:border-color var(--t);font-family:var(--fb)}
 .lf input:focus{border-color:var(--gd);outline:none}.lf input::placeholder{color:rgba(255,255,255,.25)}
-.lbtn{width:100%;background:var(--gd);color:var(--ink);border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;transition:all var(--t);border:none;font-family:var(--fb);margin-top:6px}
+.lbtn{width:100%;background:var(--gd);color:#1A1510;border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;transition:all var(--t);border:none;font-family:var(--fb);margin-top:6px}
 .lbtn:hover{background:var(--gdd);transform:translateY(-1px);box-shadow:0 6px 24px rgba(201,169,110,.3)}
 .lprofs{display:flex;gap:8px;margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.08)}
 .lp{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px;text-align:center;cursor:pointer;transition:all var(--t)}
@@ -208,6 +208,28 @@ html.tema-escuro .topbar{background:rgba(30,27,29,.95)}
     <div class="lf"><label>E-mail</label><input type="email" id="loginEmail" placeholder="contato@seusalao.com"></div>
     <div class="lf"><label>Senha</label><input type="password" id="loginSenha" placeholder="Digite sua senha"></div>
     <button class="lbtn" id="loginBtn" onclick="doLogin()">Entrar no SalonOS</button>
+    <div class="txs center" style="margin-top:14px;cursor:pointer;color:var(--gd)" onclick="abrirEsqueciSenha()">Esqueci minha senha</div>
+  </div>
+</div>
+<div class="lw" id="lwEsqueci" style="display:none">
+  <div class="lb">
+    <div class="llogo"><div class="lmark">&#9986;</div><div class="lbrand">Salon<em>OS</em></div></div>
+    <div class="lh">Recuperar <em>senha</em></div>
+    <div class="lsub">Informe o e-mail de login desse salão -- mandamos um link pra você definir uma senha nova.</div>
+    <div id="esqueciErro" style="display:none;background:rgba(192,80,74,.18);color:#e6a19c;border-radius:8px;padding:10px 13px;font-size:12px;margin-bottom:14px;line-height:1.5"></div>
+    <div class="lf"><label>E-mail</label><input type="email" id="esqueciEmail" placeholder="contato@seusalao.com"></div>
+    <button class="lbtn" id="esqueciBtn" onclick="enviarLinkRecuperacao()">Enviar link de recuperação</button>
+    <button class="btn btgh sm wf" style="justify-content:center;margin-top:10px" onclick="voltarParaLogin()">Voltar</button>
+  </div>
+</div>
+<div class="lw" id="lwNovaSenha" style="display:none">
+  <div class="lb">
+    <div class="llogo"><div class="lmark">&#9986;</div><div class="lbrand">Salon<em>OS</em></div></div>
+    <div class="lh">Defina uma <em>nova senha</em></div>
+    <div class="lsub">Escolha uma nova senha pra esse login.</div>
+    <div id="novaSenhaErro" style="display:none;background:rgba(192,80,74,.18);color:#e6a19c;border-radius:8px;padding:10px 13px;font-size:12px;margin-bottom:14px;line-height:1.5"></div>
+    <div class="lf"><label>Nova senha</label><input type="password" id="novaSenhaInput" placeholder="Mínimo 6 caracteres"></div>
+    <button class="lbtn" id="novaSenhaBtn" onclick="submeterNovaSenha()">Salvar nova senha e entrar</button>
   </div>
 </div>
 <div class="lw" id="lwCodigo" style="display:none">
@@ -287,6 +309,10 @@ const SUPABASE_ANON_KEY = 'sb_publishable_WGAnLGQxexd89d0dOJhpTg_KoIGWVaX';
 // origem (express.static + rotas no mesmo Express) -- caminho relativo
 // funciona igual local e em produção, sem precisar trocar por ambiente.
 const API_BASE_URL = '';
+// Ler window.location.hash AQUI, antes do createClient() -- ele processa e
+// pode limpar esse hash de forma assíncrona (mesmo cuidado já documentado
+// em cadastro-real.html pro fluxo de convite).
+const VEIO_DE_RECUPERACAO_SENHA = window.location.hash.includes('type=recovery');
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Pedido do David (16/09/2026): sempre que a sessão for encerrada -- de
@@ -412,6 +438,65 @@ async function doLogin(){
     erroEl.style.display='block';
   }finally{
     btn.textContent='Entrar no SalonOS';
+  }
+}
+
+function abrirEsqueciSenha(){
+  $('#esqueciEmail').value=$('#loginEmail').value.trim();
+  $('#esqueciErro').style.display='none';
+  $('#lw').style.display='none';
+  $('#lwEsqueci').style.display='flex';
+}
+
+function voltarParaLogin(){
+  $('#lwEsqueci').style.display='none';
+  $('#lw').style.display='flex';
+}
+
+async function enviarLinkRecuperacao(){
+  const email=$('#esqueciEmail').value.trim();
+  const erroEl=$('#esqueciErro');
+  const btn=$('#esqueciBtn');
+  erroEl.style.display='none';
+  if(!email){erroEl.textContent='Preencha o e-mail.';erroEl.style.display='block';return;}
+  btn.disabled=true;btn.textContent='Enviando...';
+  try{
+    const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+'/salon-v6.html'});
+    if(error)throw error;
+    Toast.show('Link enviado -- confira a caixa de entrada (e o spam).');
+    voltarParaLogin();
+  }catch(erro){
+    erroEl.textContent=erro.message||'Não foi possível enviar o link.';
+    erroEl.style.display='block';
+  }finally{
+    btn.disabled=false;btn.textContent='Enviar link de recuperação';
+  }
+}
+
+// Chegou pelo link de recuperação (VEIO_DE_RECUPERACAO_SENHA, capturado no
+// topo do arquivo) -- sb já tem uma sessão válida assim que o SDK processa
+// o hash sozinho, só falta a pessoa escolher a senha nova antes de entrar.
+async function submeterNovaSenha(){
+  const senha=$('#novaSenhaInput').value;
+  const erroEl=$('#novaSenhaErro');
+  const btn=$('#novaSenhaBtn');
+  erroEl.style.display='none';
+  if(!senha||senha.length<6){erroEl.textContent='A senha precisa ter pelo menos 6 caracteres.';erroEl.style.display='block';return;}
+  btn.disabled=true;btn.textContent='Salvando...';
+  try{
+    const{error}=await sb.auth.updateUser({password:senha});
+    if(error)throw error;
+    // Por segurança, não entra direto -- desloga e exige login de novo com
+    // a senha nova, em vez de aproveitar a sessão da recuperação.
+    await sb.auth.signOut();
+    $('#lwNovaSenha').style.display='none';
+    $('#lw').style.display='flex';
+    Toast.show('Senha atualizada! Entre com a nova senha.');
+  }catch(erro){
+    erroEl.textContent=erro.message||'Não foi possível salvar a nova senha.';
+    erroEl.style.display='block';
+  }finally{
+    btn.disabled=false;btn.textContent='Salvar nova senha e entrar';
   }
 }
 
@@ -840,6 +925,9 @@ window.salvarConfigSalao=async function(){
     whatsapp:$('#cfgWhatsapp')?.value.trim(),
     cnpj:$('#cfgCnpj')?.value.trim(),
     endereco:$('#cfgEndereco')?.value.trim(),
+    cidade:$('#cfgCidade')?.value.trim(),
+    bairro:$('#cfgBairro')?.value.trim(),
+    cep:$('#cfgCep')?.value.trim(),
     horario_abertura:$('#cfgAbertura')?.value||null,
     horario_fechamento:$('#cfgFechamento')?.value||null,
     dias_funcionamento:diasSelecionados,
@@ -1772,6 +1860,9 @@ config(){
       {l:'WhatsApp',d:'Numero principal',ct:'<input class="fi" style="width:200px" id="cfgWhatsapp" value="'+(e.whatsapp||'')+'">'},
       {l:'CNPJ',d:'Para NF-e automatica',ct:'<input class="fi" style="width:200px" id="cfgCnpj" value="'+(e.cnpj||'')+'" placeholder="00.000.000/0001-00">'},
       {l:'Endereco',d:'Usado nos lembretes',ct:'<input class="fi" style="width:200px" id="cfgEndereco" value="'+(e.endereco||'')+'" placeholder="Rua das Flores, 123">'},
+      {l:'Cidade',d:'',ct:'<input class="fi" style="width:200px" id="cfgCidade" value="'+(e.cidade||'')+'" placeholder="Sao Paulo">'},
+      {l:'Bairro',d:'',ct:'<input class="fi" style="width:200px" id="cfgBairro" value="'+(e.bairro||'')+'" placeholder="Jardins">'},
+      {l:'CEP',d:'',ct:'<input class="fi" style="width:200px" id="cfgCep" value="'+(e.cep||'')+'" placeholder="00000-000">'},
     ]},
     {t:'Horario de Funcionamento',rs:[
       {l:'Abertura',d:'Primeiro horario disponivel',ct:'<input class="fi" style="width:110px" type="time" id="cfgAbertura" value="'+(e.horario_abertura||'').slice(0,5)+'">'},
@@ -1930,6 +2021,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('#mclose').addEventListener('click',Modal.close);
   $('#mbd').addEventListener('click',e=>{if(e.target===$('#mbd'))Modal.close();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')Modal.close();});
+  if(VEIO_DE_RECUPERACAO_SENHA){
+    $('#lw').style.display='none';
+    $('#lwNovaSenha').style.display='flex';
+  }
 });
 </script>
 </body>

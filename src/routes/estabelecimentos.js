@@ -9,19 +9,28 @@
 const express = require('express');
 const { encryptSensitive, decryptSensitive } = require('../lib/crypto');
 const { gerarCopiaECola, gerarImagemQr } = require('../lib/pix');
+const { adotarCatalogoCompleto } = require('./atividades');
+const supabaseAdmin = require('../lib/supabaseAdmin');
 const router = express.Router();
 
 // Nunca devolvida em resposta de API nenhuma -- select() explícito em vez
 // de '*' nas rotas de leitura, pra garantir que o blob cifrado de
 // credencial de gateway nem trafega de volta pro navegador.
-const COLUNAS_PUBLICAS = 'id, proprietario_id, segmento_id, nome, whatsapp, cnpj, cidade, bairro, endereco, cep, latitude, longitude, horario_abertura, horario_fechamento, dias_funcionamento, plano, status_assinatura, vencimento_em, chave_pix, gateway_pagamento, created_at';
+const COLUNAS_PUBLICAS = 'id, proprietario_id, login_user_id, segmento_id, nome, whatsapp, cnpj, cidade, bairro, endereco, cep, latitude, longitude, horario_abertura, horario_fechamento, dias_funcionamento, plano, status_assinatura, vencimento_em, chave_pix, gateway_pagamento, created_at';
 
-// POST /estabelecimentos — cadastrar novo estabelecimento
+// POST /estabelecimentos — cadastrar novo estabelecimento. Cria também o
+// login PRÓPRIO do salão (email_salao/senha_salao, diferente do login do
+// proprietário) -- ver database/35-login-salao.sql: sem isso, qualquer
+// funcionário que opera o salon-v6.html com a senha do dono também abriria
+// o painel-proprietario.html e veria margem/MRR de toda a rede. E já
+// pré-cadastra o catálogo de serviços do segmento (mesma lógica de
+// POST /estabelecimentos/:id/atividades/adotar-catalogo-completo), pra não
+// nascer sem nenhum serviço agendável.
 router.post('/', async (req, res) => {
-  const { segmento_id, nome, whatsapp, cnpj, cidade, bairro, endereco, cep, horario_abertura, horario_fechamento, dias_funcionamento } = req.body;
+  const { segmento_id, nome, whatsapp, cnpj, endereco, email_salao, senha_salao, horario_abertura, horario_fechamento, dias_funcionamento } = req.body;
 
-  if (!segmento_id || !nome || !whatsapp) {
-    return res.status(400).json({ erro: 'segmento_id, nome e whatsapp são obrigatórios.' });
+  if (!segmento_id || !nome || !whatsapp || !email_salao || !senha_salao) {
+    return res.status(400).json({ erro: 'segmento_id, nome, whatsapp, email_salao e senha_salao são obrigatórios.' });
   }
 
   // Busca o proprietario_id vinculado ao usuário logado (criado automaticamente
@@ -36,17 +45,45 @@ router.post('/', async (req, res) => {
     return res.status(404).json({ erro: 'Cadastro de proprietário não encontrado para este usuário.' });
   }
 
+  const { data: novoUsuario, error: errUsuario } = await supabaseAdmin.auth.admin.createUser({
+    email: email_salao,
+    password: senha_salao,
+    email_confirm: true, // o próprio dono está criando esse login agora, não precisa de confirmação por e-mail
+    // tipo:'login_salao' faz criar_proprietario_no_signup() (database/36-
+    // login-salao-sem-proprietario.sql) pular esse usuário -- sem isso o
+    // login do salão ganhava uma linha em proprietarios e o bloqueio do
+    // painel-proprietario.html não pegava.
+    user_metadata: { tipo: 'login_salao' },
+  });
+
+  if (errUsuario) {
+    const jaExiste = /already been registered|already exists/i.test(errUsuario.message);
+    return res.status(jaExiste ? 409 : 500).json({ erro: jaExiste ? 'Já existe uma conta com esse e-mail de login do salão.' : errUsuario.message });
+  }
+
   const { data, error } = await req.supabase
     .from('estabelecimentos')
     .insert({
       proprietario_id: proprietario.id,
-      segmento_id, nome, whatsapp, cnpj, cidade, bairro, endereco, cep,
+      login_user_id: novoUsuario.user.id,
+      segmento_id, nome, whatsapp, cnpj, endereco,
       horario_abertura, horario_fechamento, dias_funcionamento,
     })
     .select()
     .single();
 
-  if (error) return res.status(500).json({ erro: error.message });
+  if (error) {
+    // Não pode sobrar um login de salão órfão sem estabelecimento nenhum atrelado.
+    await supabaseAdmin.auth.admin.deleteUser(novoUsuario.user.id);
+    return res.status(500).json({ erro: error.message });
+  }
+
+  try {
+    await adotarCatalogoCompleto(req.supabase, data.id, segmento_id);
+  } catch (erroCatalogo) {
+    req.log?.error(erroCatalogo, 'Falha ao pré-cadastrar catálogo do segmento no cadastro novo');
+  }
+
   res.status(201).json(data);
 });
 
