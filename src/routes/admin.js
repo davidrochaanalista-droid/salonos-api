@@ -14,6 +14,7 @@
  */
 
 const express = require('express');
+const { adotarCatalogoCompleto } = require('./atividades');
 const router = express.Router();
 
 // GET /admin/me — confirma pro frontend que o usuário logado é admin
@@ -85,12 +86,42 @@ router.post('/admin/convites', async (req, res) => {
   const redirectTo = `${process.env.PUBLIC_BASE_URL}/cadastro-real.html`;
 
   const { error: errConvite } = await req.supabaseAdmin.auth.admin.inviteUserByEmail(email, { redirectTo });
-  if (errConvite) return res.status(500).json({ erro: errConvite.message });
+  // "Já convidado antes" não é erro aqui -- David volta na mesma tela de
+  // Convites Pendentes pra pegar um link novo (o antigo pode ter
+  // expirado), então re-gerar pro mesmo e-mail precisa funcionar sem
+  // travar. Qualquer outro erro de verdade (e-mail inválido, etc.) segue
+  // bloqueando.
+  if (errConvite && !/already been registered|already exists/i.test(errConvite.message)) {
+    return res.status(500).json({ erro: errConvite.message });
+  }
 
   const { data, error: errLink } = await req.supabaseAdmin.auth.admin.generateLink({ type: 'recovery', email, options: { redirectTo } });
   if (errLink) return res.status(500).json({ erro: errLink.message });
 
   res.json({ ok: true, link: data.properties.action_link });
+});
+
+// GET /admin/convites-pendentes — proprietários criados por convite que
+// ainda não completaram a tela 1 (nome continua '', só o trigger
+// criar_proprietario_no_signup gravou a linha) -- fica aqui, persistente,
+// pro David poder voltar e re-gerar o link quando precisar (ver POST
+// /admin/convites acima), em vez do link só existir uma vez no modal
+// logo depois de gerado.
+router.get('/admin/convites-pendentes', async (req, res) => {
+  const { data: pendentes, error } = await req.supabaseAdmin
+    .from('proprietarios')
+    .select('id, user_id, created_at')
+    .eq('nome', '')
+    .order('created_at', { ascending: false });
+
+  if (error) return res.status(500).json({ erro: error.message });
+
+  const comEmail = await Promise.all(pendentes.map(async (p) => {
+    const { data } = await req.supabaseAdmin.auth.admin.getUserById(p.user_id);
+    return { id: p.id, email: data?.user?.email || '(e-mail não encontrado)', created_at: p.created_at };
+  }));
+
+  res.json(comEmail);
 });
 
 // GET /admin/visao — contagens por status + MRR contratado somado
@@ -169,6 +200,81 @@ router.patch('/admin/tickets/:id', async (req, res) => {
 
   if (error) return res.status(500).json({ erro: error.message });
   res.json(data);
+});
+
+// POST /admin/cadastro-rapido — David cadastra o proprietário E o
+// estabelecimento de uma vez só, sem convite nem link nenhum -- pedido
+// dele: velocidade pra cadastrar cliente na hora (ex: presencialmente,
+// sem o cliente precisar abrir nada depois). Cria os DOIS logins (dono +
+// salão, mesmo modelo de database/35-login-salao.sql) e pré-cadastra o
+// catálogo do segmento, exatamente como POST /estabelecimentos faz --
+// só que aqui os dois passos (completar proprietário + criar
+// estabelecimento) acontecem num request só, com req.supabaseAdmin
+// (não dá pra usar req.supabase escopado ao David, já que o proprietário
+// novo não é ele).
+router.post('/admin/cadastro-rapido', async (req, res) => {
+  const {
+    email, senha, nome, telefone, cpf, genero,
+    nome_estabelecimento, segmento_id, cnpj, whatsapp, endereco, email_salao, senha_salao,
+  } = req.body;
+
+  if (!email || !senha || !nome || !telefone || !nome_estabelecimento || !segmento_id || !whatsapp || !email_salao || !senha_salao) {
+    return res.status(400).json({ erro: 'email, senha, nome, telefone, nome_estabelecimento, segmento_id, whatsapp, email_salao e senha_salao são obrigatórios.' });
+  }
+
+  const { data: novoProprietario, error: errProp } = await req.supabaseAdmin.auth.admin.createUser({
+    email, password: senha, email_confirm: true,
+    user_metadata: { nome, telefone, genero: genero || undefined },
+  });
+  if (errProp) {
+    const jaExiste = /already been registered|already exists/i.test(errProp.message);
+    return res.status(jaExiste ? 409 : 500).json({ erro: jaExiste ? 'Já existe uma conta com esse e-mail de proprietário.' : errProp.message });
+  }
+
+  if (cpf) {
+    await req.supabaseAdmin.from('proprietarios').update({ cpf }).eq('user_id', novoProprietario.user.id);
+  }
+
+  const { data: proprietarioRow, error: errBusca } = await req.supabaseAdmin
+    .from('proprietarios').select('id').eq('user_id', novoProprietario.user.id).single();
+  if (errBusca || !proprietarioRow) {
+    await req.supabaseAdmin.auth.admin.deleteUser(novoProprietario.user.id);
+    return res.status(500).json({ erro: 'Falha ao localizar o cadastro de proprietário recém-criado.' });
+  }
+
+  const { data: novoLoginSalao, error: errUsuarioSalao } = await req.supabaseAdmin.auth.admin.createUser({
+    email: email_salao, password: senha_salao, email_confirm: true,
+    user_metadata: { tipo: 'login_salao' },
+  });
+  if (errUsuarioSalao) {
+    await req.supabaseAdmin.auth.admin.deleteUser(novoProprietario.user.id);
+    const jaExiste = /already been registered|already exists/i.test(errUsuarioSalao.message);
+    return res.status(jaExiste ? 409 : 500).json({ erro: jaExiste ? 'Já existe uma conta com esse e-mail de login do salão.' : errUsuarioSalao.message });
+  }
+
+  const { data: estabelecimento, error: errEst } = await req.supabaseAdmin
+    .from('estabelecimentos')
+    .insert({
+      proprietario_id: proprietarioRow.id,
+      login_user_id: novoLoginSalao.user.id,
+      segmento_id, nome: nome_estabelecimento, whatsapp, cnpj, endereco,
+    })
+    .select()
+    .single();
+
+  if (errEst) {
+    await req.supabaseAdmin.auth.admin.deleteUser(novoLoginSalao.user.id);
+    await req.supabaseAdmin.auth.admin.deleteUser(novoProprietario.user.id);
+    return res.status(500).json({ erro: errEst.message });
+  }
+
+  try {
+    await adotarCatalogoCompleto(req.supabaseAdmin, estabelecimento.id, segmento_id);
+  } catch (erroCatalogo) {
+    req.log?.error(erroCatalogo, 'Falha ao pré-cadastrar catálogo no cadastro rápido');
+  }
+
+  res.status(201).json({ proprietario_email: email, estabelecimento });
 });
 
 module.exports = router;

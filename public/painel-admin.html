@@ -203,12 +203,6 @@ async function chamarAPI(metodo, caminho, corpo) {
   return json;
 }
 
-function escHtml(txt) {
-  const div = document.createElement('div');
-  div.textContent = txt ?? '';
-  return div.innerHTML;
-}
-
 // Estado real, carregado da API -- nada mockado a partir daqui.
 const ADMIN = { contas: [], visao: null };
 
@@ -311,14 +305,29 @@ const P = {
 
   async contas(){
     html($('#page-contas'),'<div class="emb">Carregando...</div>');
+    let pendentes = [];
     try{
-      ADMIN.contas = await chamarAPI('GET','/admin/contas');
+      [ADMIN.contas, pendentes] = await Promise.all([
+        chamarAPI('GET','/admin/contas'),
+        chamarAPI('GET','/admin/convites-pendentes'),
+      ]);
     }catch(erro){
       html($('#page-contas'), '<div class="emb" style="color:var(--rs)">Não foi possível carregar: '+erro.message+'</div>');
       return;
     }
     html($('#page-contas'), `
-      <div class="sech"><div><div class="sct">Contas <em>da Plataforma</em></div><div class="scsub">${ADMIN.contas.length} estabelecimento(s) cadastrado(s)</div></div><button class="btn btp sm" onclick="abrirModalConvite()">+ Convidar salão</button></div>
+      <div class="sech"><div><div class="sct">Contas <em>da Plataforma</em></div><div class="scsub">${ADMIN.contas.length} estabelecimento(s) cadastrado(s)</div></div><div style="display:flex;gap:8px"><button class="btn btgh sm" onclick="abrirModalCadastroRapido()">Cadastro rápido</button><button class="btn btp sm" onclick="abrirModalConvite()">+ Convidar salão</button></div></div>
+      ${pendentes.length ? `
+        <div class="card" style="margin-bottom:16px">
+          <div class="cardh"><div class="cardt">Convites <em>pendentes</em></div><div class="tm3" style="font-size:11px">Convidados que ainda não completaram o cadastro -- clique pra pegar o link de novo</div></div>
+          ${pendentes.map(p=>`
+            <div class="tr" style="grid-template-columns:1fr auto auto">
+              <div>${esc(p.email)}</div>
+              <div class="tm3" style="font-size:10.5px">desde ${new Date(p.created_at).toLocaleDateString('pt-BR')}</div>
+              <button class="btn btgh sm" onclick="verLinkConvite('${esc(p.email)}')">Ver link</button>
+            </div>`).join('')}
+        </div>
+      ` : ''}
       <div class="lf" style="margin-bottom:12px"><input id="buscaConta" type="text" placeholder="Buscar por nome do salão, CPF ou CNPJ..." oninput="filtrarContas()"></div>
       <div class="tw">
         <div class="th" style="grid-template-columns:2fr 1fr 1fr 1fr 110px">
@@ -517,6 +526,71 @@ async function salvarConta(id){
   }
 }
 
+// Cadastro rápido -- proprietário + estabelecimento + login do salão
+// numa tacada só, sem convite/e-mail/link nenhum (pedido do David: pra
+// cadastrar o cliente na hora, sem ele precisar abrir nada depois).
+async function abrirModalCadastroRapido(){
+  Modal.open('Cadastro rápido', '<div class="emb">Carregando segmentos...</div>');
+  let segmentos = [];
+  try{ segmentos = await chamarAPI('GET','/segmentos'); }catch(erro){ /* segue com a lista vazia, o select fica sem opção nenhuma */ }
+
+  Modal.open('Cadastro rápido', `
+    <div class="tm3" style="font-size:11px;margin-bottom:10px">Cadastra o proprietário e o estabelecimento juntos -- ninguém precisa clicar em link nenhum depois.</div>
+    <div class="cfh" style="margin:-16px -16px 12px;padding-left:0">Proprietário</div>
+    <div class="lf"><label>Nome</label><input type="text" id="crNome"></div>
+    <div class="lf"><label>Telefone</label><input type="text" id="crTelefone" placeholder="(11) 90000-0000"></div>
+    <div class="lf"><label>CPF</label><input type="text" id="crCpf" placeholder="000.000.000-00"></div>
+    <div class="lf"><label>Gênero</label><select id="crGenero"><option value="feminino">Feminino</option><option value="masculino">Masculino</option></select></div>
+    <div class="lf"><label>E-mail (login do proprietário)</label><input type="email" id="crEmail"></div>
+    <div class="lf"><label>Senha</label><input type="password" id="crSenha" placeholder="Mínimo 6 caracteres"></div>
+    <div class="cfh" style="margin:16px -16px 12px;padding-left:0">Estabelecimento</div>
+    <div class="lf"><label>Nome do salão</label><input type="text" id="crNomeEst"></div>
+    <div class="lf"><label>Segmento</label><select id="crSegmento">${segmentos.map(s=>`<option value="${s.id}">${s.icone} ${s.nome}</option>`).join('')}</select></div>
+    <div class="lf"><label>CNPJ</label><input type="text" id="crCnpj" placeholder="00.000.000/0001-00"></div>
+    <div class="lf"><label>WhatsApp do salão</label><input type="text" id="crWhatsapp" placeholder="(11) 90000-0000"></div>
+    <div class="lf"><label>Endereço</label><input type="text" id="crEndereco"></div>
+    <div class="lf"><label>E-mail (login do salão)</label><input type="email" id="crEmailSalao"></div>
+    <div class="lf"><label>Senha do salão</label><input type="password" id="crSenhaSalao" placeholder="Mínimo 6 caracteres"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn btgh" onclick="Modal.close()">Cancelar</button>
+      <button class="btn btp" id="crBtn" onclick="confirmarCadastroRapido()">Cadastrar</button>
+    </div>
+  `);
+}
+
+async function confirmarCadastroRapido(){
+  const corpo = {
+    nome: $('#crNome')?.value.trim(),
+    telefone: $('#crTelefone')?.value.trim(),
+    cpf: $('#crCpf')?.value.trim(),
+    genero: $('#crGenero')?.value,
+    email: $('#crEmail')?.value.trim(),
+    senha: $('#crSenha')?.value,
+    nome_estabelecimento: $('#crNomeEst')?.value.trim(),
+    segmento_id: $('#crSegmento')?.value,
+    cnpj: $('#crCnpj')?.value.trim(),
+    whatsapp: $('#crWhatsapp')?.value.trim(),
+    endereco: $('#crEndereco')?.value.trim(),
+    email_salao: $('#crEmailSalao')?.value.trim(),
+    senha_salao: $('#crSenhaSalao')?.value,
+  };
+  if(!corpo.nome || !corpo.telefone || !corpo.email || !corpo.senha || !corpo.nome_estabelecimento || !corpo.segmento_id || !corpo.whatsapp || !corpo.email_salao || !corpo.senha_salao){
+    Toast.show('Preencha os campos obrigatórios.', '⚠'); return;
+  }
+  const btn = $('#crBtn');
+  btn.disabled = true; btn.textContent = 'Cadastrando...';
+  try{
+    await chamarAPI('POST', '/admin/cadastro-rapido', corpo);
+    Modal.close();
+    Toast.show('Cadastro criado! O proprietário e o salão já podem logar.');
+    P.contas();
+  }catch(erro){
+    Toast.show('Não foi possível cadastrar: '+erro.message, '⚠');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Cadastrar';
+  }
+}
+
 function abrirModalConvite(){
   Modal.open('Convidar salão', `
     <div class="lf"><label>E-mail do dono do salão</label><input type="email" id="conviteEmail" placeholder="dono@salao.com"></div>
@@ -531,11 +605,20 @@ function abrirModalConvite(){
 async function confirmarConvite(){
   const email = $('#conviteEmail')?.value.trim();
   if(!email){ Toast.show('Informe o e-mail', '⚠'); return; }
+  await gerarEMostrarLinkConvite(email);
+  P.contas();
+}
+
+// Reusado tanto pra convite novo (abrirModalConvite) quanto pra re-gerar
+// o link de um convite pendente que já existia (verLinkConvite) -- o
+// backend (POST /admin/convites) já trata "e-mail já convidado antes"
+// sem erro, só devolve um link novo.
+async function gerarEMostrarLinkConvite(email){
   try{
     const resultado = await chamarAPI('POST', '/admin/convites', { email });
     Modal.open('Convite gerado', `
-      <div class="tm3" style="font-size:12px;margin-bottom:10px">E-mail enviado pra <strong>${escHtml(email)}</strong>. Esse é o mesmo link -- só quem está logado aqui no painel-admin vê ele:</div>
-      <div class="lf"><input type="text" id="conviteLink" value="${escHtml(resultado.link)}" readonly onclick="this.select()"></div>
+      <div class="tm3" style="font-size:12px;margin-bottom:10px">E-mail enviado pra <strong>${esc(email)}</strong>. Esse é o mesmo link -- só quem está logado aqui no painel-admin vê ele:</div>
+      <div class="lf"><input type="text" id="conviteLink" value="${esc(resultado.link)}" readonly onclick="this.select()"></div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
         <button class="btn btgh" onclick="Modal.close()">Fechar</button>
         <button class="btn btp" onclick="copiarLinkConvite()">Copiar link</button>
@@ -544,6 +627,10 @@ async function confirmarConvite(){
   }catch(erro){
     Toast.show('Não foi possível gerar: '+erro.message, '⚠');
   }
+}
+
+function verLinkConvite(email){
+  gerarEMostrarLinkConvite(email);
 }
 
 function copiarLinkConvite(){
