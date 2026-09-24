@@ -68,16 +68,29 @@ router.patch('/admin/contas/:id', async (req, res) => {
 // proprietário no SalonOS agora; não existe mais auto-cadastro aberto
 // (ver public/cadastro-real.html e a pendência de desligar "Allow new
 // users to sign up" no Supabase Dashboard, documentada no CLAUDE.md).
+//
+// Também devolve o link em si (não só "enviado") -- pedido do David:
+// quando o cliente não está com notebook/celular na hora, ele mesmo
+// preenche o cadastro usando esse link, sem depender do e-mail chegar.
+// inviteUserByEmail não devolve o link na resposta (só cria o usuário e
+// manda o e-mail), então geramos um segundo link tipo 'recovery' pro
+// mesmo e-mail logo em seguida -- funciona porque o usuário já existe
+// nesse ponto (criado pelo invite acima), e cadastro-real.html trata
+// type=recovery igual a type=invite na tela "defina sua senha" (ver
+// VEIO_DE_CONVITE em cadastro-real.html).
 router.post('/admin/convites', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ erro: 'email é obrigatório.' });
 
-  const { error } = await req.supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${process.env.PUBLIC_BASE_URL}/cadastro-real.html`,
-  });
+  const redirectTo = `${process.env.PUBLIC_BASE_URL}/cadastro-real.html`;
 
-  if (error) return res.status(500).json({ erro: error.message });
-  res.json({ ok: true });
+  const { error: errConvite } = await req.supabaseAdmin.auth.admin.inviteUserByEmail(email, { redirectTo });
+  if (errConvite) return res.status(500).json({ erro: errConvite.message });
+
+  const { data, error: errLink } = await req.supabaseAdmin.auth.admin.generateLink({ type: 'recovery', email, options: { redirectTo } });
+  if (errLink) return res.status(500).json({ erro: errLink.message });
+
+  res.json({ ok: true, link: data.properties.action_link });
 });
 
 // GET /admin/visao — contagens por status + MRR contratado somado

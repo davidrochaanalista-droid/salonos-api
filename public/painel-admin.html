@@ -203,6 +203,12 @@ async function chamarAPI(metodo, caminho, corpo) {
   return json;
 }
 
+function escHtml(txt) {
+  const div = document.createElement('div');
+  div.textContent = txt ?? '';
+  return div.innerHTML;
+}
+
 // Estado real, carregado da API -- nada mockado a partir daqui.
 const ADMIN = { contas: [], visao: null };
 
@@ -514,10 +520,10 @@ async function salvarConta(id){
 function abrirModalConvite(){
   Modal.open('Convidar salão', `
     <div class="lf"><label>E-mail do dono do salão</label><input type="email" id="conviteEmail" placeholder="dono@salao.com"></div>
-    <div class="tm3" style="font-size:11px;margin-top:8px">A Supabase manda um e-mail com um link -- a pessoa clica, define a senha e completa o próprio cadastro do estabelecimento.</div>
+    <div class="tm3" style="font-size:11px;margin-top:8px">A Supabase manda um e-mail com um link, e o link também aparece aqui pra você -- útil se o cliente não estiver com notebook/celular na hora, você mesmo preenche o cadastro por ele.</div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
       <button class="btn btgh" onclick="Modal.close()">Cancelar</button>
-      <button class="btn btp" onclick="confirmarConvite()">Enviar convite</button>
+      <button class="btn btp" onclick="confirmarConvite()">Gerar convite</button>
     </div>
   `);
 }
@@ -526,12 +532,27 @@ async function confirmarConvite(){
   const email = $('#conviteEmail')?.value.trim();
   if(!email){ Toast.show('Informe o e-mail', '⚠'); return; }
   try{
-    await chamarAPI('POST', '/admin/convites', { email });
-    Modal.close();
-    Toast.show('Convite enviado!');
+    const resultado = await chamarAPI('POST', '/admin/convites', { email });
+    Modal.open('Convite gerado', `
+      <div class="tm3" style="font-size:12px;margin-bottom:10px">E-mail enviado pra <strong>${escHtml(email)}</strong>. Esse é o mesmo link -- só quem está logado aqui no painel-admin vê ele:</div>
+      <div class="lf"><input type="text" id="conviteLink" value="${escHtml(resultado.link)}" readonly onclick="this.select()"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+        <button class="btn btgh" onclick="Modal.close()">Fechar</button>
+        <button class="btn btp" onclick="copiarLinkConvite()">Copiar link</button>
+      </div>
+    `);
   }catch(erro){
-    Toast.show('Não foi possível enviar: '+erro.message, '⚠');
+    Toast.show('Não foi possível gerar: '+erro.message, '⚠');
   }
+}
+
+function copiarLinkConvite(){
+  const campo = $('#conviteLink');
+  campo.select();
+  navigator.clipboard.writeText(campo.value).then(
+    () => Toast.show('Link copiado!'),
+    () => Toast.show('Não foi possível copiar -- selecione e copie manualmente.', '⚠')
+  );
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{

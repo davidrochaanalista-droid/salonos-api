@@ -112,7 +112,12 @@ const API_BASE_URL = '';
 // temos o valor original na hora de decidir, em init() (abaixo), se a
 // sessão que acabou de aparecer veio de um link de convite ou de uma
 // sessão já existente salva no navegador.
-const VEIO_DE_CONVITE = window.location.hash.includes('type=invite');
+// type=recovery também conta como convite aqui -- POST /admin/convites
+// (src/routes/admin.js) gera um segundo link tipo 'recovery' pro mesmo
+// e-mail (porque inviteUserByEmail não devolve o link na resposta), pro
+// David poder preencher o cadastro do dono na hora quando ele não está
+// com notebook/celular, sem depender do e-mail chegar.
+const VEIO_DE_CONVITE = window.location.hash.includes('type=invite') || window.location.hash.includes('type=recovery');
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const app = document.getElementById('app');
