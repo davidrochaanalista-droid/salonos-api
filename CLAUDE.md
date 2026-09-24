@@ -1062,6 +1062,107 @@ e `railway up`.
   Redis/salonos-api -- `--service` é obrigatório ou o comando falha
   pedindo pra escolher).
 
+## Sessão de 22-24/09 — login separado por salão, "esqueci senha", correções de tema escuro
+
+David pediu explicitamente: o login do proprietário (`painel-proprietario.html`,
+margem/MRR de toda a rede) e o login do salão (`salon-v6.html`, operação do
+dia a dia) eram a mesma conta até aqui -- qualquer funcionário que operasse
+a agenda com a senha do dono também via o painel de rede inteiro. Motivo
+dado pelo David: "um login pra as duas tela fica vulnerável, o funcionário
+pode acessar o painel proprietario".
+
+- **Migração 35** (`database/35-login-salao.sql`): `estabelecimentos.login_user_id`
+  novo; `usuario_e_proprietario()` estendida (create or replace, cobre as
+  ~11 migrações que já dependem dela sem precisar tocar em cada uma) --
+  login do salão só enxerga a própria unidade (select/update, nunca
+  delete/insert); proprietário continua com acesso total via
+  `proprietario_id`, sem mudança pra quem já tinha conta. Confirmado com o
+  David: "o login do proprietário continua funcionando exatamente como
+  hoje em todas as unidades dele" -- desenho é aditivo, um segundo caminho
+  de acesso, nunca substitui o primeiro.
+- **`POST /estabelecimentos`** (tela 2 do cadastro) agora exige
+  `email_salao`/`senha_salao`, cria o login via `supabaseAdmin.auth.admin.createUser`
+  (novo `src/lib/supabaseAdmin.js`, singleton reaproveitado por
+  `exigirAdmin.js` também), com rollback (`deleteUser`) se o insert do
+  estabelecimento falhar depois. Catálogo do segmento pré-cadastrado
+  automático no mesmo request (`adotarCatalogoCompleto`, extraída de
+  `atividades.js` e reusada pelo atalho manual que já existia) -- decisão
+  do David: sem tela de revisão no meio do cadastro.
+- **`cadastro-real.html` reestruturado**: tela 1 (proprietário) ganhou CPF
+  e e-mail somente leitura; tela 2 (estabelecimento) ganhou CNPJ e a seção
+  de login do salão, perdeu cidade/bairro/CEP (viraram campos novos em
+  `salon-v6.html` → Config → Informações do Salão) e perdeu a tela de
+  seleção manual de catálogo inteira (código morto removido:
+  `renderCatalogo`/`alternarAtividadeCatalogo`/`confirmarServicosSelecionados`/`pularCatalogo`).
+- **`painel-proprietario.html` bloqueia de verdade** um login de salão
+  agora -- antes, se `GET /proprietarios/me` falhasse (sem linha em
+  `proprietarios`, exatamente o caso de um login de salão), o código só
+  caía num fallback silencioso (`nm: '—'`) e continuava mostrando a casca
+  do painel de rede mesmo assim.
+- **Dois bugs reais achados testando local antes de subir** (por isso
+  existe a migração 36, e por isso vale sempre testar local primeiro
+  quando mexe em auth/RLS):
+  1. `criar_proprietario_no_signup()` dispara pra **qualquer** usuário
+     novo em `auth.users`, não só convite de proprietário -- o login do
+     salão criado em `POST /estabelecimentos` ganhava uma linha em
+     `proprietarios` sem querer, furando o bloqueio acima por completo
+     (o login do salão "parecia" um proprietário válido). Migração 36
+     (`database/36-login-salao-sem-proprietario.sql`) marca o login do
+     salão com `user_metadata: {tipo:'login_salao'}` na criação e faz o
+     gatilho pular esse caso.
+  2. Mesmo depois do fix acima, achado um segundo bug testando na mesma
+     aba: quando `carregarDados()` barra o login (lança erro), a casca do
+     painel (`#mainWrap`/`#topbar`/`#heroSection`) só ficava escondida se
+     já estivesse escondida antes -- se a aba já tinha mostrado um painel
+     válido momentos antes (ex: testando dois logins em sequência sem dar
+     F5), o painel antigo continuava visível por trás do erro. Corrigido
+     escondendo a casca também no `catch` de `doLogin()`, mesmo tratamento
+     que o botão Sair já tinha.
+- **"Esqueci minha senha"** nos dois painéis (`resetPasswordForEmail` +
+  tela de nova senha via hash `type=recovery`, mesmo padrão de captura de
+  hash antes do `createClient()` já usado pro convite). Duas decisões
+  explícitas do David: (1) mensagem sempre genérica, nunca diferencia
+  "e-mail existe" de "e-mail não existe" -- diferenciar seria enumeração
+  de conta, uma vulnerabilidade real; (2) depois de trocar a senha, força
+  logout e exige login de novo (não aproveita a sessão da recuperação
+  pra entrar direto).
+- **Testado localmente de ponta a ponta com convite real** (sem tocar em
+  Harry Studio/produção): gerado convite via `supabaseAdmin.auth.admin.generateLink`
+  (sem precisar de e-mail de verdade, action_link capturado e o hash
+  reaplicado direto numa URL `localhost`, já que o Supabase ignora
+  `redirectTo` fora da allowlist de Redirect URLs configurada -- mesmo
+  gotcha documentado em 16/09). Confirmado: cadastro completo, 8 serviços
+  pré-cadastrados, login do salão isolado à própria unidade (só vê 1
+  estabelecimento via `GET /estabelecimentos`), login do salão bloqueado
+  no painel de rede (depois dos 2 fixes acima), login do proprietário
+  seguindo normal. Dados de teste sempre limpos depois (proprietário +
+  estabelecimento + os dois `auth.users`).
+- **Fora de escopo, decisão explícita do David**: contas já existentes
+  (Harry Studio, Studio Teste QA) não ganham botão de "criar login do
+  salão" agora -- só cadastro novo por enquanto.
+
+**Também nesta sessão**, achado testando em produção de verdade (print
+real do David): `.btp`/`.btg` (usados em quase todo botão de ação
+principal -- Salvar configurações, Cadastrar cliente, Abrir comanda,
+Conectar WhatsApp, Adicionar serviço, Painel do Proprietário) tinham
+fundo fixo (gradiente escuro ou dourado, independente do tema) mas texto
+em `var(--wh)`, que no tema escuro (migração 34, sessão anterior) vira
+quase preto -- botão ficava com o texto invisível. Mesma classe de bug
+corrigida no card "Seu salão hoje", no badge "NEW" da navbar, no selo
+"Mais popular" da aba Planos, e nas telas de login dos dois painéis
+(`.lh`/`.lbrand`/`.lf input`/`.lbtn`) -- qualquer combinação de "fundo
+fixo entre temas + texto que depende de um token que muda de tema" é essa
+mesma classe de bug; vale conferir de novo se aparecer mais alguma tela
+com texto sumindo no tema escuro.
+
+**Gotcha do Railway CLI**: `railway login --browserless` continuou
+falhando (5x na sessão anterior, caindo sempre em
+`davidrocha.analista@gmail.com`), mas depois de rodar `railway login`
+(sem --browserless) direto no terminal do David uma vez, o CLI ficou
+logado como `davidrocha.coitinho@gmail.com` e permaneceu assim pro resto
+desta sessão (`railway whoami` confirmado antes de cada deploy) -- não
+precisou repetir o processo.
+
 ## Ordem sugerida pra continuar
 
 1. ~~Migrações 22 e 23~~ -- RESOLVIDO, testado no navegador (ver
@@ -1078,3 +1179,13 @@ e `railway up`.
 4. Validar com donos de salão se pagamento antecipado/sinal (Pendências
    item 2) e nota fiscal (Pendências item 3) são prioridade antes de
    escopar de verdade.
+5. Login separado por salão (migrações 35/36) -- RESOLVIDO em 24/09 pra
+   cadastro novo, testado ponta a ponta local com convite real. **Ainda
+   não testado em produção com convite de verdade** (só local). Falta,
+   se o David quiser: (a) confirmar em produção com um convite real; (b)
+   decidir se/quando adicionar retrofit pra Harry Studio e Studio Teste
+   QA ganharem login de salão também (decisão explícita: fora de escopo
+   por ora); (c) testar "esqueci minha senha" ponta a ponta com e-mail de
+   verdade (só verificado estruturalmente nesta sessão -- bati rate limit
+   de e-mail do Supabase testando reverificação de sessão, coisa não
+   relacionada, e não cheguei a clicar um link de recuperação real).
