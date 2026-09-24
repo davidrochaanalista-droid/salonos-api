@@ -147,7 +147,27 @@ input,select{font-family:inherit;font-size:13px;outline:none;border:none;color:v
     <div class="lf"><label>Senha</label><input type="password" id="admSenha" placeholder="Digite sua senha"></div>
     <button class="lbtn" id="admBtn" onclick="doLogin()">Entrar no painel</button>
     <div id="admErro"></div>
+    <div class="tm3" style="font-size:11px;margin-top:12px;cursor:pointer;color:var(--gd)" onclick="abrirEsqueciSenha()">Esqueci minha senha</div>
     <div class="lnote">Este painel é interno — mostra as contas e a assinatura da plataforma. Acesso restrito a quem está cadastrado como admin; nunca deve ser exposto a clientes do SalonOS.</div>
+  </div>
+</div>
+<div class="lw" id="lwEsqueci" style="display:none">
+  <div class="lb">
+    <div class="llogo"><div class="lmark">OS</div><div class="lbrand">Salon<em>OS</em></div></div>
+    <div class="ltag">Recuperar senha</div>
+    <div class="lf"><label>E-mail</label><input type="email" id="esqueciEmail" placeholder="voce@salonos.app"></div>
+    <div id="esqueciErro"></div>
+    <button class="lbtn" id="esqueciBtn" onclick="enviarLinkRecuperacao()">Enviar link de recuperação</button>
+    <div class="tm3" style="font-size:11px;margin-top:12px;cursor:pointer;color:var(--gd)" onclick="voltarParaLogin()">Voltar</div>
+  </div>
+</div>
+<div class="lw" id="lwNovaSenha" style="display:none">
+  <div class="lb">
+    <div class="llogo"><div class="lmark">OS</div><div class="lbrand">Salon<em>OS</em></div></div>
+    <div class="ltag">Defina uma nova senha</div>
+    <div class="lf"><label>Nova senha</label><input type="password" id="novaSenhaInput" placeholder="Mínimo 6 caracteres"></div>
+    <div id="novaSenhaErro"></div>
+    <button class="lbtn" id="novaSenhaBtn" onclick="submeterNovaSenha()">Salvar nova senha</button>
   </div>
 </div>
 
@@ -189,6 +209,10 @@ input,select{font-family:inherit;font-size:13px;outline:none;border:none;color:v
 const SUPABASE_URL = 'https://shekztrtkaknyudvzttf.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_WGAnLGQxexd89d0dOJhpTg_KoIGWVaX';
 const API_BASE_URL = '';
+// Ler window.location.hash AQUI, antes do createClient() -- ele processa e
+// pode limpar esse hash de forma assíncrona (mesmo cuidado documentado em
+// cadastro-real.html/salon-v6.html/painel-proprietario.html).
+const VEIO_DE_RECUPERACAO_SENHA = window.location.hash.includes('type=recovery');
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function chamarAPI(metodo, caminho, corpo) {
@@ -249,6 +273,61 @@ async function doLogin(){
     html($('#admErro'),'<div class="lerro">'+msg+'</div>');
   }finally{
     btn.disabled=false; btn.textContent='Entrar no painel';
+  }
+}
+
+function abrirEsqueciSenha(){
+  html($('#esqueciErro'),'');
+  $('#lw').style.display='none';
+  $('#lwEsqueci').style.display='flex';
+}
+
+function voltarParaLogin(){
+  $('#lwEsqueci').style.display='none';
+  $('#lwNovaSenha').style.display='none';
+  $('#lw').style.display='flex';
+}
+
+// Sempre a mesma mensagem de sucesso, exista ou não o e-mail --
+// resetPasswordForEmail já não denuncia isso na resposta, de propósito
+// (evita enumeração de conta -- mesmo cuidado dos outros dois painéis).
+async function enviarLinkRecuperacao(){
+  const email=$('#esqueciEmail').value.trim();
+  const btn=$('#esqueciBtn');
+  html($('#esqueciErro'),'');
+  if(!email){ html($('#esqueciErro'),'<div class="lerro">Preencha o e-mail.</div>'); return; }
+  btn.disabled=true; btn.textContent='Enviando...';
+  try{
+    const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+'/painel-admin.html'});
+    if(error)throw error;
+    Toast.show('Se esse e-mail tiver conta, um link de recuperação foi enviado.');
+    voltarParaLogin();
+  }catch(erro){
+    html($('#esqueciErro'),'<div class="lerro">'+(erro.message||'Não foi possível enviar o link.')+'</div>');
+  }finally{
+    btn.disabled=false; btn.textContent='Enviar link de recuperação';
+  }
+}
+
+// Chegou pelo link de recuperação (VEIO_DE_RECUPERACAO_SENHA, capturado
+// no topo do arquivo) -- por segurança, não entra direto: desloga e exige
+// login de novo com a senha nova (mesmo tratamento dos outros painéis).
+async function submeterNovaSenha(){
+  const senha=$('#novaSenhaInput').value;
+  const btn=$('#novaSenhaBtn');
+  html($('#novaSenhaErro'),'');
+  if(!senha||senha.length<6){ html($('#novaSenhaErro'),'<div class="lerro">A senha precisa ter pelo menos 6 caracteres.</div>'); return; }
+  btn.disabled=true; btn.textContent='Salvando...';
+  try{
+    const{error}=await sb.auth.updateUser({password:senha});
+    if(error)throw error;
+    await sb.auth.signOut();
+    voltarParaLogin();
+    Toast.show('Senha atualizada! Entre com a nova senha.');
+  }catch(erro){
+    html($('#novaSenhaErro'),'<div class="lerro">'+(erro.message||'Não foi possível salvar a nova senha.')+'</div>');
+  }finally{
+    btn.disabled=false; btn.textContent='Salvar nova senha';
   }
 }
 
@@ -645,6 +724,10 @@ function copiarLinkConvite(){
 document.addEventListener('DOMContentLoaded', ()=>{
   $$('.nb[data-page]').forEach(b=>b.addEventListener('click',()=>Router.go(b.dataset.page)));
   $('#mbd').addEventListener('click', e=>{ if(e.target.id==='mbd') Modal.close(); });
+  if(VEIO_DE_RECUPERACAO_SENHA){
+    $('#lw').style.display='none';
+    $('#lwNovaSenha').style.display='flex';
+  }
 });
 </script>
 </body>
