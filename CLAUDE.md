@@ -1266,6 +1266,33 @@ código de `admin.js`):
   limitação em vez de tentar reconstruir o passado (impossível, o dado
   velho já foi sobrescrito há muito tempo).
 
+### Investigado a fundo: por que o código de reverificação nunca chega (25/09/2026)
+
+Retomando a pendência antiga (item 12, "reverificação de e-mail" -- o
+código de 6 dígitos nunca aparece no e-mail, só um link clicável). David
+foi até Authentication → Email Templates → Magic Link no Supabase
+Dashboard tentar adicionar `{{ .Token }}` no corpo (print confirmado) e
+achou o motivo real: **o campo Body vem travado** ("Set up custom SMTP
+to edit templates" -- no plano free do Supabase, os e-mails de auth
+sempre usam o template padrão deles, sem poder editar assunto/corpo, a
+não ser que um SMTP próprio seja configurado primeiro).
+
+**Risco real identificado antes de mexer**: configurar SMTP troca o
+provedor de **todos** os e-mails de autenticação (convite, recuperação
+de senha, esse código) de uma vez, não só desse. Um provedor tipo Resend
+sem domínio verificado só entrega e-mail pra própria conta cadastrada
+nele (modo sandbox) -- configurar assim quebraria o convite de dono de
+salão novo de verdade (que hoje funciona via envio padrão do Supabase).
+David ainda não tem domínio próprio pro SalonOS (só o subdomínio do
+Railway) -- **decisão: não configurar SMTP agora**, esperar até ter um
+domínio pra verificar com segurança.
+
+**Solução em uso enquanto isso não acontece**: abrir uma aba anônima
+pra logar -- a exigência de código (`salonos_requer_reverificacao`) é
+guardada só no `localStorage` do navegador, então uma aba nova/anônima
+nunca aciona esse fluxo, login direto com e-mail/senha funciona normal.
+Vale pra qualquer proprietário que caia nessa tela, não só pro David.
+
 ## Ordem sugerida pra continuar
 
 1. ~~Migrações 22 e 23~~ -- RESOLVIDO, testado no navegador (ver
