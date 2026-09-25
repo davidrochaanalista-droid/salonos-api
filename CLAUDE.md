@@ -1244,6 +1244,28 @@ setado à parte, login do salão confirmado SEM linha em `proprietarios`
   lista. Não testado dentro do webhook real ainda (mesmo motivo de
   sempre, evitar repetir o incidente de conectar número pessoal).
 
+### Dados operacionais do salão no painel-admin (25/09/2026)
+
+Pedido do David: ao clicar numa conta em Contas, ver atendimentos
+(dia/mês/ano, com abas pra escolher), ticket médio, procedimento
+mais/menos realizado, cancelados e remarcados -- `GET /admin/contas/:id/metricas?periodo=`
+(via `req.supabaseAdmin`, já que o admin olha qualquer conta). Atendimentos
+e ticket médio vêm de `comandas` fechadas (mesma fonte que
+`resumo-mensal` de `relatorios.js` já usa pro painel do proprietário).
+
+Duas lacunas reais de dado, achadas implementando (documentadas no
+código de `admin.js`):
+- **"Cancelados"** usa a data do agendamento (`inicio`), não a data em
+  que a cancelação de fato aconteceu -- esse segundo dado nunca existiu
+  no schema (`agendamentos` não tem `cancelado_em`).
+- **"Remarcados"** nunca foi rastreado -- remarcar sempre foi só um
+  `PATCH` sobrescrevendo `inicio`/`fim` na mesma linha, sem histórico
+  nenhum. Migração 37 (`agendamentos.remarcado_em`) resolve **daqui pra
+  frente**: `PATCH /agendamentos/:id` (`agenda.js`) grava esse timestamp
+  sempre que `inicio` ou `fim` mudam. Decisão do David: aceitar essa
+  limitação em vez de tentar reconstruir o passado (impossível, o dado
+  velho já foi sobrescrito há muito tempo).
+
 ## Ordem sugerida pra continuar
 
 1. ~~Migrações 22 e 23~~ -- RESOLVIDO, testado no navegador (ver
