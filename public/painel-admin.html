@@ -557,6 +557,13 @@ function verConta(id){
   if(!c) return;
   Modal.open(c.nome, `
     <div class="tm2" style="font-size:12.5px;line-height:1.7;margin-bottom:16px">Endereço: ${esc(enderecoCompleto(c))}<br>CNPJ: ${esc(c.cnpj||'—')}<br>Proprietário: ${esc(c.proprietarios?.nome||'—')} (${esc(c.proprietarios?.telefone||'—')})<br>CPF: ${esc(c.proprietarios?.cpf||'—')}<br>Cliente desde: ${new Date(c.created_at).toLocaleDateString('pt-BR')}</div>
+    <div class="cfh" style="margin:0 0 10px;padding-left:0">Dados do salão</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px" id="metricasPeriodoTabs">
+      <button class="btn btgh sm" data-periodo="dia" onclick="carregarMetricasConta('${id}','dia')">Hoje</button>
+      <button class="btn btp sm" data-periodo="mes" onclick="carregarMetricasConta('${id}','mes')">Este mês</button>
+      <button class="btn btgh sm" data-periodo="ano" onclick="carregarMetricasConta('${id}','ano')">Este ano</button>
+    </div>
+    <div id="metricasConta" style="margin-bottom:16px"><div class="emb">Carregando...</div></div>
     <div class="lf"><label>Status da assinatura</label>
       <select id="contaStatus" onchange="aoTrocarStatusConta(this.value)">
         ${STATUS_ASSINATURA.map(s=>`<option value="${s}" ${c.status_assinatura===s?'selected':''}>${esc(STATUS_TAG[s]?.[1]||s)}</option>`).join('')}
@@ -575,6 +582,35 @@ function verConta(id){
       <button class="btn btp" onclick="salvarConta('${id}')">Salvar</button>
     </div>
   `);
+  carregarMetricasConta(id, 'mes');
+}
+
+// Dados operacionais do salão (atendimentos, ticket médio, procedimento
+// mais/menos realizado, cancelados, remarcados) -- GET /admin/contas/:id/metricas,
+// ver src/routes/admin.js pras limitações reais de dado (cancelados usa a
+// data do agendamento, não da cancelação; remarcados só conta a partir da
+// migração 37, sem histórico anterior).
+async function carregarMetricasConta(id, periodo){
+  $$('#metricasPeriodoTabs button').forEach(b=>b.className = 'btn sm ' + (b.dataset.periodo===periodo ? 'btp' : 'btgh'));
+  html($('#metricasConta'), '<div class="emb">Carregando...</div>');
+  try{
+    const m = await chamarAPI('GET', `/admin/contas/${id}/metricas?periodo=${periodo}`);
+    const rotuloPeriodo = periodo==='dia'?'hoje':periodo==='ano'?'este ano':'este mês';
+    html($('#metricasConta'), `
+      <div class="g4" style="margin-bottom:8px">
+        <div class="kc"><div class="kclbl">Atendimentos</div><div class="kcv">${m.atendimentos}</div><div class="kcd n">${esc(rotuloPeriodo)}</div></div>
+        <div class="kc"><div class="kclbl">Ticket médio</div><div class="kcv">R$ ${m.ticket_medio.toFixed(2)}</div><div class="kcd n">${esc(rotuloPeriodo)}</div></div>
+        <div class="kc"><div class="kclbl">Cancelados</div><div class="kcv">${m.cancelados}</div><div class="kcd n">${esc(rotuloPeriodo)}</div></div>
+        <div class="kc"><div class="kclbl">Remarcados</div><div class="kcv">${m.remarcados}</div><div class="kcd n">só a partir de 25/09</div></div>
+      </div>
+      <div class="tm3" style="font-size:12px">
+        Mais realizado: <strong>${m.procedimento_mais_realizado ? esc(m.procedimento_mais_realizado.nome)+' ('+m.procedimento_mais_realizado.quantidade+')' : '—'}</strong><br>
+        Menos realizado: <strong>${m.procedimento_menos_realizado ? esc(m.procedimento_menos_realizado.nome)+' ('+m.procedimento_menos_realizado.quantidade+')' : '—'}</strong>
+      </div>
+    `);
+  }catch(erro){
+    html($('#metricasConta'), '<div class="emb" style="color:var(--rs)">Não foi possível carregar: '+erro.message+'</div>');
+  }
 }
 
 // "Livre" é cortesia com acesso total (plano escala), sem cobrar --

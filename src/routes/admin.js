@@ -41,6 +41,96 @@ router.get('/admin/segmentos', async (req, res) => {
   res.json(data);
 });
 
+function calcularPeriodo(periodo) {
+  const agora = new Date();
+  if (periodo === 'dia') {
+    return { inicio: new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate())), fim: agora };
+  }
+  if (periodo === 'ano') {
+    return { inicio: new Date(Date.UTC(agora.getUTCFullYear(), 0, 1)), fim: agora };
+  }
+  return { inicio: new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), 1)), fim: agora }; // 'mes', padrão
+}
+
+// GET /admin/contas/:id/metricas?periodo=dia|mes|ano — pedido do David:
+// ver dados operacionais do salão ao clicar numa conta (atendimentos,
+// ticket médio, procedimento mais/menos realizado, cancelados,
+// remarcados). "Atendimentos" e ticket médio vêm de comandas FECHADAS
+// (dinheiro de verdade trocou de mão), não de agendamentos -- mesma
+// fonte de dado que resumo-mensal (relatorios.js) já usa, só que aqui
+// via req.supabaseAdmin porque o admin olha QUALQUER conta, não só a
+// própria (RLS normal não deixaria).
+//
+// "Cancelados" usa a data do agendamento (inicio), não a data em que a
+// cancelação aconteceu -- essa segunda informação não existe no schema
+// (sem cancelado_em). "Remarcados" só conta a partir da migração 37
+// (remarcado_em) -- não existe histórico de remarcação anterior a isso.
+router.get('/admin/contas/:id/metricas', async (req, res) => {
+  const periodo = ['dia', 'mes', 'ano'].includes(req.query.periodo) ? req.query.periodo : 'mes';
+  const { inicio, fim } = calcularPeriodo(periodo);
+
+  const { data: comandas, error: errCom } = await req.supabaseAdmin
+    .from('comandas')
+    .select('id, valor_total')
+    .eq('estabelecimento_id', req.params.id)
+    .eq('status', 'fechada')
+    .gte('fechada_em', inicio.toISOString())
+    .lte('fechada_em', fim.toISOString());
+  if (errCom) return res.status(500).json({ erro: errCom.message });
+
+  const atendimentos = comandas.length;
+  const ticketMedio = atendimentos
+    ? comandas.reduce((soma, c) => soma + Number(c.valor_total || 0), 0) / atendimentos
+    : 0;
+
+  let procedimentoMaisRealizado = null;
+  let procedimentoMenosRealizado = null;
+  const comandaIds = comandas.map((c) => c.id);
+  if (comandaIds.length) {
+    const { data: itens } = await req.supabaseAdmin
+      .from('comanda_itens')
+      .select('quantidade, estabelecimento_atividades(nome)')
+      .in('comanda_id', comandaIds);
+
+    const porServico = {};
+    for (const item of itens || []) {
+      const nome = item.estabelecimento_atividades?.nome || 'Serviço removido';
+      porServico[nome] = (porServico[nome] || 0) + item.quantidade;
+    }
+    const entradas = Object.entries(porServico).sort((a, b) => b[1] - a[1]);
+    if (entradas.length) {
+      procedimentoMaisRealizado = { nome: entradas[0][0], quantidade: entradas[0][1] };
+      procedimentoMenosRealizado = { nome: entradas[entradas.length - 1][0], quantidade: entradas[entradas.length - 1][1] };
+    }
+  }
+
+  const { count: cancelados } = await req.supabaseAdmin
+    .from('agendamentos')
+    .select('id', { count: 'exact', head: true })
+    .eq('estabelecimento_id', req.params.id)
+    .eq('status', 'cancelado')
+    .gte('inicio', inicio.toISOString())
+    .lte('inicio', fim.toISOString());
+
+  const { count: remarcados } = await req.supabaseAdmin
+    .from('agendamentos')
+    .select('id', { count: 'exact', head: true })
+    .eq('estabelecimento_id', req.params.id)
+    .not('remarcado_em', 'is', null)
+    .gte('remarcado_em', inicio.toISOString())
+    .lte('remarcado_em', fim.toISOString());
+
+  res.json({
+    periodo,
+    atendimentos,
+    ticket_medio: Math.round(ticketMedio * 100) / 100,
+    procedimento_mais_realizado: procedimentoMaisRealizado,
+    procedimento_menos_realizado: procedimentoMenosRealizado,
+    cancelados: cancelados || 0,
+    remarcados: remarcados || 0,
+  });
+});
+
 // GET /admin/contas — lista todas as contas da plataforma
 router.get('/admin/contas', async (req, res) => {
   const { data, error } = await req.supabaseAdmin

@@ -77,6 +77,12 @@ router.patch('/agendamentos/:id', async (req, res) => {
     return res.status(400).json({ erro: 'Não é possível remarcar um agendamento pra uma data/hora que já passou.' });
   }
 
+  // Métrica de "remarcados" pro painel-admin (database/37-remarcado-em.sql)
+  // -- só conta a partir de agora, não existe histórico de antes disso.
+  if (atualizacoes.inicio !== undefined || atualizacoes.fim !== undefined) {
+    atualizacoes.remarcado_em = new Date().toISOString();
+  }
+
   const { data, error } = await req.supabase
     .from('agendamentos')
     .update(atualizacoes)
