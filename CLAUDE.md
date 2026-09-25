@@ -1202,6 +1202,48 @@ criado com nome/telefone/gênero corretos vindo do `user_metadata`, CPF
 setado à parte, login do salão confirmado SEM linha em `proprietarios`
 (migração 36 segurando), catálogo pré-cadastrado. `npm test` 45/45.
 
+### Trocar senha logado, fix de segmentos vazio, e IA mais humanizada (24-25/09/2026)
+
+- **Descoberta importante**: a conta `davidrocha.coitinho@gmail.com` é ao
+  mesmo tempo o login **admin** (tabela `admins`) E o login de um
+  **proprietário** de teste (Studio Teste QA) -- é o MESMO `auth.users`,
+  não duas contas separadas. Resetar "a senha do admin" e "a senha do
+  proprietário" nesta sessão foi resetar a mesma senha duas vezes (a
+  segunda sobrescreveu a primeira). Importante lembrar disso da próxima
+  vez que alguém pedir reset de senha de uma dessas duas contas.
+- **"Trocar senha" pra quem já está logado**, nos três painéis -- antes só
+  existia "esqueci senha" na tela de login (sessão anterior). Achado pelo
+  David depois de logar e procurar onde trocar sem achar nada.
+  `painel-proprietario.html` reaproveita o clique no chip do dono, que
+  antes só mostrava um toast falso ("abrindo configurações do perfil",
+  sem nada real por trás). Mesma regra de segurança de sempre: desloga e
+  exige login de novo depois de trocar.
+- **Bug real: Segmento vazio no Cadastro Rápido**. Causa: `GET /segmentos`
+  passa por `verificarAssinatura`, e a própria conta de teste do David
+  (Studio Teste QA) está com `status_assinatura='cancelado'` de tanto ser
+  usada pra teste -- o middleware bloqueava (402) até uma lista pública
+  sem nada a ver com assinatura. Nova `GET /admin/segmentos` (mesma
+  query, via `req.supabaseAdmin`) pula `verificarAssinatura`, que já
+  ignora `/admin/*` de propósito (comentário no próprio middleware,
+  documentado desde 16/09 -- só não cobria esse caso porque a rota
+  antiga usava o caminho normal). O catch silencioso que escondia esse
+  erro no frontend também virou um Toast visível -- vale desconfiar de
+  qualquer `catch(erro){ /* comentário */ }` vazio no código, esconde
+  bug real da próxima pessoa que for debugar.
+- **Tom da IA do WhatsApp mais humanizado** (pedido do David: "quero que
+  ela responda o mais natural possível, humanizada, com emoji, modelo
+  concierge, profissional, nada robô"). Atualizados os 3 pontos onde a
+  IA gera texto pro cliente em `src/routes/whatsapp.js`
+  (`montarSystemPrompt`, `REGRAS_DE_TOM` do onboarding, e a mensagem de
+  horário alternativo indisponível): persona explícita de "recepção de
+  espaço de alto padrão", limite de emoji subiu de 1 pra 1-2 por
+  mensagem, proibição explícita de linguagem engessada tipo
+  "Prezado(a)"/"Informamos que". Testado contra a API real da Groq (não
+  só lógica determinística) com perguntas típicas de cliente -- resposta
+  ficou calorosa e com emoji natural, sem inventar preço/serviço fora da
+  lista. Não testado dentro do webhook real ainda (mesmo motivo de
+  sempre, evitar repetir o incidente de conectar número pessoal).
+
 ## Ordem sugerida pra continuar
 
 1. ~~Migrações 22 e 23~~ -- RESOLVIDO, testado no navegador (ver
