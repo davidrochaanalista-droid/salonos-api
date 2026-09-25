@@ -188,7 +188,7 @@ input,select{font-family:inherit;font-size:13px;outline:none;border:none;color:v
   </nav>
   <div class="tright">
     <div class="pulse"><div class="pulsedot"></div>SISTEMA OK</div>
-    <div class="opav">DR</div>
+    <div class="opav" style="cursor:pointer" onclick="abrirModalTrocarSenha()" title="Trocar senha">DR</div>
   </div>
 </header>
 
@@ -611,7 +611,7 @@ async function salvarConta(id){
 async function abrirModalCadastroRapido(){
   Modal.open('Cadastro rápido', '<div class="emb">Carregando segmentos...</div>');
   let segmentos = [];
-  try{ segmentos = await chamarAPI('GET','/segmentos'); }catch(erro){ /* segue com a lista vazia, o select fica sem opção nenhuma */ }
+  try{ segmentos = await chamarAPI('GET','/admin/segmentos'); }catch(erro){ Toast.show('Não foi possível carregar os segmentos: '+erro.message, '⚠'); }
 
   Modal.open('Cadastro rápido', `
     <div class="tm3" style="font-size:11px;margin-bottom:10px">Cadastra o proprietário e o estabelecimento juntos -- ninguém precisa clicar em link nenhum depois.</div>
@@ -719,6 +719,45 @@ function copiarLinkConvite(){
     () => Toast.show('Link copiado!'),
     () => Toast.show('Não foi possível copiar -- selecione e copie manualmente.', '⚠')
   );
+}
+
+// Trocar senha estando já logado -- direto via updateUser, sem precisar
+// do fluxo de recuperação por e-mail (esse é só pra quem esqueceu e não
+// consegue entrar). Faltava essa opção dentro do painel -- achado pelo
+// David depois de já ter entrado e procurado onde trocar.
+function abrirModalTrocarSenha(){
+  Modal.open('Trocar senha', `
+    <div class="lf"><label>Nova senha</label><input type="password" id="trocarSenhaInput" placeholder="Mínimo 6 caracteres"></div>
+    <div id="trocarSenhaErro"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn btgh" onclick="Modal.close()">Cancelar</button>
+      <button class="btn btp" id="trocarSenhaBtn" onclick="confirmarTrocarSenha()">Salvar</button>
+    </div>
+  `);
+}
+
+async function confirmarTrocarSenha(){
+  const senha = $('#trocarSenhaInput')?.value;
+  const btn = $('#trocarSenhaBtn');
+  html($('#trocarSenhaErro'),'');
+  if(!senha || senha.length<6){ html($('#trocarSenhaErro'),'<div class="lerro">A senha precisa ter pelo menos 6 caracteres.</div>'); return; }
+  btn.disabled=true; btn.textContent='Salvando...';
+  try{
+    const{error}=await sb.auth.updateUser({password:senha});
+    if(error)throw error;
+    // Por segurança, não continua logado -- desloga e exige login de novo
+    // com a senha nova (mesmo tratamento do fluxo de recuperação).
+    await sb.auth.signOut();
+    Modal.close();
+    $('#topbar').style.display='none';
+    $('#mainWrap').style.display='none';
+    $('#lw').style.display='flex';
+    Toast.show('Senha atualizada! Entre com a nova senha.');
+  }catch(erro){
+    html($('#trocarSenhaErro'),'<div class="lerro">'+(erro.message||'Não foi possível salvar.')+'</div>');
+  }finally{
+    btn.disabled=false; btn.textContent='Salvar';
+  }
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{

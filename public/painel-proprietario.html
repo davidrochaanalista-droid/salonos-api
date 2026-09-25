@@ -406,7 +406,7 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
     <div class="tnt exit" id="exitBtn">→ Sair</div>
   </nav>
   <div class="tright">
-    <div class="owner-chip" onclick="Toast.show('Abrindo configurações do perfil...')">
+    <div class="owner-chip" onclick="abrirModalTrocarSenha()">
       <div class="owner-av" id="ownerAv">-</div>
       <div>
         <div class="owner-nm" id="ownerNm">-</div>
@@ -626,6 +626,48 @@ async function submeterNovaSenha() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Salvar nova senha e entrar';
+  }
+}
+
+// Trocar senha estando já logado -- direto via updateUser, sem passar pelo
+// fluxo de recuperação por e-mail (esse é só pra quem esqueceu e não
+// consegue entrar). Reaproveita o clique no chip do dono, que antes só
+// mostrava um toast de "abrindo configurações do perfil" (nada real).
+function abrirModalTrocarSenha() {
+  Modal.open('Trocar senha', `
+    <div class="fg"><label class="bl">Nova senha</label><input class="fi" type="password" id="trocarSenhaInput" placeholder="Mínimo 6 caracteres"></div>
+    <div id="trocarSenhaErro"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button class="btn btgh" onclick="Modal.close()">Cancelar</button>
+      <button class="btn btp" id="trocarSenhaBtn" onclick="confirmarTrocarSenha()">Salvar</button>
+    </div>
+  `);
+}
+
+async function confirmarTrocarSenha() {
+  const senha = $('#trocarSenhaInput')?.value;
+  const btn = $('#trocarSenhaBtn');
+  $('#trocarSenhaErro').innerHTML = '';
+  if (!senha || senha.length < 6) { $('#trocarSenhaErro').innerHTML = `<div class="lerro">A senha precisa ter pelo menos 6 caracteres.</div>`; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+  try {
+    const { error } = await sb.auth.updateUser({ password: senha });
+    if (error) throw error;
+    // Por segurança, desloga e exige login de novo com a senha nova.
+    await sb.auth.signOut();
+    Modal.close();
+    $('#topbar').style.display = 'none';
+    $('#heroSection').style.display = 'none';
+    $('#mainWrap').style.display = 'none';
+    $('#lw').style.display = '';
+    Toast.show('Senha atualizada! Entre com a nova senha.');
+  } catch (erro) {
+    $('#trocarSenhaErro').innerHTML = `<div class="lerro">${erro.message || 'Não foi possível salvar.'}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Salvar';
   }
 }
 

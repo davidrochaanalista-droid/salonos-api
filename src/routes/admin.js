@@ -22,6 +22,25 @@ router.get('/admin/me', (req, res) => {
   res.json({ admin: true });
 });
 
+// GET /admin/segmentos — mesmo dado de GET /segmentos, mas sem passar por
+// verificarAssinatura. Achado real: o David usa a própria conta (Studio
+// Teste QA) pra logar no painel-admin, e essa conta ficou com
+// status_assinatura='cancelado' de tanto ser usada pra teste -- isso
+// bloqueava até rotas sem nada a ver com assinatura, como a lista de
+// segmentos, no meio do Cadastro Rápido (ver painel-admin.html). Rotas
+// /admin/* já pulam verificarAssinatura por mount order (server.js),
+// então só precisa existir aqui.
+router.get('/admin/segmentos', async (req, res) => {
+  const { data, error } = await req.supabaseAdmin
+    .from('segmentos')
+    .select('*')
+    .eq('ativo', true)
+    .order('ordem');
+
+  if (error) return res.status(500).json({ erro: error.message });
+  res.json(data);
+});
+
 // GET /admin/contas — lista todas as contas da plataforma
 router.get('/admin/contas', async (req, res) => {
   const { data, error } = await req.supabaseAdmin

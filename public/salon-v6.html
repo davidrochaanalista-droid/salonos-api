@@ -500,6 +500,37 @@ async function submeterNovaSenha(){
   }
 }
 
+// Trocar senha estando já logado -- direto via updateUser, sem passar pelo
+// fluxo de recuperação por e-mail (esse é só pra quem esqueceu e não
+// consegue entrar). Botão em Config -> Sua Conta.
+function abrirModalTrocarSenha(){
+  Modal.open('Trocar senha','<div class="fg"><label class="flbl">Nova senha</label><input class="fi" type="password" id="trocarSenhaInput" placeholder="Mínimo 6 caracteres"></div>'
+    +'<div id="trocarSenhaErro"></div>'
+    +'<div class="mf"><button class="btn btgh" onclick="Modal.close()">Cancelar</button><button class="btn btp" id="trocarSenhaBtn" onclick="confirmarTrocarSenha()">Salvar</button></div>');
+}
+
+async function confirmarTrocarSenha(){
+  const senha=$('#trocarSenhaInput')?.value;
+  const btn=$('#trocarSenhaBtn');
+  $('#trocarSenhaErro').innerHTML='';
+  if(!senha||senha.length<6){$('#trocarSenhaErro').innerHTML='<div class="lerro">A senha precisa ter pelo menos 6 caracteres.</div>';return;}
+  btn.disabled=true;btn.textContent='Salvando...';
+  try{
+    const{error}=await sb.auth.updateUser({password:senha});
+    if(error)throw error;
+    await sb.auth.signOut();
+    Modal.close();
+    $('#topbar').style.display='none';$('#heroBar').style.display='none';$('#mainWrap').style.display='none';
+    $('#lw').style.display='flex';$('#lw').classList.remove('hide');
+    document.documentElement.classList.remove('tema-escuro');
+    Toast.show('Senha atualizada! Entre com a nova senha.');
+  }catch(erro){
+    $('#trocarSenhaErro').innerHTML='<div class="lerro">'+(erro.message||'Não foi possível salvar.')+'</div>';
+  }finally{
+    btn.disabled=false;btn.textContent='Salvar';
+  }
+}
+
 function entrarNoApp(estabelecimentos){
   chamarAPI('GET','/proprietarios/me').then(owner=>{proprietarioAtivo=owner;aplicarTemaPorGenero(owner?.genero);}).catch(()=>{});
   todosEstabelecimentos=estabelecimentos;
@@ -1854,6 +1885,7 @@ config(){
         +'<option value="feminino"'+(p.genero!=='masculino'?' selected':'')+'>Feminino</option>'
         +'<option value="masculino"'+(p.genero==='masculino'?' selected':'')+'>Masculino</option>'
         +'</select>'},
+      {l:'Senha',d:'Senha deste login (do salao)',ct:'<button class="btn btgh sm" onclick="abrirModalTrocarSenha()">Trocar senha</button>'},
     ]},
     {t:'Informacoes do Salao',rs:[
       {l:'Nome do salao',d:'Como aparece para as clientes',ct:'<input class="fi" style="width:200px" id="cfgNome" value="'+(e.nome||'')+'">'},
