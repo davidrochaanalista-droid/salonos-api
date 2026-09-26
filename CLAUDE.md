@@ -1312,8 +1312,10 @@ No salão, `.tright` ("Ao vivo" + data) e `.bsub` somem no celular pra
 caber. Desktop intocado. Verificado com print headless do Chrome em
 iframe de 390px (headless não desce abaixo de ~500px de janela -- usar
 iframe pra simular celular): sem overflow horizontal, todas as abas
-acessíveis. `painel-proprietario.html` tem o mesmo padrão de topbar e
-não foi mexido (não foi pedido).
+acessíveis. Commit `7e59d62`, publicado. Mesma correção aplicada
+depois em `painel-proprietario.html` (lá o offset vem do `.hero`,
+padding-top 88px -> 126px no celular; `.owner-chip` encolhe com
+reticências no nome do dono), verificada do mesmo jeito.
 
 ## Ordem sugerida pra continuar
 

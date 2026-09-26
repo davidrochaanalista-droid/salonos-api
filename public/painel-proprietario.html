@@ -349,6 +349,17 @@ textarea.fi{resize:vertical;min-height:80px;line-height:1.5}
 .lbtn{width:100%;background:var(--gd);color:#1A1510;border-radius:8px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:var(--fb);margin-top:6px}
 .lbtn:hover{background:var(--gdd)}.lbtn:disabled{opacity:.6;cursor:not-allowed}
 .lerro{background:var(--rsl);color:var(--rs);border-radius:8px;padding:10px 13px;font-size:12px;margin-bottom:14px;line-height:1.5}
+/* CELULAR: topbar em 2 linhas -- numa linha só a .tnav-top ficava espremida/escondida
+   pro lado (mesma correção de salon-v6.html/painel-admin.html). Abas viram faixa rolável de dedo. */
+@media(max-width:900px){
+.topbar{height:96px;flex-wrap:wrap;align-content:space-evenly;padding:4px 12px}
+.topbar .bsub{display:none}
+.tright{min-width:0;flex-shrink:1}.owner-chip{min-width:0;max-width:58vw}.owner-chip>div{min-width:0}.owner-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tnav-top{order:3;flex:0 0 100%;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}.tnav-top::-webkit-scrollbar{display:none}
+.tnt{flex-shrink:0}
+.hero{padding:126px 16px 28px}
+.main{padding:20px 12px}
+}
 </style>
 </head>
 <body>
