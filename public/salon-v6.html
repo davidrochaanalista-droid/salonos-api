@@ -331,8 +331,14 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // e-mail além da senha, por segurança. SIGNED_OUT é o único evento do SDK
 // que cobre os dois casos sem diferenciar (não precisamos diferenciar).
 // Login novo (sem sessão anterior nunca ter existido) não passa por aqui.
+//
+// DESLIGADO em 26/09/2026 a pedido do David: o código nunca chega no e-mail
+// (template do Supabase travado sem SMTP próprio -- ver CLAUDE.md) e isso
+// travava lojista testando o sistema. Pra religar: true. O fluxo inteiro
+// (tela #lwCodigo, verifyOtp, reenviar) continua intacto abaixo.
+const EXIGIR_REVERIFICACAO_EMAIL=false;
 sb.auth.onAuthStateChange((evento)=>{
-  if(evento==='SIGNED_OUT')localStorage.setItem('salonos_requer_reverificacao','1');
+  if(EXIGIR_REVERIFICACAO_EMAIL&&evento==='SIGNED_OUT')localStorage.setItem('salonos_requer_reverificacao','1');
 });
 
 let estabelecimentoAtivo = null;
@@ -428,7 +434,10 @@ async function doLogin(){
     const estabelecimentos=await chamarAPI('GET','/estabelecimentos');
     if(!estabelecimentos.length)throw new Error('Nenhum estabelecimento cadastrado para este login.');
 
-    if(localStorage.getItem('salonos_requer_reverificacao')==='1'){
+    // Com a chave desligada, ignora também a flag que ficou gravada no
+    // navegador de quem saiu antes de 26/09 (senão essa pessoa continuaria
+    // caindo na tela de código).
+    if(EXIGIR_REVERIFICACAO_EMAIL&&localStorage.getItem('salonos_requer_reverificacao')==='1'){
       emailReverificacaoPendente=email;
       const{error:erroOtp}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false}});
       if(erroOtp)throw erroOtp;

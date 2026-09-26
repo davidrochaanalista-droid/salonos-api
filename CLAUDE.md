@@ -1297,6 +1297,16 @@ guardada só no `localStorage` do navegador, então uma aba nova/anônima
 nunca aciona esse fluxo, login direto com e-mail/senha funciona normal.
 Vale pra qualquer proprietário que caia nessa tela, não só pro David.
 
+**DESLIGADO em 26/09/2026** (pedido do David: deixar lojista testar o
+sistema sem travar no código, religar depois): constante
+`EXIGIR_REVERIFICACAO_EMAIL=false` em `salon-v6.html`, perto do
+`onAuthStateChange`. Com ela `false`, o SIGNED_OUT não grava mais a flag
+e o login ignora a flag que já estava gravada em navegadores antigos --
+login volta a ser só e-mail/senha. Fluxo inteiro (`#lwCodigo`,
+`verifyOtp`, reenviar) continua no código. **Pra religar**: trocar pra
+`true` -- de preferência só depois de ter domínio + SMTP próprio, senão
+o código continua não chegando.
+
 ### Abas escondidas no celular -- salão e admin (26/09/2026)
 
 Relato do David: no celular as abas de função ficavam escondidas pro
