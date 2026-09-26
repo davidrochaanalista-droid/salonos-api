@@ -135,6 +135,14 @@ input,select{font-family:inherit;font-size:13px;outline:none;border:none;color:v
 .mt{font-family:var(--fd);font-size:18px;font-style:italic}
 .mc{width:24px;height:24px;border-radius:6px;background:var(--bg3);display:grid;place-items:center;font-size:12px;color:var(--tx3);cursor:pointer}
 .mb{padding:18px 20px}
+/* CELULAR: topbar em 2 linhas -- numa linha só a .nav ficava espremida/escondida
+   pro lado. Abas viram faixa rolável de dedo. */
+@media(max-width:900px){
+.topbar{height:96px;flex-wrap:wrap;align-content:space-evenly;padding:4px 12px}
+.nav{order:3;flex:0 0 100%;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}.nav::-webkit-scrollbar{display:none}
+.nb{white-space:nowrap;flex-shrink:0}
+.main{padding:112px 12px 32px}
+}
 </style>
 </head>
 <body>

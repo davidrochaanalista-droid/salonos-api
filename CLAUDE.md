@@ -1264,7 +1264,11 @@ código de `admin.js`):
   frente**: `PATCH /agendamentos/:id` (`agenda.js`) grava esse timestamp
   sempre que `inicio` ou `fim` mudam. Decisão do David: aceitar essa
   limitação em vez de tentar reconstruir o passado (impossível, o dado
-  velho já foi sobrescrito há muito tempo).
+  velho já foi sobrescrito há muito tempo). **Migração 37 confirmada em
+  produção em 26/09** (coluna existe; 0 agendamentos com `remarcado_em`
+  preenchido até então, esperado -- ninguém remarcou desde o deploy).
+  Pra checar produção via `railway run`, precisa de
+  `--service salonos-api` (o projeto tem mais de um serviço).
 
 ### Investigado a fundo: por que o código de reverificação nunca chega (25/09/2026)
 
@@ -1292,6 +1296,24 @@ pra logar -- a exigência de código (`salonos_requer_reverificacao`) é
 guardada só no `localStorage` do navegador, então uma aba nova/anônima
 nunca aciona esse fluxo, login direto com e-mail/senha funciona normal.
 Vale pra qualquer proprietário que caia nessa tela, não só pro David.
+
+### Abas escondidas no celular -- salão e admin (26/09/2026)
+
+Relato do David: no celular as abas de função ficavam escondidas pro
+lado, só dava pra usar deitando o celular ou pondo o navegador em "modo
+computador". Causa: topbar fixa numa linha só; `.brand`/`.usw`/`.tright`
+têm `flex-shrink:0` e comiam toda a largura, a `.tnav` (salão) / `.nav`
+(admin) encolhia até ~0. Correção só CSS, `@media(max-width:900px)` no
+fim do `<style>` de `salon-v6.html` e `painel-admin.html`: topbar vira 2
+linhas de 96px (marca + seletor de unidade/status em cima, abas em faixa
+rolável de dedo embaixo), offsets de conteúdo ajustados (salão: `.hero`
+margin-top/`.main` padding-top 96px; admin: `.main` padding-top 112px).
+No salão, `.tright` ("Ao vivo" + data) e `.bsub` somem no celular pra
+caber. Desktop intocado. Verificado com print headless do Chrome em
+iframe de 390px (headless não desce abaixo de ~500px de janela -- usar
+iframe pra simular celular): sem overflow horizontal, todas as abas
+acessíveis. `painel-proprietario.html` tem o mesmo padrão de topbar e
+não foi mexido (não foi pedido).
 
 ## Ordem sugerida pra continuar
 

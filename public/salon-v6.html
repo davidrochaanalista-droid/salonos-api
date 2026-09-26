@@ -185,6 +185,16 @@ html.tema-escuro .topbar{background:rgba(30,27,29,.95)}
 .mt4{margin-top:4px}.mt8{margin-top:8px}.mt10{margin-top:10px}.mt12{margin-top:12px}.mt14{margin-top:14px}.mt16{margin-top:16px}
 .mb8{margin-bottom:8px}.mb10{margin-bottom:10px}.mb12{margin-bottom:12px}.mb14{margin-bottom:14px}.mb16{margin-bottom:16px}
 .txs{font-size:11px}.tsm{font-size:12px}.fw6{font-weight:600}.tm2{color:var(--ink3)}.td2{color:var(--ink4)}.gd2{color:var(--gdd)}.sg2{color:var(--sg)}.rs2{color:var(--rs)}.am2{color:var(--am)}.vi2{color:var(--vi)}.sit{font-family:var(--fd);font-style:italic}.wf{width:100%}.tc{text-align:center}.tr{text-align:right}
+/* CELULAR: topbar em 2 linhas -- numa linha só, .brand/.usw/.tright (flex-shrink:0)
+   comiam toda a largura e a .tnav encolhia até sumir. Abas viram faixa rolável de dedo. */
+@media(max-width:900px){
+.topbar{height:96px;flex-wrap:wrap;align-content:space-evenly;padding:4px 12px;row-gap:0}
+.topbar .bsub,.topbar .tright{display:none}
+.usw{flex-shrink:1;min-width:0;max-width:58vw}.usw #unitName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tnav{order:3;flex:0 0 100%;width:100%;-webkit-overflow-scrolling:touch}
+.hero{margin-top:96px}.main{padding-top:96px}
+.page{padding:14px 12px}
+}
 </style>
 </head>
 <body>
