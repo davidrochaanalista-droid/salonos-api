@@ -1490,3 +1490,39 @@ e, no pior caso, manda "me enrolei aqui, pode mandar de novo?".
    "Investigado a fundo: por que o código de reverificação nunca chega":
    o bloqueio do template é por falta de SMTP próprio, e SMTP próprio
    com entrega pra qualquer e-mail exige domínio verificado no provedor.
+6. **Domínio próprio + SMTP -- aguardando o David comprar o domínio**
+   (decisão de 26/09/2026, ele avisa quando tiver). Plano combinado, nesta
+   ordem, sem pular etapa:
+   1. Criar conta num provedor de e-mail (Resend, plano grátis) e
+      verificar o domínio (registros DNS no painel do registrador).
+   2. Configurar o SMTP no Supabase (Authentication → SMTP Settings) e
+      **testar convite + "esqueci senha" antes de qualquer outra coisa**
+      -- trocar o SMTP troca o provedor de TODOS os e-mails de auth; se
+      quebrar, convite de lojista novo para de chegar.
+   3. Editar o template "Magic Link" pra incluir `{{ .Token }}` (código
+      de 6 dígitos).
+   4. Religar a reverificação: `EXIGIR_REVERIFICACAO_EMAIL=true` em
+      `salon-v6.html` e testar logout -> login -> código de ponta a ponta.
+   5. Opcional: apontar um subdomínio (ex: `app.dominio.com.br`) pro
+      Railway, no lugar de `salonos-api-production-7d28.up.railway.app`
+      (lembrar de atualizar `PUBLIC_BASE_URL`, usado no webhook da
+      Evolution, e o Site URL/Redirect URLs no Supabase Auth).
+   Pagar o Supabase por si só **não** resolve (o bloqueio do template é
+   falta de SMTP próprio) -- avisado ao David, ele vai conferir antes.
+
+### Estado ao fim da sessão de 26/09/2026
+
+Tudo commitado e publicado (último deploy: `49e521a`, migrações 38-41
+rodadas e conferidas em produção). Pendências abertas, por prioridade:
+1. **Teste real no WhatsApp** (número dedicado, nunca o pessoal) de tudo
+   que entrou em 26/09: oferta de Pix, comprovante (download de mídia da
+   Evolution nunca rodou com mensagem real), remarcação com sinal, lista
+   de espera em cascata, endereço/estacionamento.
+2. Ligar "Lista de Espera Automática" nos salões que forem usar
+   (desligada por padrão) e salões preencherem endereço + "Informações
+   para as clientes" em Config.
+3. Limite da Groq free tier (~2 mensagens/min somando todos os salões)
+   -- resolver antes de ter vários salões ativos.
+4. Domínio + SMTP (item 6 acima).
+5. Antigas: gateways em sandbox, login de salão em produção com convite
+   real, NF-e/Marketplace esperando validação com donos de salão.
