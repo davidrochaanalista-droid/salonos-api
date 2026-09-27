@@ -1484,4 +1484,9 @@ e, no pior caso, manda "me enrolei aqui, pode mandar de novo?".
    testar "esqueci minha senha" ponta a ponta com e-mail de verdade (só
    verificado estruturalmente nesta sessão -- bati rate limit de e-mail
    do Supabase testando reverificação de sessão, coisa não relacionada, e
-   não cheguei a clicar um link de recuperação real).
+   não cheguei a clicar um link de recuperação real). **(c) RESOLVIDO
+   em 26/09**: David confirmou "esqueci a senha" funcionando de verdade.
+   SMTP: David decidiu pagar o Supabase -- ⚠️ ver aviso na seção
+   "Investigado a fundo: por que o código de reverificação nunca chega":
+   o bloqueio do template é por falta de SMTP próprio, e SMTP próprio
+   com entrega pra qualquer e-mail exige domínio verificado no provedor.
