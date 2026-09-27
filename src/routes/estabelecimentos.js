@@ -9,14 +9,14 @@
 const express = require('express');
 const { encryptSensitive, decryptSensitive } = require('../lib/crypto');
 const { gerarCopiaECola, gerarImagemQr } = require('../lib/pix');
-const { adotarCatalogoCompleto } = require('./atividades');
+const { adotarCatalogoCompleto, validarSegmentos } = require('./atividades');
 const supabaseAdmin = require('../lib/supabaseAdmin');
 const router = express.Router();
 
 // Nunca devolvida em resposta de API nenhuma -- select() explícito em vez
 // de '*' nas rotas de leitura, pra garantir que o blob cifrado de
 // credencial de gateway nem trafega de volta pro navegador.
-const COLUNAS_PUBLICAS = 'id, proprietario_id, login_user_id, segmento_id, nome, whatsapp, cnpj, cidade, bairro, endereco, cep, latitude, longitude, horario_abertura, horario_fechamento, dias_funcionamento, plano, status_assinatura, vencimento_em, chave_pix, gateway_pagamento, created_at';
+const COLUNAS_PUBLICAS = 'id, proprietario_id, login_user_id, segmento_id, segmentos_ids, nome, whatsapp, cnpj, cidade, bairro, endereco, cep, latitude, longitude, horario_abertura, horario_fechamento, dias_funcionamento, plano, status_assinatura, vencimento_em, chave_pix, gateway_pagamento, created_at';
 
 // POST /estabelecimentos — cadastrar novo estabelecimento. Cria também o
 // login PRÓPRIO do salão (email_salao/senha_salao, diferente do login do
@@ -27,10 +27,18 @@ const COLUNAS_PUBLICAS = 'id, proprietario_id, login_user_id, segmento_id, nome,
 // POST /estabelecimentos/:id/atividades/adotar-catalogo-completo), pra não
 // nascer sem nenhum serviço agendável.
 router.post('/', async (req, res) => {
-  const { segmento_id, nome, whatsapp, cnpj, endereco, email_salao, senha_salao, horario_abertura, horario_fechamento, dias_funcionamento } = req.body;
+  const { nome, whatsapp, cnpj, endereco, email_salao, senha_salao, horario_abertura, horario_fechamento, dias_funcionamento } = req.body;
 
-  if (!segmento_id || !nome || !whatsapp || !email_salao || !senha_salao) {
-    return res.status(400).json({ erro: 'segmento_id, nome, whatsapp, email_salao e senha_salao são obrigatórios.' });
+  if (!nome || !whatsapp || !email_salao || !senha_salao) {
+    return res.status(400).json({ erro: 'nome, whatsapp, email_salao e senha_salao são obrigatórios.' });
+  }
+
+  // Um ou mais segmentos (database/38-multiplos-segmentos.sql); o primeiro é o principal.
+  let segmentos_ids;
+  try {
+    segmentos_ids = await validarSegmentos(req.supabase, req.body);
+  } catch (erro) {
+    return res.status(erro.status || 500).json({ erro: erro.message });
   }
 
   // Busca o proprietario_id vinculado ao usuário logado (criado automaticamente
@@ -66,7 +74,7 @@ router.post('/', async (req, res) => {
     .insert({
       proprietario_id: proprietario.id,
       login_user_id: novoUsuario.user.id,
-      segmento_id, nome, whatsapp, cnpj, endereco,
+      segmento_id: segmentos_ids[0], segmentos_ids, nome, whatsapp, cnpj, endereco,
       horario_abertura, horario_fechamento, dias_funcionamento,
     })
     .select()
@@ -79,7 +87,7 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    await adotarCatalogoCompleto(req.supabase, data.id, segmento_id);
+    await adotarCatalogoCompleto(req.supabase, data.id, segmentos_ids);
   } catch (erroCatalogo) {
     req.log?.error(erroCatalogo, 'Falha ao pré-cadastrar catálogo do segmento no cadastro novo');
   }
@@ -125,6 +133,18 @@ router.patch('/:id', async (req, res) => {
   const atualizacoes = {};
   for (const campo of camposPermitidos) {
     if (req.body[campo] !== undefined) atualizacoes[campo] = req.body[campo];
+  }
+  // Troca de segmentos em Config (salon-v6.html) -- segmento_id acompanha
+  // como principal (o primeiro da lista). Não mexe nos serviços já
+  // cadastrados: segmento novo não adiciona serviço sozinho.
+  if (req.body.segmentos_ids !== undefined) {
+    try {
+      const ids = await validarSegmentos(req.supabase, { segmentos_ids: req.body.segmentos_ids });
+      atualizacoes.segmentos_ids = ids;
+      atualizacoes.segmento_id = ids[0];
+    } catch (erro) {
+      return res.status(erro.status || 500).json({ erro: erro.message });
+    }
   }
   if (req.body.gateway_credenciais !== undefined) {
     if (req.body.gateway_credenciais) {

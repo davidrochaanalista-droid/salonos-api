@@ -14,7 +14,7 @@
  */
 
 const express = require('express');
-const { adotarCatalogoCompleto } = require('./atividades');
+const { adotarCatalogoCompleto, validarSegmentos } = require('./atividades');
 const router = express.Router();
 
 // GET /admin/me — confirma pro frontend que o usuário logado é admin
@@ -324,11 +324,20 @@ router.patch('/admin/tickets/:id', async (req, res) => {
 router.post('/admin/cadastro-rapido', async (req, res) => {
   const {
     email, senha, nome, telefone, cpf, genero,
-    nome_estabelecimento, segmento_id, cnpj, whatsapp, endereco, email_salao, senha_salao,
+    nome_estabelecimento, cnpj, whatsapp, endereco, email_salao, senha_salao,
   } = req.body;
 
-  if (!email || !senha || !nome || !telefone || !nome_estabelecimento || !segmento_id || !whatsapp || !email_salao || !senha_salao) {
-    return res.status(400).json({ erro: 'email, senha, nome, telefone, nome_estabelecimento, segmento_id, whatsapp, email_salao e senha_salao são obrigatórios.' });
+  if (!email || !senha || !nome || !telefone || !nome_estabelecimento || !whatsapp || !email_salao || !senha_salao) {
+    return res.status(400).json({ erro: 'email, senha, nome, telefone, nome_estabelecimento, whatsapp, email_salao e senha_salao são obrigatórios.' });
+  }
+
+  // Um ou mais segmentos (database/38-multiplos-segmentos.sql) -- validado
+  // antes de criar qualquer login, pra não sobrar conta órfã.
+  let segmentos_ids;
+  try {
+    segmentos_ids = await validarSegmentos(req.supabaseAdmin, req.body);
+  } catch (erro) {
+    return res.status(erro.status || 500).json({ erro: erro.message });
   }
 
   const { data: novoProprietario, error: errProp } = await req.supabaseAdmin.auth.admin.createUser({
@@ -366,7 +375,7 @@ router.post('/admin/cadastro-rapido', async (req, res) => {
     .insert({
       proprietario_id: proprietarioRow.id,
       login_user_id: novoLoginSalao.user.id,
-      segmento_id, nome: nome_estabelecimento, whatsapp, cnpj, endereco,
+      segmento_id: segmentos_ids[0], segmentos_ids, nome: nome_estabelecimento, whatsapp, cnpj, endereco,
     })
     .select()
     .single();
@@ -378,7 +387,7 @@ router.post('/admin/cadastro-rapido', async (req, res) => {
   }
 
   try {
-    await adotarCatalogoCompleto(req.supabaseAdmin, estabelecimento.id, segmento_id);
+    await adotarCatalogoCompleto(req.supabaseAdmin, estabelecimento.id, segmentos_ids);
   } catch (erroCatalogo) {
     req.log?.error(erroCatalogo, 'Falha ao pré-cadastrar catálogo no cadastro rápido');
   }

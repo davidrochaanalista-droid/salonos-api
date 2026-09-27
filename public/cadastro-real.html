@@ -49,6 +49,10 @@ input,select{font-family:inherit;font-size:14px;outline:none;border:none;width:1
 .bl{display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:6px}
 .fi{background:var(--nude);border:1px solid var(--bd2);border-radius:var(--rs2);padding:11px 14px;font-size:13px;transition:border-color .15s}
 .fi:focus{border-color:var(--gd)}
+/* Segmentos: chips de múltipla escolha (database/38-multiplos-segmentos.sql) */
+.seg-chips{display:flex;flex-wrap:wrap;gap:6px}
+.seg-chip{padding:7px 12px;border-radius:20px;border:1px solid var(--bd2);background:var(--nude);font-size:12.5px;cursor:pointer;user-select:none;transition:all .15s}
+.seg-chip.active{background:var(--gd);border-color:var(--gd);color:#fff}
 select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238A7A72'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
 
 .btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:12px;border-radius:var(--rs2);font-size:13px;font-weight:600;transition:all .15s}
@@ -276,10 +280,10 @@ function renderCriarEstabelecimento() {
     <div class="step-sub">Essas informações aparecem para as suas clientes e nos lembretes automáticos por WhatsApp. O resto (cidade, bairro, CEP) você completa depois em Config, dentro do painel do salão.</div>
     ${estado.erro ? `<div class="msg erro">${estado.erro}</div>` : ''}
     <div class="fg"><label class="bl">Nome do estabelecimento</label><input class="fi" id="fNomeEst" placeholder="Ex: Studio Beleza Pro"></div>
-    <div class="fg"><label class="bl">Segmento</label>
-      <select class="fi" id="fSegmento">
-        ${estado.segmentos.map(s => `<option value="${s.id}">${s.icone} ${s.nome}</option>`).join('')}
-      </select>
+    <div class="fg"><label class="bl">Segmentos <span class="txs tm2">(pode marcar mais de um -- o primeiro é o principal)</span></label>
+      <div class="seg-chips" id="fSegmentos">
+        ${estado.segmentos.map(s => `<div class="seg-chip${segmentosEscolhidos.includes(s.id) ? ' active' : ''}" data-id="${s.id}" onclick="alternarSegmento(this)">${s.icone} ${s.nome}</div>`).join('')}
+      </div>
     </div>
     <div class="fg"><label class="bl">CNPJ</label><input class="fi" id="fCnpj" placeholder="00.000.000/0001-00"></div>
     <div class="fg"><label class="bl">WhatsApp do estabelecimento</label><input class="fi" id="fWhatsapp" placeholder="(11) 90000-0000"></div>
@@ -292,9 +296,19 @@ function renderCriarEstabelecimento() {
   `;
 }
 
+// Guarda a ordem em que foram marcados -- o primeiro vira o segmento principal.
+let segmentosEscolhidos = [];
+function alternarSegmento(chip) {
+  const id = chip.dataset.id;
+  chip.classList.toggle('active');
+  segmentosEscolhidos = chip.classList.contains('active')
+    ? [...segmentosEscolhidos, id]
+    : segmentosEscolhidos.filter(s => s !== id);
+}
+
 async function submeterEstabelecimento() {
   const nome = document.getElementById('fNomeEst').value.trim();
-  const segmento_id = document.getElementById('fSegmento').value;
+  const segmentos_ids = [...segmentosEscolhidos];
   const cnpj = document.getElementById('fCnpj').value.trim();
   const whatsapp = document.getElementById('fWhatsapp').value.trim();
   const endereco = document.getElementById('fEndereco').value.trim();
@@ -306,11 +320,15 @@ async function submeterEstabelecimento() {
     estado.erro = 'Nome, WhatsApp, e-mail e senha do salão são obrigatórios.';
     return render();
   }
+  if (!segmentos_ids.length) {
+    estado.erro = 'Escolha pelo menos um segmento.';
+    return render();
+  }
 
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner"></div>';
 
-  const novoEstabelecimento = await chamarAPI('POST', '/estabelecimentos', { nome, segmento_id, cnpj, whatsapp, endereco, email_salao, senha_salao });
+  const novoEstabelecimento = await chamarAPI('POST', '/estabelecimentos', { nome, segmentos_ids, cnpj, whatsapp, endereco, email_salao, senha_salao });
   if (!novoEstabelecimento) { btn.disabled = false; btn.textContent = 'Cadastrar estabelecimento'; return; }
 
   estado.estabelecimento = novoEstabelecimento;

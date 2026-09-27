@@ -135,6 +135,10 @@ input,select{font-family:inherit;font-size:13px;outline:none;border:none;color:v
 .mt{font-family:var(--fd);font-size:18px;font-style:italic}
 .mc{width:24px;height:24px;border-radius:6px;background:var(--bg3);display:grid;place-items:center;font-size:12px;color:var(--tx3);cursor:pointer}
 .mb{padding:18px 20px}
+/* Segmentos: chips de múltipla escolha no Cadastro rápido (database/38-multiplos-segmentos.sql) */
+.seg-chips{display:flex;flex-wrap:wrap;gap:6px}
+.seg-chip{padding:6px 11px;border-radius:20px;border:1px solid var(--ln2);background:var(--bg3);color:var(--tx3);font-size:12px;cursor:pointer;user-select:none;transition:.15s}
+.seg-chip.active{background:var(--op);border-color:var(--op);color:var(--bg)}
 /* CELULAR: topbar em 2 linhas -- numa linha só a .nav ficava espremida/escondida
    pro lado. Abas viram faixa rolável de dedo. */
 @media(max-width:900px){
@@ -653,6 +657,7 @@ async function salvarConta(id){
 // numa tacada só, sem convite/e-mail/link nenhum (pedido do David: pra
 // cadastrar o cliente na hora, sem ele precisar abrir nada depois).
 async function abrirModalCadastroRapido(){
+  segmentosCr = [];
   Modal.open('Cadastro rápido', '<div class="emb">Carregando segmentos...</div>');
   let segmentos = [];
   try{ segmentos = await chamarAPI('GET','/admin/segmentos'); }catch(erro){ Toast.show('Não foi possível carregar os segmentos: '+erro.message, '⚠'); }
@@ -668,7 +673,7 @@ async function abrirModalCadastroRapido(){
     <div class="lf"><label>Senha</label><input type="password" id="crSenha" placeholder="Mínimo 6 caracteres"></div>
     <div class="cfh" style="margin:16px -16px 12px;padding-left:0">Estabelecimento</div>
     <div class="lf"><label>Nome do salão</label><input type="text" id="crNomeEst"></div>
-    <div class="lf"><label>Segmento</label><select id="crSegmento">${segmentos.map(s=>`<option value="${s.id}">${s.icone} ${s.nome}</option>`).join('')}</select></div>
+    <div class="lf"><label>Segmentos (pode marcar mais de um -- o primeiro é o principal)</label><div class="seg-chips" id="crSegmentos">${segmentos.map(s=>`<div class="seg-chip" data-id="${s.id}" onclick="alternarSegmentoCr(this)">${s.icone} ${s.nome}</div>`).join('')}</div></div>
     <div class="lf"><label>CNPJ</label><input type="text" id="crCnpj" placeholder="00.000.000/0001-00"></div>
     <div class="lf"><label>WhatsApp do salão</label><input type="text" id="crWhatsapp" placeholder="(11) 90000-0000"></div>
     <div class="lf"><label>Endereço</label><input type="text" id="crEndereco"></div>
@@ -681,6 +686,15 @@ async function abrirModalCadastroRapido(){
   `);
 }
 
+// Ordem de marcação importa: o primeiro segmento marcado vira o principal.
+let segmentosCr = [];
+function alternarSegmentoCr(chip){
+  chip.classList.toggle('active');
+  segmentosCr = chip.classList.contains('active')
+    ? [...segmentosCr, chip.dataset.id]
+    : segmentosCr.filter(id => id !== chip.dataset.id);
+}
+
 async function confirmarCadastroRapido(){
   const corpo = {
     nome: $('#crNome')?.value.trim(),
@@ -690,14 +704,14 @@ async function confirmarCadastroRapido(){
     email: $('#crEmail')?.value.trim(),
     senha: $('#crSenha')?.value,
     nome_estabelecimento: $('#crNomeEst')?.value.trim(),
-    segmento_id: $('#crSegmento')?.value,
+    segmentos_ids: [...segmentosCr],
     cnpj: $('#crCnpj')?.value.trim(),
     whatsapp: $('#crWhatsapp')?.value.trim(),
     endereco: $('#crEndereco')?.value.trim(),
     email_salao: $('#crEmailSalao')?.value.trim(),
     senha_salao: $('#crSenhaSalao')?.value,
   };
-  if(!corpo.nome || !corpo.telefone || !corpo.email || !corpo.senha || !corpo.nome_estabelecimento || !corpo.segmento_id || !corpo.whatsapp || !corpo.email_salao || !corpo.senha_salao){
+  if(!corpo.nome || !corpo.telefone || !corpo.email || !corpo.senha || !corpo.nome_estabelecimento || !corpo.segmentos_ids.length || !corpo.whatsapp || !corpo.email_salao || !corpo.senha_salao){
     Toast.show('Preencha os campos obrigatórios.', '⚠'); return;
   }
   const btn = $('#crBtn');
