@@ -410,6 +410,27 @@ async function nomesDosSegmentos(supabase, estabelecimento) {
   return { segmento_nome: `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}`, segmentos_plural: true };
 }
 
+// Endereço + estacionamento/manobrista/outras informações que o salão
+// preencheu em Config (database/41-informacoes-salao-ia.sql). Antes disso
+// a IA não recebia nem o endereço -- e chegou a inventar estacionamento.
+const DESCRICAO_ESTACIONAMENTO = {
+  nao_tem: 'não tem estacionamento',
+  gratuito: 'estacionamento próprio gratuito',
+  pago: 'estacionamento próprio pago',
+  conveniado: 'estacionamento conveniado',
+  rua: 'não tem estacionamento próprio -- vaga na rua',
+};
+function descreverInformacoesSalao(estabelecimento) {
+  const endereco = [estabelecimento.endereco, estabelecimento.bairro, estabelecimento.cidade].filter(Boolean).join(', ');
+  const linhas = [
+    `- Endereço: ${endereco ? endereco + (estabelecimento.cep ? ` (CEP ${estabelecimento.cep})` : '') : 'não informado'}`,
+    `- Estacionamento: ${DESCRICAO_ESTACIONAMENTO[estabelecimento.estacionamento] || 'não informado'}`,
+    `- Manobrista: ${estabelecimento.manobrista === true ? 'tem manobrista' : estabelecimento.manobrista === false ? 'não tem manobrista' : 'não informado'}`,
+  ];
+  if (estabelecimento.info_extra_ia?.trim()) linhas.push(`- Outras informações: ${estabelecimento.info_extra_ia.trim()}`);
+  return linhas.join('\n');
+}
+
 // ============================================================
 // SYSTEM PROMPT
 // ============================================================
@@ -452,7 +473,7 @@ NUNCA use buscar_horarios_disponiveis nem registrar_solicitacao_agendamento pra 
 - Use emoji com naturalidade -- 1 a 2 por mensagem quando fizer sentido (✨😊🙌 e parecidos combinam bem com esse tom), nunca em toda frase nem a ponto de virar poluição visual.
 - Mensagens curtas, como uma pessoa digitaria no WhatsApp. Se a resposta tiver mais de uma ideia, separe cada ideia num parágrafo próprio (linha em branco entre elas) -- cada parágrafo vira uma mensagem separada de verdade, então não quebre uma frase no meio.
 - Você é a atendente automatizada do negócio -- não é preciso anunciar isso a cada mensagem, mas nunca negue ou esconda se o cliente perguntar direta ou indiretamente.
-- Nunca invente preço, horário ou serviço fora da lista abaixo. Também nunca invente nenhuma outra informação sobre o estabelecimento que não esteja escrita aqui (estacionamento, formas de pagamento aceitas, wi-fi, acessibilidade, promoções, localização/como chegar, etc.) -- se o cliente perguntar algo assim, NÃO afirme nem negue (nada de "temos" nem "não temos"): diga só, com naturalidade, que vai confirmar com a equipe e já retorna.
+- Nunca invente preço, horário ou serviço fora da lista abaixo. Também nunca invente nenhuma outra informação sobre o estabelecimento que não esteja escrita aqui (estacionamento, formas de pagamento aceitas, wi-fi, acessibilidade, promoções, localização/como chegar, etc.) -- o que o salão informou está em INFORMAÇÕES DO ESTABELECIMENTO, use à vontade (ex: se perguntarem onde fica, mande o endereço completo) -- se o cliente perguntar algo assim, NÃO afirme nem negue (nada de "temos" nem "não temos"): diga só, com naturalidade, que vai confirmar com a equipe e já retorna.
 - Se não tiver certeza de algo, diga com honestidade que vai confirmar com a equipe -- nunca invente pra parecer seguro.
 - Se não entender a mensagem, peça esclarecimento com gentileza (ex: "só pra eu entender direitinho, você quer dizer...?"), nunca de forma seca.
 - Se o cliente pedir pra parar de receber mensagens ou demonstrar desinteresse, respeite na hora, sem insistir nem repetir a pergunta.
@@ -463,6 +484,9 @@ SERVIÇOS OFERECIDOS:
 ${listaAtividades}
 
 HORÁRIO: ${estabelecimento.horario_abertura} às ${estabelecimento.horario_fechamento}, ${estabelecimento.dias_funcionamento.join(', ')}
+
+INFORMAÇÕES DO ESTABELECIMENTO (use só o que está aqui -- o que não aparecer ou estiver "não informado", diga que confirma com a equipe):
+${descreverInformacoesSalao(estabelecimento)}
 
 ${memoriaCliente?.resumo ? `SOBRE ESTE CLIENTE (use com naturalidade, não repita como lista):\n${memoriaCliente.resumo}` : ''}
 
@@ -714,7 +738,31 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
       mensagemResposta = resposta.choices[0].message;
     }
 
-    const respostaTexto = mensagemResposta.content;
+    // O gpt-oss "pensa" antes de responder e esse raciocínio conta no
+    // max_tokens -- visto em teste real (26/09/2026) uma resposta simples
+    // gastando 292 de 400 e, uma vez, voltando VAZIA. Vazio antes quebrava
+    // o envio e o cliente ficava sem resposta nenhuma. Uma nova tentativa
+    // com mais folga, no MESMO formato da chamada que veio vazia (com
+    // ferramentas se ainda não rodou nenhuma, sem se já rodou -- a Groq
+    // recusa tool_choice 'none' quando o modelo tenta chamar ferramenta);
+    // se ela pedir ferramenta de novo, não executa: cai no texto honesto.
+    if (!mensagemResposta.content?.trim()) {
+      try {
+        const jaRodouFerramenta = mensagensIA.some(m => m.role === 'tool');
+        const retentativa = await groq.chat.completions.create({
+          model: MODELO_IA,
+          messages: mensagensIA,
+          temperature: 0.6,
+          max_tokens: 1200,
+          ...(jaRodouFerramenta ? {} : { tools: FERRAMENTAS_IA }),
+        });
+        mensagemResposta = retentativa.choices[0].message;
+      } catch (erro) {
+        console.error('Falha na nova tentativa de resposta da IA:', erro.message);
+      }
+    }
+    const respostaTexto = mensagemResposta.content?.trim()
+      || `Desculpa${cliente.nome ? ', ' + cliente.nome.split(' ')[0] : ''}, me enrolei aqui 😅 Pode me mandar de novo?`;
     await registrarMensagens({ estabelecimentoId, clienteId: cliente.id, mensagem, respostaTexto });
 
     const totalInteracoes = (memoriaCliente?.total_interacoes || 0) + 1;

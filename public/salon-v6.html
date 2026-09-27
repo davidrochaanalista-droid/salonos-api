@@ -1104,6 +1104,10 @@ window.salvarConfigSalao=async function(){
     dias_funcionamento:diasSelecionados,
     chave_pix:$('#cfgChavePix')?.value.trim()||null,
     gateway_pagamento:$('#cfgGateway')?.value||null,
+    estacionamento:$('#cfgEstacionamento')?.value||null,
+    // undefined (campo não está na tela) some do JSON -- nunca grava "não tem" por engano.
+    manobrista:$('#cfgManobrista')?{'':null,'true':true,'false':false}[$('#cfgManobrista').value]:undefined,
+    info_extra_ia:$('#cfgInfoExtraIa')?.value.trim()||null,
   };
   if(segmentosCfg){
     if(!segmentosCfg.length){Toast.show('Marque pelo menos um segmento.','⚠');return;}
@@ -2041,6 +2045,15 @@ config(){
       {l:'Cidade',d:'',ct:'<input class="fi" style="width:200px" id="cfgCidade" value="'+(e.cidade||'')+'" placeholder="Sao Paulo">'},
       {l:'Bairro',d:'',ct:'<input class="fi" style="width:200px" id="cfgBairro" value="'+(e.bairro||'')+'" placeholder="Jardins">'},
       {l:'CEP',d:'',ct:'<input class="fi" style="width:200px" id="cfgCep" value="'+(e.cep||'')+'" placeholder="00000-000">'},
+    ]},
+    {t:'Informacoes para as clientes',rs:[
+      {l:'Estacionamento',d:'A IA do WhatsApp responde com isso quando perguntarem. Em branco, ela diz que confirma com a equipe',ct:'<select class="fi" style="width:220px" id="cfgEstacionamento">'
+        +[['','Nao informado'],['nao_tem','Nao tem'],['gratuito','Proprio, gratuito'],['pago','Proprio, pago'],['conveniado','Conveniado'],['rua','Vaga na rua']].map(([v,t])=>'<option value="'+v+'"'+((e.estacionamento||'')===v?' selected':'')+'>'+t+'</option>').join('')
+        +'</select>'},
+      {l:'Manobrista',d:'',ct:'<select class="fi" style="width:220px" id="cfgManobrista">'
+        +[['','Nao informado'],['true','Tem manobrista'],['false','Nao tem']].map(([v,t])=>'<option value="'+v+'"'+(String(e.manobrista??'')===v?' selected':'')+'>'+t+'</option>').join('')
+        +'</select>'},
+      {l:'Outras informacoes',d:'Wi-fi, acessibilidade, ponto de referencia, pet friendly... A IA usa exatamente o que estiver escrito aqui',ct:'<textarea class="fi" style="width:260px;min-height:70px" id="cfgInfoExtraIa" placeholder="Ex: temos wi-fi, acesso para cadeirantes, ao lado da padaria Central">'+escHtml(e.info_extra_ia||'')+'</textarea>'},
     ]},
     {t:'Horario de Funcionamento',rs:[
       {l:'Abertura',d:'Primeiro horario disponivel',ct:'<input class="fi" style="width:110px" type="time" id="cfgAbertura" value="'+(e.horario_abertura||'').slice(0,5)+'">'},

@@ -1429,6 +1429,32 @@ só conferido na doc).
   os salões. Bateu no limite nos testes desta sessão. Pendência real
   antes de ter vários salões ativos (plano pago da Groq ou enxugar prompt).
 - **Ordem de deploy**: rodar 38, 39 e 40 no Supabase **antes** do deploy.
+  **Feito em 26/09**: David rodou as 3 (conferido em produção: colunas,
+  tabela `ofertas_horario_vago`, backfill de `segmentos_ids`, bucket
+  privado), `GROQ_VISION_MODEL` trocada no Railway pra `qwen/qwen3.8-27b`,
+  commits `ed537ff` + `4622923`, publicado e subiu sem erro.
+
+### Endereço, estacionamento e manobrista pra IA (26/09/2026) -- migração 41
+
+Achado: a IA **nunca recebia o endereço** do salão (estava em Config mas
+não ia pro prompt) -- não sabia responder "onde fica". Agora
+`descreverInformacoesSalao()` manda endereço completo + estacionamento
+(`nao_tem|gratuito|pago|conveniado|rua`) + manobrista (boolean) + texto
+livre `info_extra_ia` (wi-fi, acessibilidade...) num bloco "INFORMAÇÕES
+DO ESTABELECIMENTO"; NULL = "não informado" -> IA diz que confirma com a
+equipe. Nova seção "Informacoes para as clientes" em Config
+(`salon-v6.html`). Testado na Groq real: mandou o endereço, respondeu
+estacionamento/manobrista, e com tudo em branco disse que confirma.
+
+De brinde: resposta **vazia** da IA (raciocínio do gpt-oss comendo o
+`max_tokens`; visto 1x em teste, e uma resposta simples gastou 292/400)
+fazia o webhook quebrar e o cliente ficar sem resposta. Agora tenta de
+novo com `max_tokens` 1200 no mesmo formato da chamada original (a Groq
+recusa `tool_choice:'none'` se o modelo tentar chamar ferramenta -- testado)
+e, no pior caso, manda "me enrolei aqui, pode mandar de novo?".
+`npm test` 92/92. **Migração 41 tem que rodar antes do deploy** --
+`COLUNAS_PUBLICAS` agora seleciona as colunas novas e o `GET
+/estabelecimentos` quebraria sem elas (derruba o login do painel).
 
 ## Ordem sugerida pra continuar
 
