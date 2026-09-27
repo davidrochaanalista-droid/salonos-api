@@ -11,6 +11,8 @@ const express = require('express');
 const { enviarMensagemWhatsApp } = require('./whatsapp');
 const { registrarAcessoAuditoria } = require('../lib/auditoria');
 const { estaNoPassado } = require('../lib/disponibilidade');
+const supabaseAdmin = require('../lib/supabaseAdmin');
+const { liberarVaga } = require('../lib/lista-espera');
 const router = express.Router();
 
 // POST /estabelecimentos/:id/agendamentos — criar agendamento
@@ -83,6 +85,20 @@ router.patch('/agendamentos/:id', async (req, res) => {
     atualizacoes.remarcado_em = new Date().toISOString();
   }
 
+  // Equipe marca/desmarca pago antecipado à mão -- ex: a IA leu o
+  // comprovante com valor menor/ilegível e o dono conferiu no banco
+  // (database/39-comprovante-pagamento-antecipado.sql).
+  if (req.body.pago_antecipado !== undefined) {
+    atualizacoes.pago_antecipado_em = req.body.pago_antecipado ? new Date().toISOString() : null;
+  }
+
+  // Horário antigo, pra oferecer pra lista de espera se o agendamento for
+  // movido (o update abaixo sobrescreve inicio/fim).
+  const moveuHorario = atualizacoes.inicio !== undefined || atualizacoes.fim !== undefined || atualizacoes.profissional_id !== undefined;
+  const { data: antes } = moveuHorario
+    ? await req.supabase.from('agendamentos').select('*').eq('id', req.params.id).single()
+    : { data: null };
+
   const { data, error } = await req.supabase
     .from('agendamentos')
     .update(atualizacoes)
@@ -93,11 +109,37 @@ router.patch('/agendamentos/:id', async (req, res) => {
   if (error) return res.status(500).json({ erro: error.message });
   res.json(data);
 
-  if (atualizacoes.status === 'cancelado') {
-    dispararListaEspera(req.supabase, data).catch(erro =>
-      console.error('Falha ao disparar lista de espera:', erro)
-    );
+  // Horário liberado (cancelou ou mudou de lugar) -> lista de espera em
+  // cascata pelo WhatsApp (src/lib/lista-espera.js). service_role: a
+  // cascata mexe em cliente/oferta que não é do usuário logado.
+  const vagaLiberada = atualizacoes.status === 'cancelado' ? data
+    : (antes && ['agendado', 'confirmado'].includes(antes.status) ? antes : null);
+  if (vagaLiberada) {
+    liberarVaga({ supabase: supabaseAdmin, enviar: enviarMensagemWhatsApp, agendamento: vagaLiberada })
+      .catch(erro => console.error('Falha ao disparar lista de espera:', erro));
   }
+});
+
+// GET /agendamentos/:id/comprovante — link temporário (10 min) pra ver o
+// comprovante de pagamento antecipado mandado pelo WhatsApp. O select via
+// req.supabase passa pelo RLS de agendamentos (só dono/login do salão
+// daquele estabelecimento enxerga a linha); só depois disso o backend usa
+// a service_role pra assinar o link -- o bucket é privado, sem policy.
+router.get('/agendamentos/:id/comprovante', async (req, res) => {
+  const { data, error } = await req.supabase
+    .from('agendamentos')
+    .select('comprovante_path')
+    .eq('id', req.params.id)
+    .single();
+
+  if (error || !data) return res.status(404).json({ erro: 'Agendamento não encontrado.' });
+  if (!data.comprovante_path) return res.status(404).json({ erro: 'Nenhum comprovante guardado pra esse agendamento.' });
+
+  const { data: link, error: erroLink } = await supabaseAdmin.storage
+    .from('comprovantes')
+    .createSignedUrl(data.comprovante_path, 600);
+  if (erroLink) return res.status(500).json({ erro: erroLink.message });
+  res.json({ url: link.signedUrl });
 });
 
 // Manda uma sugestão de serviço extra assim que o salão cria um
@@ -129,38 +171,6 @@ async function dispararUpsell(supabase, estabelecimentoId, agendamento) {
   await enviarMensagemWhatsApp({ telefone: cliente.telefone, texto, estabelecimentoId });
   await supabase.from('automacao_disparos').insert({
     automacao_id: automacao.id, estabelecimento_id: estabelecimentoId, cliente_id: agendamento.cliente_id, referencia_id: agendamento.id,
-  });
-}
-
-// Quando um agendamento é cancelado, oferece o horário liberado pro
-// primeiro cliente da lista de espera daquela mesma atividade -- é só
-// uma oferta por WhatsApp, o atendente confirma manualmente depois.
-async function dispararListaEspera(supabase, agendamentoCancelado) {
-  const { data: automacao } = await supabase
-    .from('automacoes')
-    .select('id, ativa')
-    .eq('estabelecimento_id', agendamentoCancelado.estabelecimento_id)
-    .eq('tipo', 'lista_espera')
-    .maybeSingle();
-  if (!automacao?.ativa) return;
-
-  const { data: proximo } = await supabase
-    .from('lista_espera')
-    .select('id, cliente_id, clientes(nome, telefone)')
-    .eq('estabelecimento_id', agendamentoCancelado.estabelecimento_id)
-    .eq('estabelecimento_atividade_id', agendamentoCancelado.estabelecimento_atividade_id)
-    .is('notificado_em', null)
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (!proximo?.clientes?.telefone) return;
-
-  const dataFormatada = new Date(agendamentoCancelado.inicio).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-  const texto = `Oi, ${proximo.clientes.nome || 'tudo bem'}? Abriu um horário em ${dataFormatada} pro serviço que você esperava. Quer que a gente reserve pra você?`;
-  await enviarMensagemWhatsApp({ telefone: proximo.clientes.telefone, texto, estabelecimentoId: agendamentoCancelado.estabelecimento_id });
-  await supabase.from('lista_espera').update({ notificado_em: new Date().toISOString() }).eq('id', proximo.id);
-  await supabase.from('automacao_disparos').insert({
-    automacao_id: automacao.id, estabelecimento_id: agendamentoCancelado.estabelecimento_id, cliente_id: proximo.cliente_id, referencia_id: proximo.id,
   });
 }
 

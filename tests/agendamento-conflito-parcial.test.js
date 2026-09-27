@@ -187,4 +187,43 @@ describe('Resposta parcial a proposta de horário via WhatsApp (tratarRespostaPr
     // resposta de "vou confirmar com a equipe" (ver comentário na função).
     expect(texto).toMatch(/equipe/i);
   });
+
+  // Oferta sutil de pagamento antecipado logo depois de confirmar (pedido
+  // do David, 26/09/2026) -- só quando o salão tem chave Pix cadastrada.
+  function confirmarTudo({ chave_pix }) {
+    mockarGroqComResposta({ resposta: 'todos', servicos_aceitos: [], novo_pedido: '' });
+    const solicitacao = {
+      id: 'sol-corte', status: 'horario_proposto', estabelecimento_id: 'estab-1', profissional_id: 'prof-1',
+      data_hora_proposta: '2026-10-01T15:00:00.000Z', origem_proposta: 'ia',
+      estabelecimento_atividades: { nome: 'Corte de Cabelo', duracao_min: 60 },
+      profissionais: { nome: 'Camila' }, clientes: { nome: 'Beatriz' },
+    };
+    const clienteFalso = criarClienteFalso({
+      solicitacoes_agendamento: [{ data: solicitacao, error: null }, { error: null }],
+      agendamentos: [{ data: [], error: null }, { data: { id: 'ag-corte' }, error: null }],
+    });
+    jest.doMock('@supabase/supabase-js', () => ({ createClient: () => clienteFalso }));
+    const { tratarRespostaPropostaHorario } = require('../src/routes/whatsapp');
+    return tratarRespostaPropostaHorario({
+      solicitacoesPendentes: [solicitacao],
+      mensagem: 'pode ser sim',
+      cliente: { nome: 'Beatriz', telefone: '11999990000' },
+      estabelecimento: { horario_abertura: '09:00', horario_fechamento: '19:00', dias_funcionamento: ['seg'], chave_pix },
+      estabelecimentoId: 'estab-1',
+    });
+  }
+
+  it('oferece pagamento antecipado, em mensagem separada, quando o salão tem chave Pix', async () => {
+    const texto = await confirmarTudo({ chave_pix: 'salao@email.com' });
+    const [confirmacao, oferta] = texto.split('\n\n');
+    expect(confirmacao).toMatch(/ficou confirmado/);
+    expect(oferta).toMatch(/antecipado pelo Pix/);
+    expect(oferta).toMatch(/sem problema nenhum/); // sutil: deixa claro que não é obrigatório
+  });
+
+  it('não oferece pagamento antecipado quando o salão não tem chave Pix', async () => {
+    const texto = await confirmarTudo({ chave_pix: null });
+    expect(texto).toMatch(/ficou confirmado/);
+    expect(texto).not.toMatch(/Pix/);
+  });
 });

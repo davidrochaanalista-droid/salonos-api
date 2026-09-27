@@ -22,6 +22,9 @@ const { buscarHorariosDisponiveis } = require('../lib/disponibilidade');
 const { registrarAcessoAuditoria } = require('../lib/auditoria');
 const { gerarCopiaECola } = require('../lib/pix');
 const { confirmarSolicitacaoAgendamento } = require('../lib/agendamento-confirmacao');
+const { processarComprovante } = require('../lib/comprovantes');
+const { valorSinalRemarcacao, solicitarRemarcacao, remarcarAgendamento } = require('../lib/remarcacao');
+const listaEspera = require('../lib/lista-espera');
 
 const router = express.Router();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -67,7 +70,7 @@ const FERRAMENTAS_IA = [
     type: 'function',
     function: {
       name: 'registrar_solicitacao_agendamento',
-      description: 'Registra um pedido de agendamento pra equipe revisar manualmente, sem confirmar nada na hora. Use só quando buscar_horarios_disponiveis não achar nenhum horário livre na semana, ou quando o cliente insistir num dia/horário específico que já está ocupado e não topar nenhuma das alternativas livres encontradas. Pode registrar mais de um serviço de uma vez, se o cliente pedir vários na mesma visita (ex: unhas, cabelo e depilação). Só chame depois de já saber quais serviços o cliente quer e a preferência de dia/horário dele -- e depois de perguntar naturalmente se ele tem preferência de profissional por serviço ou se tanto faz.',
+      description: 'Registra um pedido de agendamento pra equipe revisar manualmente, sem confirmar nada na hora. Use só quando buscar_horarios_disponiveis não achar nenhum horário livre na semana, ou quando o cliente insistir num dia/horário específico que já está ocupado e não topar nenhuma das alternativas livres encontradas. Nunca use pra remarcação (ver solicitar_remarcacao/remarcar_agendamento). Pode registrar mais de um serviço de uma vez, se o cliente pedir vários na mesma visita (ex: unhas, cabelo e depilação). Só chame depois de já saber quais serviços o cliente quer e a preferência de dia/horário dele -- e depois de perguntar naturalmente se ele tem preferência de profissional por serviço ou se tanto faz.',
       parameters: {
         type: 'object',
         properties: {
@@ -124,6 +127,50 @@ const FERRAMENTAS_IA = [
       name: 'enviar_chave_pix',
       description: 'Gera o Pix Copia-e-Cola (chave/QR) de verdade pro cliente pagar adiantado, usando a chave cadastrada pelo estabelecimento. Sem parâmetros -- o sistema já sabe qual é o estabelecimento. Só chame quando o cliente topar pagar adiantado.',
       parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'solicitar_remarcacao',
+      description: 'Primeiro passo de uma remarcação: quando o cliente quer trocar o dia/horário de um agendamento JÁ MARCADO (lista "AGENDAMENTOS JÁ MARCADOS"). Calcula e registra o sinal exigido pra remarcar e devolve o valor em reais. Não muda o horário ainda.',
+      parameters: {
+        type: 'object',
+        properties: { agendamento_id: { type: 'string', description: 'O id (ref) do agendamento na lista "AGENDAMENTOS JÁ MARCADOS".' } },
+        required: ['agendamento_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'remarcar_agendamento',
+      description: 'Move de verdade um agendamento já marcado pro novo dia/horário, SEM aprovação da equipe -- só funciona se o sinal de remarcação já estiver pago (a lista mostra "sinal JÁ PAGO"). Se o horário pedido estiver ocupado ou fora do funcionamento, não muda nada e devolve alternativas livres pra oferecer.',
+      parameters: {
+        type: 'object',
+        properties: {
+          agendamento_id: { type: 'string', description: 'O id (ref) do agendamento na lista "AGENDAMENTOS JÁ MARCADOS".' },
+          nova_data_hora: { type: 'string', description: 'Novo início, formato ISO 8601 (YYYY-MM-DDTHH:MM:SS) no horário de Brasília.' },
+          profissional_id: { type: 'string', description: 'Só se o cliente escolheu uma alternativa devolvida por esta ferramenta com outro profissional -- use o profissional_id dela. Senão, deixe vazio.' },
+        },
+        required: ['agendamento_id', 'nova_data_hora'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'entrar_lista_espera',
+      description: 'Coloca o cliente na lista de espera de um serviço. Quando abrir um horário desse serviço (cancelamento/remarcação de outro cliente), o sistema oferece sozinho pelo WhatsApp, na ordem da fila. Só chame depois que o cliente topar entrar na lista.',
+      parameters: {
+        type: 'object',
+        properties: {
+          nome_servico: { type: 'string', description: 'Nome de um serviço real da lista de serviços oferecidos.' },
+          nome_profissional: { type: 'string', description: 'Profissional que o cliente prefere, só se ele mencionou. Vazio se tanto faz.' },
+          preferencia: { type: 'string', description: 'Preferência de dia/horário que o cliente mencionou (ex: "sábado de manhã"), em texto livre.' },
+        },
+        required: ['nome_servico'],
+      },
     },
   },
 ];
@@ -284,6 +331,35 @@ async function executarFerramentaIA(chamada, contexto) {
     };
   }
 
+  if (chamada.function?.name === 'solicitar_remarcacao') {
+    return solicitarRemarcacao(supabase, { estabelecimentoId: contexto.estabelecimentoId, clienteId: contexto.cliente.id, agendamentoId: argumentos.agendamento_id });
+  }
+
+  if (chamada.function?.name === 'remarcar_agendamento') {
+    const resultado = await remarcarAgendamento(supabase, {
+      estabelecimentoId: contexto.estabelecimentoId,
+      clienteId: contexto.cliente.id,
+      agendamentoId: argumentos.agendamento_id,
+      novaDataHora: argumentos.nova_data_hora,
+      profissionalId: argumentos.profissional_id || null,
+      profissionaisAtivos: contexto.profissionais || [],
+    });
+    // Horário antigo ficou livre -> oferece pra lista de espera (sem travar a resposta).
+    if (resultado.vaga_liberada) {
+      listaEspera.liberarVaga({ supabase, enviar: enviarMensagemWhatsApp, agendamento: resultado.vaga_liberada })
+        .catch(erro => console.error('Falha ao oferecer vaga liberada por remarcação:', erro.message));
+      delete resultado.vaga_liberada;
+    }
+    return resultado;
+  }
+
+  if (chamada.function?.name === 'entrar_lista_espera') {
+    const { atividade, profissional } = resolverServico({ nome_servico: argumentos.nome_servico, nome_profissional: argumentos.nome_profissional }, contexto);
+    return listaEspera.entrarNaListaEspera(supabase, {
+      estabelecimentoId: contexto.estabelecimentoId, clienteId: contexto.cliente.id, atividade, profissional, preferencia: argumentos.preferencia,
+    });
+  }
+
   if (chamada.function?.name === 'enviar_chave_pix') {
     if (!contexto.chavePix) return { ok: false, motivo: 'estabelecimento não tem chave Pix cadastrada' };
     const copiaCola = gerarCopiaECola({ chavePix: contexto.chavePix, nomeEstabelecimento: contexto.nomeEstabelecimento, cidade: contexto.cidadeEstabelecimento });
@@ -320,10 +396,24 @@ function estaAberto(estabelecimento) {
   return horaAtual >= horaAbre * 60 + minAbre && horaAtual < horaFecha * 60 + minFecha;
 }
 
+// Nome(s) do(s) segmento(s) do salão pro prompt -- "Cabeleireiro" ou
+// "Cabeleireiro, Manicure e Estética" (database/38-multiplos-segmentos.sql).
+// Cai pro segmento principal (embed segmentos(nome)) se a lista estiver vazia.
+async function nomesDosSegmentos(supabase, estabelecimento) {
+  const principal = estabelecimento.segmentos?.nome || '';
+  const ids = estabelecimento.segmentos_ids || [];
+  if (ids.length < 2) return { segmento_nome: principal, segmentos_plural: false };
+
+  const { data } = await supabase.from('segmentos').select('id, nome').in('id', ids);
+  const nomes = ids.map(id => data?.find(s => s.id === id)?.nome).filter(Boolean);
+  if (nomes.length < 2) return { segmento_nome: nomes[0] || principal, segmentos_plural: false };
+  return { segmento_nome: `${nomes.slice(0, -1).join(', ')} e ${nomes.at(-1)}`, segmentos_plural: true };
+}
+
 // ============================================================
 // SYSTEM PROMPT
 // ============================================================
-function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instrucaoExtra, nomeCliente, exigirSinal, chavePix }) {
+function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instrucaoExtra, nomeCliente, exigirSinal, chavePix, proximosAgendamentos = [] }) {
   const listaAtividades = atividades
     .map(a => `- ${a.nome}${a.preco ? ` (${a.preco_variavel ? 'a partir de ' : ''}R$ ${a.preco})` : ''}${a.duracao_min ? `, ${a.duracao_min}min` : ''}`)
     .join('\n');
@@ -331,26 +421,43 @@ function montarSystemPrompt({ estabelecimento, atividades, memoriaCliente, instr
   const aberto = estaAberto(estabelecimento);
   const primeiroNome = nomeCliente?.split(' ')[0];
 
-  return `Você é a atendente virtual do ${estabelecimento.nome}, um estabelecimento do segmento "${estabelecimento.segmento_nome}", conversando pelo WhatsApp do negócio. Agora, no horário de Brasília, é hora de dizer "${saudacaoPorHorario()}" -- use essa saudação (ou uma variação natural dela) SÓ se o histórico da conversa abaixo estiver vazio (é a primeira mensagem de verdade). Se já existe qualquer mensagem no histórico -- mesmo que a última tenha sido uma correção de cadastro (nome/endereço/aniversário) ou uma ação da ferramenta -- a conversa já começou, então NUNCA cumprimente de novo ("bom dia"/"boa tarde"/"boa noite"), vá direto ao ponto como quem já está no meio de uma conversa. ${primeiroNome ? `Esse cliente já é cadastrado e se chama ${primeiroNome} -- pode usar o primeiro nome naturalmente, nunca pergunte o nome de novo.` : ''}
+  return `Você é a atendente virtual do ${estabelecimento.nome}, um estabelecimento ${estabelecimento.segmentos_plural ? 'dos segmentos' : 'do segmento'} "${estabelecimento.segmento_nome}", conversando pelo WhatsApp do negócio. Agora, no horário de Brasília, é hora de dizer "${saudacaoPorHorario()}" -- use essa saudação (ou uma variação natural dela) SÓ se o histórico da conversa abaixo estiver vazio (é a primeira mensagem de verdade). Se já existe qualquer mensagem no histórico -- mesmo que a última tenha sido uma correção de cadastro (nome/endereço/aniversário) ou uma ação da ferramenta -- a conversa já começou, então NUNCA cumprimente de novo ("bom dia"/"boa tarde"/"boa noite"), vá direto ao ponto como quem já está no meio de uma conversa. ${primeiroNome ? `Esse cliente já é cadastrado e se chama ${primeiroNome} -- pode usar o primeiro nome naturalmente, nunca pergunte o nome de novo.` : ''}
 
 IMPORTANTE -- AGENDAMENTO (mesma regra com o estabelecimento aberto ou fechado agora -- a busca de horário já considera só os dias/horários de funcionamento certos, então funciona igual nos dois casos): se o assunto for agendamento, primeiro descubra qual(is) serviço(s) exato(s) da lista abaixo o cliente quer (o cliente pode pedir mais de um na mesma visita, ex: unhas, cabelo e depilação -- nesse caso registre todos juntos). Se o cliente disser algo vago tipo só "serviço", "quero agendar" ou "queria marcar um horário", sem dizer qual serviço da lista -- NUNCA chame nenhuma ferramenta ainda, pergunte qual serviço ele quer, oferecendo as opções da lista. Só depois de saber o(s) serviço(s) exato(s), pergunte naturalmente se tem preferência de profissional por serviço ou se tanto faz. Assim que tiver essas informações, chame a ferramenta buscar_horarios_disponiveis -- ela busca de verdade um horário livre, nunca invente horário sozinha. Apresente o que ela devolver de forma natural (nunca peça "responda sim ou não") e pergunte se aquele horário funciona pra ele(a). Se ele topar, o agendamento já fica confirmado na hora -- diga isso com confiança, nunca "a equipe vai confirmar". Se a ferramenta disser que o serviço não foi encontrado no catálogo, NUNCA diga que não tem horário disponível -- isso é um erro de entendimento seu, não falta de vaga; peça desculpa e pergunte de novo qual serviço da lista o cliente quer. Só chame registrar_solicitacao_agendamento (que exige revisão manual da equipe, sem confirmar nada na hora) se buscar_horarios_disponiveis não achar nenhum horário livre na semana pra um serviço que você já identificou corretamente, OU se o cliente insistir num dia/horário específico que já está ocupado e não topar nenhuma das alternativas livres encontradas -- nesse caso diga que a equipe confirma assim que possível, nunca que já está agendado.
+
+IMPORTANTE -- LISTA DE ESPERA: se buscar_horarios_disponiveis não achar horário livre pro que o cliente quer, ou o dia/horário que ele quer estiver cheio e ele não topar as alternativas, ofereça com gentileza entrar na lista de espera daquele serviço -- explique que, se abrir um horário, você avisa por aqui na hora, na ordem da fila. Se ele topar, chame entrar_lista_espera (e, se ela devolver que a lista não está ativada, siga com registrar_solicitacao_agendamento como antes). Nunca prometa que vai abrir vaga.
 
 ${!aberto ? `IMPORTANTE -- FORA DO HORÁRIO DE FUNCIONAMENTO: agora o estabelecimento está fechado (funciona ${estabelecimento.horario_abertura?.slice(0,5)} às ${estabelecimento.horario_fechamento?.slice(0,5)}). Avise isso ao cliente de forma leve, uma vez, sem soar como bloqueio -- e continue o atendimento normalmente, inclusive agendamento (funciona igual, ver regra acima). Não perca o cliente por estar fora do horário.` : ''}
 
 ${exigirSinal ? `IMPORTANTE -- CLIENTE COM HISTÓRICO DE FALTAS: esse cliente já faltou em mais de ${LIMITE_FALTAS_SINAL} atendimentos sem avisar. Se o assunto for agendar um novo horário, converse normalmente até fechar os detalhes (serviço, dia/horário, profissional), e só no final, antes de encerrar esse assunto, avise com gentileza (sem soar como punição) que pra confirmar esse agendamento vai ser necessário um sinal antecipado, e que a equipe vai combinar o valor e a forma de pagamento diretamente. Não invente valor nem forma de pagamento do sinal.` : ''}
 
-REGRAS DE TOM (sempre):
+${proximosAgendamentos.length ? `AGENDAMENTOS JÁ MARCADOS DESTE CLIENTE (próximos):
+${proximosAgendamentos.map(a => {
+  const quando = new Date(a.inicio).toLocaleString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+  const sinal = a.sinal_remarcacao_valor ?? valorSinalRemarcacao(a.estabelecimento_atividades?.preco);
+  const situacaoSinal = a.sinal_remarcacao_pago_em
+    ? 'sinal JÁ PAGO -- pode remarcar direto'
+    : (sinal ? `sinal pra remarcar: R$ ${Number(sinal).toFixed(2).replace('.', ',')} (ainda não pago)` : 'sinal pra remarcar: valor combinado com a equipe');
+  return `- [ref: ${a.id}] ${a.estabelecimento_atividades?.nome || 'Atendimento'} em ${quando}${a.profissionais?.nome ? ` com ${a.profissionais.nome}` : ''} -- ${situacaoSinal}`;
+}).join('\n')}
+
+IMPORTANTE -- REMARCAÇÃO (não precisa de aprovação da equipe): se o cliente quiser remarcar/trocar o dia ou horário de um desses agendamentos, confirme com naturalidade qual deles (se tiver mais de um) e siga:
+1. Se o sinal ainda não foi pago: chame solicitar_remarcacao com o ref do agendamento e explique de forma bem educada, gentil e leve -- nunca como punição nem cobrança seca -- que pra remarcar é pedido um sinal de R$ X (o valor que a ferramenta devolver). Fale SÓ o valor em reais, NUNCA porcentagem nem como foi calculado. ${chavePix ? 'Se ele topar, chame enviar_chave_pix e peça com educação o comprovante por aqui (o sistema lê o comprovante sozinho e avisa quando o sinal estiver confirmado).' : 'A forma de pagar o sinal é combinada com a equipe -- nunca invente chave Pix nem link.'} Nunca remarque antes do sinal estar pago.
+2. Com o sinal JÁ PAGO: pergunte o novo dia/horário que ele prefere e chame remarcar_agendamento. Se der certo, confirme o novo horário com confiança (o agendamento já foi trocado de verdade). Se a ferramenta devolver alternativas_livres, ofereça essas opções com naturalidade e, quando ele escolher, chame remarcar_agendamento de novo.
+NUNCA use buscar_horarios_disponiveis nem registrar_solicitacao_agendamento pra remarcação -- isso criaria um agendamento NOVO e o antigo continuaria ocupado. Se ele não quiser pagar o sinal, respeite com gentileza, sem insistir: o agendamento original continua valendo.
+
+` : ''}REGRAS DE TOM (sempre):
 - Atenda como a recepção de um espaço de alto padrão atenderia pessoalmente -- acolhedora, atenciosa, genuinamente interessada em bem receber. Nunca soe como um robô, um script decorado ou um call center. Português do Brasil, sempre educada e cordial -- mesmo se o cliente for direto, informal, ou mandar só uma palavra, responda com gentileza, nunca seca ou ríspida. Fale como uma pessoa de verdade escreveria no WhatsApp, com calor humano de verdade -- nada de linguagem engessada tipo "Prezado(a)" ou "Informamos que". Pode usar "oi", "tudo bem?", "que bom!" naturalmente, mas sem gíria regional pesada (nunca "oxe", "bah", "mano", "cê").
 - Nunca use markdown tipo **negrito** ou _itálico_ -- o WhatsApp não renderiza isso, aparece com os asteriscos/underlines literais na tela do cliente, o que fica feio e não profissional. Se quiser destacar algo, use *um asterisco só* (negrito de verdade no WhatsApp) ou simplesmente o texto normal.
 - Use emoji com naturalidade -- 1 a 2 por mensagem quando fizer sentido (✨😊🙌 e parecidos combinam bem com esse tom), nunca em toda frase nem a ponto de virar poluição visual.
 - Mensagens curtas, como uma pessoa digitaria no WhatsApp. Se a resposta tiver mais de uma ideia, separe cada ideia num parágrafo próprio (linha em branco entre elas) -- cada parágrafo vira uma mensagem separada de verdade, então não quebre uma frase no meio.
 - Você é a atendente automatizada do negócio -- não é preciso anunciar isso a cada mensagem, mas nunca negue ou esconda se o cliente perguntar direta ou indiretamente.
-- Nunca invente preço, horário ou serviço fora da lista abaixo.
+- Nunca invente preço, horário ou serviço fora da lista abaixo. Também nunca invente nenhuma outra informação sobre o estabelecimento que não esteja escrita aqui (estacionamento, formas de pagamento aceitas, wi-fi, acessibilidade, promoções, localização/como chegar, etc.) -- se o cliente perguntar algo assim, NÃO afirme nem negue (nada de "temos" nem "não temos"): diga só, com naturalidade, que vai confirmar com a equipe e já retorna.
 - Se não tiver certeza de algo, diga com honestidade que vai confirmar com a equipe -- nunca invente pra parecer seguro.
 - Se não entender a mensagem, peça esclarecimento com gentileza (ex: "só pra eu entender direitinho, você quer dizer...?"), nunca de forma seca.
 - Se o cliente pedir pra parar de receber mensagens ou demonstrar desinteresse, respeite na hora, sem insistir nem repetir a pergunta.
 - Se o cliente pedir pra corrigir nome, endereço ou aniversário, use a ferramenta atualizar_cadastro_cliente disponível -- nunca diga que corrigiu ou salvou algo sem realmente chamar a ferramenta.
-- Se o cliente perguntar sobre pagar adiantado/antecipado (pra não perder tempo esperando se o salão estiver cheio, por exemplo): receba a ideia bem. ${chavePix ? 'Chame a ferramenta enviar_chave_pix pra mandar a chave/QR de verdade -- nunca digite a chave você mesma, sempre use a ferramenta. O valor continua sendo combinado com a equipe (nunca invente valor).' : 'Nunca invente chave Pix, link de pagamento ou qualquer forma de cobrar -- isso ainda não existe no sistema. Diga com honestidade que a equipe entra em contato pra combinar isso diretamente.'}
+- PAGAMENTO ANTECIPADO: ${chavePix ? `logo depois que um agendamento é confirmado, o sistema já manda sozinho uma mensagem oferecendo, de forma sutil, o pagamento antecipado pelo Pix ("Se ficar mais prático pra você, dá pra deixar pago antecipado pelo Pix..." -- confira no histórico). Se a última coisa oferecida foi isso e o cliente topar ("quero", "pode mandar", "manda a chave", "sim" e parecidos), chame a ferramenta enviar_chave_pix pra mandar o Pix de verdade -- nunca digite a chave você mesma, sempre use a ferramenta -- e, junto com o Pix, peça com educação e leveza que, depois de pagar, ele mande o comprovante por aqui mesmo (foto/print serve), pra você já deixar o horário marcado como pago na agenda. Quando o comprovante chega, o sistema lê e responde sozinho -- você não precisa confirmar pagamento nenhum, e nunca diga que um pagamento foi recebido ou confirmado por conta própria. Se o cliente disser que prefere pagar na hora, disser não, ou simplesmente mudar de assunto, aceite com naturalidade (ex: "tranquilo, aí você acerta aqui no dia 😊") e siga a conversa normalmente -- nunca insista, nunca ofereça de novo na mesma conversa e nunca faça parecer obrigatório. Se o cliente perguntar por conta própria sobre pagar adiantado em qualquer momento, receba a ideia bem e use a mesma ferramenta. Nunca invente valor: se ele perguntar quanto pagar, use o preço do serviço na lista abaixo (se for "a partir de", diga que o valor final é confirmado com a equipe).` : `se o cliente perguntar sobre pagar adiantado/antecipado, receba a ideia bem, mas nunca invente chave Pix, link de pagamento ou qualquer forma de cobrar -- isso ainda não está configurado. Diga com honestidade que a equipe entra em contato pra combinar isso diretamente.`}
 
 SERVIÇOS OFERECIDOS:
 ${listaAtividades}
@@ -377,11 +484,13 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
       return res.sendStatus(200);
     }
 
-    const { telefone, mensagem } = extrairMensagem(req.body);
+    const extraida = extrairMensagem(req.body);
+    const { telefone, midia } = extraida;
+    let { mensagem } = extraida;
 
-    // Ignora eventos sem texto (confirmação de leitura, status, mensagem de
-    // grupo etc.) -- não é o webhook de mensagem de cliente que interessa.
-    if (!telefone || !mensagem) return res.sendStatus(200);
+    // Ignora eventos sem texto nem imagem/PDF (confirmação de leitura,
+    // status, áudio, figurinha, grupo etc.).
+    if (!telefone || (!mensagem && !midia)) return res.sendStatus(200);
 
     const { data: estabelecimento } = await supabase
       .from('estabelecimentos')
@@ -408,6 +517,27 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
       .eq('telefone', telefone)
       .maybeSingle();
 
+    // ── 0. IMAGEM/PDF -- comprovante de pagamento antecipado (migração 39) ──
+    // Só pra cliente já cadastrado; número desconhecido mandando só foto
+    // continua sendo ignorado como antes (não cria cadastro por uma imagem).
+    if (midia) {
+      if (!cliente || cliente.estado_onboarding !== 'completo') {
+        if (!mensagem) return res.sendStatus(200);
+      } else {
+        const comprovante = await processarComprovante({
+          supabase, groq, evolution, estabelecimentoId, cliente, mensagemId: midia.id, mimetype: midia.mimetype,
+        });
+        if (comprovante.tratado) {
+          await registrarMensagens({ estabelecimentoId, clienteId: cliente.id, mensagem: mensagem || '[cliente enviou o comprovante de pagamento]', respostaTexto: comprovante.resposta });
+          await enviarRespostaIA({ telefone, texto: comprovante.resposta, estabelecimentoId });
+          return res.sendStatus(200);
+        }
+        // Não era comprovante: segue pra IA normal. Sem legenda, avisa a IA
+        // que chegou uma imagem que ela não consegue ver.
+        if (!mensagem) mensagem = '[o cliente enviou uma imagem/arquivo sem texto -- você não consegue ver o conteúdo; responda com naturalidade e, se precisar, peça pra ele contar por escrito]';
+      }
+    }
+
     const clienteEhNovo = !cliente;
     if (clienteEhNovo) {
       const { data: novoCliente } = await supabase
@@ -424,6 +554,23 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
       await registrarMensagens({ estabelecimentoId, clienteId: cliente.id, mensagem, respostaTexto });
       await enviarRespostaIA({ telefone, texto: respostaTexto, estabelecimentoId });
       return res.sendStatus(200);
+    }
+
+    // ── 1.4 RESPOSTA A UMA OFERTA DE HORÁRIO VAGO (lista de espera, migração 40) ──
+    // Se o sistema ofereceu um horário liberado e a oferta ainda está no
+    // prazo, a mensagem é tratada como resposta a ela. Se não for (dúvida,
+    // outro assunto), segue pra IA normal e a oferta continua valendo.
+    const ofertaPendente = await listaEspera.buscarOfertaPendente(supabase, { estabelecimentoId, clienteId: cliente.id });
+    if (ofertaPendente) {
+      const respostaOferta = await listaEspera.tratarRespostaOferta({
+        supabase, groq, enviar: enviarMensagemWhatsApp, oferta: ofertaPendente, mensagem, cliente,
+        textoExtraConfirmacao: estabelecimento.chave_pix ? OFERTA_PAGAMENTO_ANTECIPADO : null,
+      });
+      if (respostaOferta.tratado) {
+        await registrarMensagens({ estabelecimentoId, clienteId: cliente.id, mensagem, respostaTexto: respostaOferta.resposta });
+        await enviarRespostaIA({ telefone, texto: respostaOferta.resposta, estabelecimentoId });
+        return res.sendStatus(200);
+      }
     }
 
     // ── 1.5 RESPOSTA A UMA PROPOSTA DE HORÁRIO PENDENTE ──
@@ -513,14 +660,27 @@ router.post('/webhook/whatsapp/:estabelecimentoId', async (req, res) => {
       .eq('cliente_id', cliente.id)
       .eq('status', 'nao_compareceu');
 
+    // Próximos agendamentos do cliente -- pra IA saber o que ele já tem
+    // marcado (remarcação) e o valor do sinal de cada um.
+    const { data: proximosAgendamentos } = await supabase
+      .from('agendamentos')
+      .select('id, inicio, sinal_remarcacao_valor, sinal_remarcacao_pago_em, estabelecimento_atividades(nome, preco), profissionais(nome)')
+      .eq('estabelecimento_id', estabelecimentoId)
+      .eq('cliente_id', cliente.id)
+      .in('status', ['agendado', 'confirmado'])
+      .gte('inicio', new Date().toISOString())
+      .order('inicio', { ascending: true })
+      .limit(5);
+
     const systemPrompt = montarSystemPrompt({
-      estabelecimento: { ...estabelecimento, segmento_nome: estabelecimento.segmentos.nome },
+      estabelecimento: { ...estabelecimento, ...(await nomesDosSegmentos(supabase, estabelecimento)) },
       atividades: atividades || [],
       memoriaCliente,
       instrucaoExtra,
       nomeCliente: cliente.nome,
       exigirSinal: (faltasCount || 0) > LIMITE_FALTAS_SINAL,
       chavePix: estabelecimento.chave_pix,
+      proximosAgendamentos: proximosAgendamentos || [],
     });
 
     const mensagensIA = [{ role: 'system', content: systemPrompt }, ...historico, { role: 'user', content: mensagem }];
@@ -775,6 +935,10 @@ const FERRAMENTA_RESPOSTA_PROPOSTA = [
 // Um pedido pode ter mais de um serviço (ver migração 24/grupo_id) --
 // solicitacoesPendentes é sempre um array (grupo de 1 pros pedidos
 // antigos/avulsos de um serviço só, continua funcionando igual).
+// Texto fixo (não gerado pela IA) pra a IA reconhecer no histórico que a
+// oferta já foi feita -- ver regra "PAGAMENTO ANTECIPADO" no system prompt.
+const OFERTA_PAGAMENTO_ANTECIPADO = 'Se ficar mais prático pra você, dá pra deixar pago antecipado pelo Pix, aí no dia é só chegar e aproveitar ✨ Quer que eu te mande a chave? Se preferir pagar aqui na hora, sem problema nenhum.';
+
 async function tratarRespostaPropostaHorario({ solicitacoesPendentes, mensagem, cliente, estabelecimento, estabelecimentoId }) {
   const nomeServico = s => s.estabelecimento_atividades?.nome || 'atendimento';
   const listaServicos = solicitacoesPendentes.map(nomeServico).join(', ');
@@ -869,6 +1033,15 @@ async function tratarRespostaPropostaHorario({ solicitacoesPendentes, mensagem, 
     // em vez de repetir um só horário pra todos, que ficaria errado.
     const detalhes = confirmadas.map(s => `${nomeServico(s)} (${new Date(s.data_hora_proposta).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })})`).join(', ');
     partes.push(`${primeiroNome ? primeiroNome + ', que' : 'Que'} bom! ${detalhes} ${confirmadas.length > 1 ? 'ficaram confirmados' : 'ficou confirmado'} 😊`);
+    // Pedido do David (26/09/2026): oferta SUTIL de pagamento antecipado
+    // logo depois de confirmar -- só se o salão tem chave Pix cadastrada
+    // (sem ela não há o que mandar). A resposta do cliente cai no fluxo
+    // normal da IA (não há mais proposta pendente), que manda o Pix via
+    // enviar_chave_pix se ele topar ou segue a conversa se não -- ver
+    // regra "PAGAMENTO ANTECIPADO" em montarSystemPrompt.
+    if (estabelecimento?.chave_pix) {
+      partes.push(OFERTA_PAGAMENTO_ANTECIPADO);
+    }
   }
   if (emConflito.length) {
     partes.push(`${emConflito.map(nomeServico).join(', ')} infelizmente esse horário acabou de ser ocupado aqui do nosso lado. Vou pedir pra equipe te chamar com uma nova opção.`);
@@ -949,11 +1122,22 @@ function extrairMensagem(body) {
   const remoteJid = dado.key?.remoteJid || '';
   if (remoteJid.endsWith('@g.us')) return { telefone: null, mensagem: null };
 
+  // Imagem ou PDF (possível comprovante de pagamento -- ver src/lib/comprovantes.js).
+  // A legenda, se houver, vira o texto da mensagem.
+  const imagem = dado.message?.imageMessage;
+  const documento = dado.message?.documentMessage || dado.message?.documentWithCaptionMessage?.message?.documentMessage;
+  const ehPdf = documento?.mimetype === 'application/pdf';
+  const midia = (imagem || ehPdf)
+    ? { id: dado.key?.id, mimetype: imagem ? (imagem.mimetype || 'image/jpeg') : 'application/pdf' }
+    : null;
+
   const texto = dado.message?.conversation
     || dado.message?.extendedTextMessage?.text
+    || imagem?.caption
+    || (ehPdf ? documento.caption : null)
     || null;
 
-  return { telefone: remoteJid.replace('@s.whatsapp.net', ''), mensagem: texto };
+  return { telefone: remoteJid.replace('@s.whatsapp.net', ''), mensagem: texto, midia };
 }
 
 // estabelecimentoId define QUAL instância (QUAL número de WhatsApp) envia a
@@ -1018,3 +1202,7 @@ module.exports = router;
 module.exports.enviarMensagemWhatsApp = enviarMensagemWhatsApp;
 module.exports.gerarMensagemPropostaHorario = gerarMensagemPropostaHorario;
 module.exports.tratarRespostaPropostaHorario = tratarRespostaPropostaHorario;
+// Exportados só pra teste do prompt contra a Groq real (sem WhatsApp/banco).
+module.exports.montarSystemPrompt = montarSystemPrompt;
+module.exports.FERRAMENTAS_IA = FERRAMENTAS_IA;
+module.exports.OFERTA_PAGAMENTO_ANTECIPADO = OFERTA_PAGAMENTO_ANTECIPADO;

@@ -42,6 +42,8 @@ const rotaHubMetricas = require('./routes/hub-metricas'); // GET /admin/hub-metr
 const { iniciarScheduler } = require('./lib/automacoes/scheduler');
 const { iniciarSchedulerVencimento } = require('./lib/lembretesAssinatura');
 const { iniciarSchedulerNoShow } = require('./lib/marcarNoShow');
+const { iniciarSchedulerListaEspera } = require('./lib/lista-espera');
+const supabaseAdminScheduler = require('./lib/supabaseAdmin');
 const rotaWhatsapp = require('./routes/whatsapp'); // wrapper do 02-whatsapp-ia-servico.js — ver nota no final deste arquivo
 const rotaAvaliacoes = require('./routes/avaliacoes'); // pública -- cliente sem login avalia via link
 
@@ -164,6 +166,8 @@ if (require.main === module) {
   iniciarScheduler();
   iniciarSchedulerVencimento();
   iniciarSchedulerNoShow();
+  // Oferta de horário vago sem resposta em 15 min passa pro próximo da fila.
+  iniciarSchedulerListaEspera({ supabase: supabaseAdminScheduler, enviar: require('./routes/whatsapp').enviarMensagemWhatsApp });
 }
 
 module.exports = app;

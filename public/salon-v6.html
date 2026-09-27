@@ -160,6 +160,7 @@ html.tema-escuro .topbar{background:rgba(30,27,29,.95)}
 .tog{position:relative;width:36px;height:19px;flex-shrink:0}.tog input{opacity:0;width:0;height:0;position:absolute}.togt{position:absolute;inset:0;background:var(--cr3);border:1px solid var(--bd2);border-radius:20px;cursor:pointer;transition:all var(--t)}.togk{position:absolute;width:13px;height:13px;top:2px;left:2px;border-radius:50%;background:var(--ink3);transition:transform var(--t),background var(--t);pointer-events:none}.tog input:checked~.togt{background:var(--sgl);border-color:var(--sg)}.tog input:checked~.togk{transform:translateX(17px);background:var(--sg)}
 .fg{margin-bottom:12px}.fg:last-child{margin-bottom:0}.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}.flbl{display:block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--ink3);margin-bottom:5px}.fi{width:100%;background:var(--cr);border:1px solid var(--bd2);border-radius:var(--rs2);padding:8px 11px;color:var(--ink);font-size:13px;transition:border-color var(--t),box-shadow var(--t)}.fi:focus{border-color:var(--gd);box-shadow:0 0 0 3px rgba(201,169,110,.1)}.fi::placeholder{color:var(--ink4)}textarea.fi{resize:vertical;min-height:68px;line-height:1.5}
 .dia-toggle{width:42px;padding:7px 0;border-radius:var(--rs2);border:1px solid var(--bd2);background:var(--cr);color:var(--ink3);font-size:12px;font-weight:600;cursor:pointer;transition:all var(--t)}.dia-toggle.active{background:var(--gd);border-color:var(--gd);color:#fff}
+.seg-chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;max-width:340px}.seg-chip{padding:6px 11px;border-radius:20px;border:1px solid var(--bd2);background:var(--cr);color:var(--ink3);font-size:12px;font-weight:500;cursor:pointer;user-select:none;transition:all var(--t)}.seg-chip.active{background:var(--gd);border-color:var(--gd);color:#fff}
 .mbd{position:fixed;inset:0;background:rgba(26,26,26,.42);backdrop-filter:blur(8px);z-index:900;display:none;align-items:center;justify-content:center;padding:20px}.mbd.open{display:flex}.mbox{background:var(--wh);border:1px solid var(--bd);border-radius:var(--rl);width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 28px 80px rgba(26,26,26,.2);animation:mIn .2s var(--ez)}.mbox.wide{max-width:700px}
 @keyframes mIn{from{opacity:0;transform:scale(.97) translateY(8px)}to{opacity:1;transform:scale(1)}}
 .mh{padding:17px 20px 13px;border-bottom:1px solid var(--bd);display:flex;align-items:flex-start;justify-content:space-between}.mt2{font-family:var(--fd);font-size:19px;font-weight:400;font-style:italic;letter-spacing:-.2px}.mclose{width:26px;height:26px;border-radius:var(--rs2);background:var(--cr2);border:1px solid var(--bd);display:grid;place-items:center;font-size:13px;color:var(--ink3);cursor:pointer;transition:all var(--t);flex-shrink:0}.mclose:hover{background:var(--cr3);color:var(--ink)}.mb2{padding:18px 20px}.mf{padding:12px 20px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:7px}
@@ -638,6 +639,64 @@ window.switchUnit=function(id){
 // ============================================================
 // AGENDA — modal de novo agendamento + ações sobre um agendamento
 // ============================================================
+// ============================================================
+// LISTA DE ESPERA (database/40-lista-espera-cascata.sql) -- a fila, na
+// ordem. Quando um horário do serviço fica livre, o sistema oferece pelo
+// WhatsApp pro 1º da fila; recusou ou não respondeu em 15 min, vai pro
+// próximo. Só roda com a automação "Lista de Espera Automática" ligada.
+// ============================================================
+window.abrirListaEspera=async function(){
+  Modal.open('Lista de espera','<div class="mb2">Carregando...</div>');
+  let fila=[],clientesDisp=[],atividadesDisp=[],profissionaisDisp=[];
+  try{
+    [fila,clientesDisp,atividadesDisp,profissionaisDisp]=await Promise.all([
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/lista-espera?pendente=true`),
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/clientes`),
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/atividades`),
+      chamarAPI('GET',`/estabelecimentos/${estabelecimentoAtivo.id}/profissionais`),
+    ]);
+  }catch(erro){Modal.close();Toast.show(erro.message,'⚠');return;}
+  // Posição na fila é por serviço (cada serviço tem a sua fila).
+  const posicao={};
+  const linhas=fila.map(item=>{
+    const chave=item.estabelecimento_atividade_id;
+    posicao[chave]=(posicao[chave]||0)+1;
+    const desde=new Date(item.created_at).toLocaleDateString('pt-BR');
+    const aviso=item.notificado_em?' · último aviso '+new Date(item.notificado_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    return '<div class="flex jb ic" style="padding:8px 0;border-bottom:1px solid var(--bd)"><div><div class="tsm fw6">'+posicao[chave]+'º · '+escHtml(item.clientes?.nome||item.clientes?.telefone||'Cliente')+'</div>'
+      +'<div class="txs tm2">'+escHtml(item.estabelecimento_atividades?.nome||'Serviço')+(item.profissionais?.nome?' com '+escHtml(item.profissionais.nome):'')+(item.observacao?' · '+escHtml(item.observacao):'')+' · desde '+desde+(item.origem==='whatsapp'?' · entrou pelo WhatsApp':'')+aviso+'</div></div>'
+      +'<button class="btn btgh sm" onclick="removerDaListaEspera(\''+item.id+'\')">Remover</button></div>';
+  }).join('');
+  const clienteOpts=clientesDisp.map(c=>'<option value="'+c.id+'">'+escHtml(c.nome||c.telefone)+'</option>').join('');
+  const atividadeOpts=atividadesDisp.filter(a=>a.ativo!==false).map(a=>'<option value="'+a.id+'">'+escHtml(a.nome)+'</option>').join('');
+  const profissionalOpts='<option value="">Sem preferência</option>'+profissionaisDisp.filter(p=>p.ativo!==false).map(p=>'<option value="'+p.id+'">'+escHtml(p.nome)+'</option>').join('');
+  Modal.open('Lista de espera','<div class="mb2">'
+    +'<div class="txs tm2 mb8">Quando abrir um horário do serviço, o sistema oferece pelo WhatsApp pro 1º da fila. Se recusar ou não responder em 15 min, passa pro próximo. Precisa da automação "Lista de Espera Automática" ligada.</div>'
+    +(linhas||'<div class="tsm tm2" style="padding:8px 0">Ninguém na lista de espera.</div>')
+    +'<div class="cfh" style="margin:14px 0 8px;padding:0;border:0">Adicionar na fila</div>'
+    +'<div class="fg"><label class="flbl">Cliente</label><select class="fi" id="leCliente">'+clienteOpts+'</select></div>'
+    +'<div class="fg"><label class="flbl">Serviço</label><select class="fi" id="leAtividade">'+atividadeOpts+'</select></div>'
+    +'<div class="fg"><label class="flbl">Profissional</label><select class="fi" id="leProfissional">'+profissionalOpts+'</select></div>'
+    +'<div class="fg"><label class="flbl">Preferência (opcional)</label><input class="fi" id="leObservacao" placeholder="Ex: sábado de manhã"></div>'
+    +'</div><div class="mf"><button class="btn btgh sm" onclick="Modal.close()">Fechar</button><button class="btn btp" onclick="adicionarNaListaEspera()">Adicionar</button></div>');
+};
+window.adicionarNaListaEspera=async function(){
+  const corpo={cliente_id:$('#leCliente')?.value,estabelecimento_atividade_id:$('#leAtividade')?.value,profissional_id:$('#leProfissional')?.value||null,observacao:$('#leObservacao')?.value.trim()||null};
+  if(!corpo.cliente_id||!corpo.estabelecimento_atividade_id){Toast.show('Escolha o cliente e o serviço.','⚠');return;}
+  try{
+    await chamarAPI('POST',`/estabelecimentos/${estabelecimentoAtivo.id}/lista-espera`,corpo);
+    Toast.show('Adicionado na lista de espera.');
+    abrirListaEspera();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+window.removerDaListaEspera=async function(id){
+  try{
+    await chamarAPI('DELETE',`/lista-espera/${id}`);
+    Toast.show('Removido da lista de espera.');
+    abrirListaEspera();
+  }catch(erro){Toast.show(erro.message,'⚠');}
+};
+
 window.abrirModalNovoAgendamento=async function(){
   Modal.open('Novo Agendamento','<div class="mb2">Carregando...</div>');
   let clientesDisp=[],atividadesDisp=[],profissionaisDisp=[];
@@ -688,15 +747,51 @@ window.abrirAgendamento=function(id){
   const cliente=ag.clientes?.nome||'Cliente';
   const servico=ag.estabelecimento_atividades?.nome||'Serviço';
   const preco=ag.estabelecimento_atividades?.preco;
+  // Pagamento antecipado por Pix (database/39-...sql): "pago" = comprovante
+  // lido pela IA com valor >= preço, ou marcado à mão pela equipe.
+  const dataCurta=d=>new Date(d).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  let pagamento='';
+  if(ag.pago_antecipado_em){
+    pagamento=`<div class="tsm sg2 mt8">💰 <strong>Pago antecipado</strong> (${dataCurta(ag.pago_antecipado_em)})${ag.comprovante_valor_lido?' · valor lido no comprovante: '+R(ag.comprovante_valor_lido):''}</div>`;
+  }else if(ag.comprovante_recebido_em){
+    pagamento=`<div class="tsm am2 mt8">🧾 <strong>Comprovante recebido, falta conferir</strong> (${dataCurta(ag.comprovante_recebido_em)}) · ${ag.comprovante_valor_lido?'valor lido: '+R(ag.comprovante_valor_lido):'valor não legível'}</div>`;
+  }
+  if(ag.comprovante_path)pagamento+=`<button class="btn btgh sm mt8" onclick="verComprovante('${ag.id}')">Ver comprovante</button>`;
+  const botaoPago=ag.pago_antecipado_em
+    ?`<button class="btn btgh sm" onclick="marcarPagoAntecipado('${ag.id}',false)">Desmarcar pago</button>`
+    :`<button class="btn btgh sm" onclick="marcarPagoAntecipado('${ag.id}',true)">Marcar como pago</button>`;
   Modal.open(cliente,`<div class="mb2">
     <div class="tsm tm2 mb8">${servico}${preco?' · '+R(preco):''}</div>
     <div class="tsm tm2">Status atual: <strong>${ag.status}</strong></div>
+    ${pagamento}
+    <div class="txs tm2 mt8">"Pago" vem do comprovante lido pela IA -- não é confirmação do banco. Na dúvida, confira no extrato.</div>
   </div>
   <div class="mf">
     <button class="btn btgh sm" onclick="Modal.close()">Fechar</button>
+    ${botaoPago}
     <button class="btn btre sm" onclick="atualizarStatusAgendamento('${ag.id}','cancelado')">Cancelar</button>
     <button class="btn btg sm" onclick="atualizarStatusAgendamento('${ag.id}','concluido')">Marcar concluído</button>
   </div>`);
+};
+window.verComprovante=async function(id){
+  // Abre a aba antes do await -- navegador de celular bloqueia window.open
+  // chamado depois de uma requisição (não conta mais como clique do usuário).
+  const aba=window.open('','_blank');
+  try{
+    const{url}=await chamarAPI('GET',`/agendamentos/${id}/comprovante`);
+    if(aba)aba.location.href=url;else window.location.href=url;
+  }catch(erro){
+    if(aba)aba.close();
+    Toast.show('Nao foi possivel abrir o comprovante: '+erro.message,'⚠');
+  }
+};
+window.marcarPagoAntecipado=async function(id,pago){
+  try{
+    await chamarAPI('PATCH',`/agendamentos/${id}`,{pago_antecipado:pago});
+    Modal.close();
+    Toast.show(pago?'Marcado como pago.':'Pagamento desmarcado.');
+    P.agenda();
+  }catch(erro){Toast.show(erro.message,'⚠');}
 };
 window.atualizarStatusAgendamento=async function(id,status){
   try{
@@ -967,6 +1062,32 @@ window.alternarDiaFuncionamento=function(btn){
   btn.classList.toggle('active');
 };
 
+// Segmentos do salão (database/38-multiplos-segmentos.sql) -- chips de
+// múltipla escolha; a ordem de marcação importa (o primeiro é o principal).
+// null = lista ainda não carregou (ou falhou): aí o salvar NÃO manda
+// segmentos_ids, pra nunca apagar os segmentos por causa de um erro de rede.
+let segmentosCfg=null;
+async function carregarSegmentosConfig(){
+  const wrap=$('#cfgSegmentos');
+  if(!wrap)return;
+  const e=estabelecimentoAtivo||{};
+  try{
+    const todos=await chamarAPI('GET','/segmentos');
+    const atuais=(e.segmentos_ids&&e.segmentos_ids.length)?e.segmentos_ids:(e.segmento_id?[e.segmento_id]:[]);
+    segmentosCfg=atuais.filter(id=>todos.some(s=>s.id===id));
+    html(wrap,todos.map(s=>'<div class="seg-chip'+(segmentosCfg.includes(s.id)?' active':'')+'" data-id="'+escHtml(s.id)+'" onclick="alternarSegmentoCfg(this)">'+escHtml(s.icone+' '+s.nome)+'</div>').join(''));
+  }catch(erro){
+    segmentosCfg=null;
+    html(wrap,'<span class="txs rs2">Nao foi possivel carregar os segmentos</span>');
+  }
+}
+window.alternarSegmentoCfg=function(chip){
+  if(!segmentosCfg)return;
+  const id=chip.dataset.id;
+  chip.classList.toggle('active');
+  segmentosCfg=chip.classList.contains('active')?[...segmentosCfg,id]:segmentosCfg.filter(s=>s!==id);
+};
+
 window.salvarConfigSalao=async function(){
   const btn=$('#cfgSalvarBtn');
   const diasSelecionados=$$('#cfgDiasSemana .dia-toggle.active').map(b=>b.dataset.dia);
@@ -984,6 +1105,10 @@ window.salvarConfigSalao=async function(){
     chave_pix:$('#cfgChavePix')?.value.trim()||null,
     gateway_pagamento:$('#cfgGateway')?.value||null,
   };
+  if(segmentosCfg){
+    if(!segmentosCfg.length){Toast.show('Marque pelo menos um segmento.','⚠');return;}
+    corpo.segmentos_ids=[...segmentosCfg];
+  }
   // Credenciais de gateway só entram no PATCH se o dono de fato preencheu
   // algo -- os campos nunca vêm pré-preenchidos com o valor salvo (a API
   // não devolve credencial cifrada), então mandar em branco apagaria uma
@@ -1600,6 +1725,7 @@ async agenda(){
   +'<button class="btn btgh sm" onclick="mudarDiaAgenda(-1)" title="Dia anterior">◀</button>'
   +(ehHoje?'':'<button class="btn btgh sm" onclick="irParaHojeAgenda()">Hoje</button>')
   +'<button class="btn btgh sm" onclick="mudarDiaAgenda(1)" title="Próximo dia">▶</button>'
+  +'<button class="btn btgh sm" onclick="abrirListaEspera()">⏳ Lista de espera</button>'
   +'<button class="btn btp sm" onclick="abrirModalNovoAgendamento()">+ Agendar</button></div></div>'
   +'<div class="card mb12" style="overflow:hidden"><div style="display:grid;grid-template-columns:repeat(3,1fr);background:var(--bd)">'
   +[[String(validos.length),'Agendamentos hoje'],[R(ticketMedio),'Ticket médio'],[confirmados.length+' de '+validos.length,'Confirmados/concluídos']].map(([v,l],i)=>'<div style="background:var(--cr);padding:10px 13px;text-align:center;'+(i?'border-left:1px solid var(--bd)':'')+'"><div style="font-family:var(--fd);font-size:17px;font-weight:300">'+v+'</div><div style="font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.6px;margin-top:2px">'+l+'</div></div>').join('')
@@ -1623,7 +1749,7 @@ async agenda(){
           const done=a.status==='concluido';
           const bg=done?'background:var(--cr2);border-left:3px solid var(--ink4)':'background:rgba(201,169,110,.18);border-left:3px solid '+cor.c;
           const preco=a.estabelecimento_atividades?.preco;
-          col+='<div class="apcell"><div class="appt" style="'+bg+'" onclick="abrirAgendamento(\''+a.id+'\')"><div class="apn">'+(a.clientes?.nome||'Cliente')+'</div><div class="aps">'+(a.estabelecimento_atividades?.nome||'')+'</div>'+(preco?'<div class="app">'+R(preco)+'</div>':'')+'</div></div>';
+          col+='<div class="apcell"><div class="appt" style="'+bg+'" onclick="abrirAgendamento(\''+a.id+'\')"><div class="apn">'+(a.pago_antecipado_em?'💰 ':(a.comprovante_recebido_em?'🧾 ':''))+(a.clientes?.nome||'Cliente')+'</div><div class="aps">'+(a.estabelecimento_atividades?.nome||'')+'</div>'+(preco?'<div class="app">'+R(preco)+'</div>':'')+'</div></div>';
         }else{
           col+='<div class="apcell" onclick="abrirModalNovoAgendamento()"><div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"><div style="width:18px;height:18px;border:1px dashed var(--cr3);border-radius:50%;display:grid;place-items:center;font-size:12px;color:var(--ink4)">+</div></div></div>';
         }
@@ -1908,6 +2034,7 @@ config(){
     ]},
     {t:'Informacoes do Salao',rs:[
       {l:'Nome do salao',d:'Como aparece para as clientes',ct:'<input class="fi" style="width:200px" id="cfgNome" value="'+(e.nome||'')+'">'},
+      {l:'Segmentos',d:'Pode marcar mais de um -- o primeiro e o principal. A IA do WhatsApp apresenta o salao com eles. Nao adiciona servicos sozinho: cadastre os novos na aba Servicos',ct:'<div class="seg-chips" id="cfgSegmentos"><span class="txs tm2">Carregando...</span></div>'},
       {l:'WhatsApp',d:'Numero principal',ct:'<input class="fi" style="width:200px" id="cfgWhatsapp" value="'+(e.whatsapp||'')+'">'},
       {l:'CNPJ',d:'Para NF-e automatica',ct:'<input class="fi" style="width:200px" id="cfgCnpj" value="'+(e.cnpj||'')+'" placeholder="00.000.000/0001-00">'},
       {l:'Endereco',d:'Usado nos lembretes',ct:'<input class="fi" style="width:200px" id="cfgEndereco" value="'+(e.endereco||'')+'" placeholder="Rua das Flores, 123">'},
@@ -1936,6 +2063,7 @@ config(){
   html($('#page-config'),secs.map(s=>'<div class="cfsec"><div class="cfh">'+s.t+'</div>'+s.rs.map(r=>'<div class="cfrow"><div><div class="cflbl">'+r.l+'</div>'+(r.d?'<div class="cfdesc">'+r.d+'</div>':'')+'</div>'+r.ct+'</div>').join('')+'</div>').join('')+'<div class="flex jb mt4 ic"><span class="tsm tm2">SalonOS v6</span><div><button class="btn btgh" style="margin-right:8px" onclick="abrirModalSuporte()">Precisa de ajuda?</button><button class="btn btp" id="cfgSalvarBtn" onclick="salvarConfigSalao()">Salvar configuracoes</button></div></div>');
   atualizarCamposGateway();
   if(e.chave_pix)carregarPrevisaoPix();
+  carregarSegmentosConfig();
 }
 };
 

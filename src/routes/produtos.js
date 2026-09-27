@@ -15,7 +15,7 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // Catálogo de modelos com visão da Groq já mudou de nome antes nesse
 // projeto (ver GROQ_MODEL em whatsapp.js) -- configurável pelo mesmo motivo.
-const MODELO_VISAO = process.env.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b';
+const MODELO_VISAO = process.env.GROQ_VISION_MODEL || 'qwen/qwen3.8-27b';
 
 // GET /estabelecimentos/:id/produtos
 router.get('/estabelecimentos/:id/produtos', async (req, res) => {

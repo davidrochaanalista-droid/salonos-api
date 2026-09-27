@@ -139,8 +139,23 @@ async function enviarTexto(estabelecimentoId, telefone, texto) {
   });
 }
 
+// Baixa a mídia (imagem/PDF) de uma mensagem recebida -- o webhook só traz
+// os metadados (a instância não é criada com webhookBase64). Usado pro
+// comprovante de pagamento antecipado (ver src/lib/comprovantes.js).
+// ⚠️ Formato do endpoint conferido na documentação da Evolution v2, ainda
+// não testado com mensagem real em produção. Devolve { base64, mimetype }.
+async function baixarMidiaBase64(estabelecimentoId, mensagemId) {
+  const instancia = nomeInstancia(estabelecimentoId);
+  const resposta = await chamarEvolution(`/chat/getBase64FromMediaMessage/${instancia}`, {
+    method: 'POST',
+    body: JSON.stringify({ message: { key: { id: mensagemId } }, convertToMp4: false }),
+  });
+  return { base64: resposta.base64, mimetype: resposta.mimetype || resposta.mimeType || null };
+}
+
 module.exports = {
   nomeInstancia,
+  baixarMidiaBase64,
   normalizarTelefone,
   evolutionConfigurada: () => !!configuracaoEvolution(),
   criarOuReconectarInstancia,

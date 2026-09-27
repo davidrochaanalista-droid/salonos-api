@@ -1327,6 +1327,109 @@ depois em `painel-proprietario.html` (lá o offset vem do `.hero`,
 padding-top 88px -> 126px no celular; `.owner-chip` encolhe com
 reticências no nome do dono), verificada do mesmo jeito.
 
+### Salão com mais de um segmento (26/09/2026) -- migração 38
+
+Pedido do David: no cadastro o proprietário escolhe mais de um segmento,
+e pode alterar depois em Config no painel do salão.
+
+- **Modelo**: `estabelecimentos.segmentos_ids uuid[]`
+  (`database/38-multiplos-segmentos.sql`, com backfill
+  `array[segmento_id]`). **Não** é tabela de ligação de propósito: já
+  existe FK direta `estabelecimentos.segmento_id -> segmentos`, e um
+  segundo caminho faria o PostgREST recusar os embeds `segmentos(nome)`
+  existentes por ambiguidade. `segmento_id` continua como segmento
+  **principal** = sempre `segmentos_ids[0]`, mantido pela API -- nada que
+  já lia `segmento_id` quebra.
+- **API**: `validarSegmentos()` em `atividades.js` (aceita
+  `segmentos_ids` ou o antigo `segmento_id`; dedupe, 1..10, só segmento
+  `ativo`; erro 400) usada em `POST /estabelecimentos`,
+  `PATCH /estabelecimentos/:id` (novo campo `segmentos_ids`) e
+  `POST /admin/cadastro-rapido` -- sempre validado **antes** de criar
+  login, pra não sobrar conta órfã. `adotarCatalogoCompleto()` aceita
+  lista: junta o catálogo de todos os segmentos, serviço com mesmo nome
+  entra 1x (o do segmento principal vence). IA do WhatsApp:
+  `nomesDosSegmentos()` monta "Cabeleireiro, Manicure e Estética" pro
+  prompt ("dos segmentos" no plural).
+- **Telas**: chips de múltipla escolha em `cadastro-real.html`,
+  Cadastro Rápido do `painel-admin.html` e Config → Informações do Salão
+  em `salon-v6.html`. Ordem de marcação = ordem da lista (primeiro
+  marcado = principal). Em Config, se a lista de segmentos não carregar,
+  o salvar não manda `segmentos_ids` (nunca apaga por erro de rede).
+- **Decisão consciente**: trocar/adicionar segmento em Config **não**
+  cria serviço sozinho (só o cadastro inicial pré-cadastra catálogo) --
+  evita encher a aba Serviços sem o dono pedir. Texto da própria linha
+  de Config avisa isso.
+- `tests/segmentos.test.js` (8 testes). `npm test` 53/53.
+- **Ordem de deploy**: migração 38 tem que rodar no Supabase **antes**
+  do deploy -- o código novo lê/grava `segmentos_ids` e quebraria o
+  cadastro e o PATCH de Config sem a coluna.
+
+### Pix antecipado, comprovante, remarcação com sinal e lista de espera em cascata (26/09/2026) -- migrações 39 e 40
+
+Pedidos do David em sequência, na mesma sessão. Tudo na IA do WhatsApp
+(`src/routes/whatsapp.js`) + 3 libs novas. `npm test` 90/90 (8 suítes).
+Testado contra a Groq **real** (prompt + visão, via `railway run --service
+salonos-api`, sem WhatsApp nem banco). **Nada disso testado ainda numa
+conversa real de WhatsApp** -- em especial o download de mídia da
+Evolution (`baixarMidiaBase64`, endpoint `/chat/getBase64FromMediaMessage`,
+só conferido na doc).
+
+- **Oferta sutil de pagamento antecipado**: a confirmação de horário é
+  texto FIXO (`tratarRespostaPropostaHorario`, não passa pela IA) -- a
+  oferta (`OFERTA_PAGAMENTO_ANTECIPADO`) vai como mensagem separada logo
+  depois, só se o salão tem `chave_pix`. A resposta do cliente cai na IA
+  normal (regra "PAGAMENTO ANTECIPADO" no prompt): topou -> `enviar_chave_pix`
+  + pede comprovante; não -> segue a conversa sem insistir.
+- **Comprovante** (`src/lib/comprovantes.js`, migração 39): webhook agora
+  aceita imagem/PDF (antes ignorava tudo que não era texto). Cliente
+  cadastrado manda mídia -> acha os próximos agendamentos não pagos (dia
+  mais próximo) -> visão lê valor -> `>= soma dos preços` marca
+  `pago_antecipado_em`; menor/ilegível/PDF guarda e "equipe confere". Não
+  é comprovante -> vai pra IA com aviso de que ela não vê imagem.
+  Arquivo no bucket PRIVADO `comprovantes`; painel vê por
+  `GET /agendamentos/:id/comprovante` (link assinado 10 min, RLS confere
+  dono antes). Agenda mostra 💰 (pago) / 🧾 (conferir), detalhe tem "Ver
+  comprovante" e "Marcar/Desmarcar pago" (`PATCH` com `pago_antecipado`).
+  Decisão do David: "pago" só se o valor bater, imagem guardada. ⚠️ É
+  leitura de imagem, não confirmação bancária -- o painel diz isso.
+- **Modelo de visão estava QUEBRADO em produção**: `qwen/qwen3.6-27b`
+  saiu da Groq (404) -- a foto do Estoque (`produtos.js`) falhava em
+  silêncio desde então. Padrão no código trocado pra `qwen/qwen3.8-27b`
+  (testado: leu R$ 115 de um comprovante e recusou foto comum), **mas a
+  env var `GROQ_VISION_MODEL` no Railway ainda aponta pro antigo** e
+  vence o padrão -- precisa trocar lá (ou apagar).
+- **Remarcação com sinal, sem aprovação da equipe** (`src/lib/remarcacao.js`,
+  colunas na migração 39): sinal = 30% do preço, arredondado pra cima no
+  centavo; IA só fala o valor em reais (prompt + teste garantem). Fluxo:
+  `solicitar_remarcacao` (grava sinal) -> Pix -> comprovante com valor >=
+  sinal marca `sinal_remarcacao_pago_em` (prioridade no `comprovantes.js`)
+  -> `remarcar_agendamento` move o PRÓPRIO agendamento (nunca cria outro)
+  se estiver no funcionamento e sem conflito; senão devolve alternativas
+  livres (`buscarHorariosDisponiveis`, mesmo profissional primeiro). Toda
+  função confere que o agendamento é daquele cliente/salão (id vem da IA).
+  Prompt lista os próximos agendamentos com `[ref: id]` e situação do sinal.
+- **Lista de espera em cascata** (`src/lib/lista-espera.js`, migração 40):
+  vaga liberada (cancelar no painel, mover no painel, remarcação pelo
+  WhatsApp) -> oferta pro 1º da fila do serviço -> aceitou: agenda sozinho
+  (`confirmado`, sai da fila); recusou ou 15 min sem resposta (scheduler
+  de 1 min, `iniciarSchedulerListaEspera` no `server.js`): próximo. Pula
+  quem liberou a vaga, quem já recebeu essa vaga (`vaga_id`) e quem
+  prefere outro profissional; não oferece vaga a menos de 20 min. Entrada
+  na fila: IA (`entrar_lista_espera`, quando não há vaga) **e** painel
+  (botão "⏳ Lista de espera" na agenda -- antes não existia tela nenhuma,
+  a fila estava sempre vazia). Quem recusa continua na fila. Substituiu o
+  `dispararListaEspera` antigo (só avisava o 1º e parava). **Só roda com
+  a automação "Lista de Espera Automática" ligada** (desligada por padrão).
+- Menores: `**negrito**` convertido pra `*negrito*` antes de enviar (IA
+  ignorava a regra do prompt); regra contra inventar informação do salão
+  (estacionamento etc. -- a IA inventou em teste real).
+- ⚠️ **Limite da Groq free tier: 8.000 tokens/minuto** pro
+  `openai/gpt-oss-120b` na conta inteira -- o system prompt já passa de
+  ~3.300 tokens, então ~2 mensagens de cliente por minuto somando TODOS
+  os salões. Bateu no limite nos testes desta sessão. Pendência real
+  antes de ter vários salões ativos (plano pago da Groq ou enxugar prompt).
+- **Ordem de deploy**: rodar 38, 39 e 40 no Supabase **antes** do deploy.
+
 ## Ordem sugerida pra continuar
 
 1. ~~Migrações 22 e 23~~ -- RESOLVIDO, testado no navegador (ver
